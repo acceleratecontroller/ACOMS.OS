@@ -1,29 +1,32 @@
-import { auth } from "@/shared/auth/auth";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const isLoginPage = req.nextUrl.pathname === "/login";
-  const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth");
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  // Always allow access to the login page and auth API
-  if (isLoginPage || isApiAuth) {
-    // If already logged in and visiting login page, redirect to dashboard
-    if (isLoggedIn && isLoginPage) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+  // Always allow access to login page, auth API, and static files
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico"
+  ) {
     return NextResponse.next();
   }
 
-  // Everything else requires authentication
-  if (!isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  // Check for the NextAuth session token cookie
+  const token =
+    request.cookies.get("authjs.session-token") ||
+    request.cookies.get("__Secure-authjs.session-token");
+
+  // No session token = not logged in, redirect to login
+  if (!token) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
-  // Run middleware on all routes except static files and images
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
 };
