@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { updatePlantSchema } from "@/modules/plant/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit, diff } from "@/shared/audit/log";
 
 // GET /api/plant/[id] — Get a single plant item
 export async function GET(
@@ -49,6 +50,8 @@ export async function PUT(
 
   const data = parsed.data;
 
+  const before = await prisma.plant.findUnique({ where: { id } });
+
   const plant = await prisma.plant.update({
     where: { id },
     data: {
@@ -70,6 +73,17 @@ export async function PUT(
       ...(data.nextServiceDue !== undefined && { nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null }),
       ...(data.notes !== undefined && { notes: data.notes || null }),
     },
+  });
+
+  const changes = before ? diff(before as unknown as Record<string, unknown>, plant as unknown as Record<string, unknown>) : null;
+
+  audit({
+    entityType: "Plant",
+    entityId: plant.id,
+    action: "UPDATE",
+    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    performedById: session.user.id,
+    changes,
   });
 
   return NextResponse.json(plant);
@@ -94,6 +108,14 @@ export async function DELETE(
       archivedAt: new Date(),
       archivedById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Plant",
+    entityId: plant.id,
+    action: "ARCHIVE",
+    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(plant);

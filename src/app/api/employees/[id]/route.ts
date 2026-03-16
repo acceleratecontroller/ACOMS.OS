@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { updateEmployeeSchema } from "@/modules/employees/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit, diff } from "@/shared/audit/log";
 
 // GET /api/employees/[id] — Get a single employee
 export async function GET(
@@ -60,6 +61,8 @@ export async function PUT(
     }
   }
 
+  const before = await prisma.employee.findUnique({ where: { id } });
+
   const employee = await prisma.employee.update({
     where: { id },
     data: {
@@ -76,6 +79,17 @@ export async function PUT(
       ...(status !== undefined && { status }),
       ...(data.notes !== undefined && { notes: data.notes || null }),
     },
+  });
+
+  const changes = before ? diff(before as unknown as Record<string, unknown>, employee as unknown as Record<string, unknown>) : null;
+
+  audit({
+    entityType: "Employee",
+    entityId: employee.id,
+    action: "UPDATE",
+    entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
+    performedById: session.user.id,
+    changes,
   });
 
   return NextResponse.json(employee);
@@ -100,6 +114,14 @@ export async function DELETE(
       archivedAt: new Date(),
       archivedById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Employee",
+    entityId: employee.id,
+    action: "ARCHIVE",
+    entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(employee);

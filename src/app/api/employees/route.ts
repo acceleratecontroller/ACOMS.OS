@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { createEmployeeSchema } from "@/modules/employees/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
 
 // GET /api/employees — List all active (non-archived) employees
 export async function GET(request: NextRequest) {
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest) {
       notes: data.notes || null,
       createdById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Employee",
+    entityId: employee.id,
+    action: "CREATE",
+    entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(employee, { status: 201 });

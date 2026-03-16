@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { createAssetSchema } from "@/modules/assets/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
 
 // GET /api/assets — List all active (non-archived) assets
 export async function GET(request: NextRequest) {
@@ -57,6 +58,14 @@ export async function POST(request: NextRequest) {
       notes: data.notes || null,
       createdById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Asset",
+    entityId: asset.id,
+    action: "CREATE",
+    entityLabel: `${asset.name} (${asset.assetNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(asset, { status: 201 });

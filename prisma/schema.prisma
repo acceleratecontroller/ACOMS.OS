@@ -97,6 +97,26 @@ model User {
   archivedEmployees Employee[] @relation("EmployeeArchivedBy")
   archivedAssets    Asset[]    @relation("AssetArchivedBy")
   archivedPlant     Plant[]    @relation("PlantArchivedBy")
+
+  // Audit log entries performed by this user
+  auditLogs AuditLog[]
+}
+
+// ─── Audit Log ──────────────────────────────────────────
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  entityType   String   // "Employee", "Asset", "Plant"
+  entityId     String   // The record's UUID
+  action       String   // "CREATE", "UPDATE", "ARCHIVE", "RESTORE"
+  entityLabel  String   // Human-readable label, e.g. "John Smith (E0012)"
+  changes      Json?    // { field: { from: old, to: new } } — null for CREATE/ARCHIVE/RESTORE
+  performedBy  User     @relation(fields: [performedById], references: [id])
+  performedById String
+  performedAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([performedAt])
 }
 
 // ─── Employee (Business Record) ─────────────────────────

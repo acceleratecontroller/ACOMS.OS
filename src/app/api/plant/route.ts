@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { createPlantSchema } from "@/modules/plant/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
 
 // GET /api/plant — List all active (non-archived) plant items
 export async function GET(request: NextRequest) {
@@ -61,6 +62,14 @@ export async function POST(request: NextRequest) {
       notes: data.notes || null,
       createdById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Plant",
+    entityId: plant.id,
+    action: "CREATE",
+    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(plant, { status: 201 });

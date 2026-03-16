@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
 
 // POST /api/employees/[id]/restore — Restore an archived employee
 export async function POST(
@@ -21,6 +22,14 @@ export async function POST(
       archivedAt: null,
       archivedById: null,
     },
+  });
+
+  audit({
+    entityType: "Employee",
+    entityId: employee.id,
+    action: "RESTORE",
+    entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(employee);

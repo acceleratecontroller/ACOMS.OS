@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
 
 // POST /api/assets/[id]/restore — Restore an archived asset
 export async function POST(
@@ -21,6 +22,14 @@ export async function POST(
       archivedAt: null,
       archivedById: null,
     },
+  });
+
+  audit({
+    entityType: "Asset",
+    entityId: asset.id,
+    action: "RESTORE",
+    entityLabel: `${asset.name} (${asset.assetNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(asset);

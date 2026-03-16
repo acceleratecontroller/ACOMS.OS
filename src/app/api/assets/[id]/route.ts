@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { updateAssetSchema } from "@/modules/assets/validation";
 import { auth } from "@/shared/auth/auth";
+import { audit, diff } from "@/shared/audit/log";
 
 // GET /api/assets/[id] — Get a single asset
 export async function GET(
@@ -49,6 +50,8 @@ export async function PUT(
 
   const data = parsed.data;
 
+  const before = await prisma.asset.findUnique({ where: { id } });
+
   const asset = await prisma.asset.update({
     where: { id },
     data: {
@@ -66,6 +69,17 @@ export async function PUT(
       ...(data.condition !== undefined && { condition: data.condition || null }),
       ...(data.notes !== undefined && { notes: data.notes || null }),
     },
+  });
+
+  const changes = before ? diff(before as unknown as Record<string, unknown>, asset as unknown as Record<string, unknown>) : null;
+
+  audit({
+    entityType: "Asset",
+    entityId: asset.id,
+    action: "UPDATE",
+    entityLabel: `${asset.name} (${asset.assetNumber})`,
+    performedById: session.user.id,
+    changes,
   });
 
   return NextResponse.json(asset);
@@ -90,6 +104,14 @@ export async function DELETE(
       archivedAt: new Date(),
       archivedById: session.user.id,
     },
+  });
+
+  audit({
+    entityType: "Asset",
+    entityId: asset.id,
+    action: "ARCHIVE",
+    entityLabel: `${asset.name} (${asset.assetNumber})`,
+    performedById: session.user.id,
   });
 
   return NextResponse.json(asset);
