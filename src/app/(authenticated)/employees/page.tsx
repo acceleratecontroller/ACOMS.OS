@@ -129,12 +129,17 @@ function EmployeesContent() {
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
-    if (openId && !selected) {
+    if (openId) {
+      // Clear the param immediately so closing the modal won't re-trigger
+      const url = new URL(window.location.href);
+      url.searchParams.delete("open");
+      window.history.replaceState({}, "", url.pathname + url.search);
+
       fetch(`/api/employees/${openId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data) setSelected(data); });
     }
-  }, [searchParams, selected]);
+  }, [searchParams]);
 
   const loadEmployees = useCallback((archived: boolean) => {
     setLoading(true);

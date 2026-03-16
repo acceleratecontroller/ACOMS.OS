@@ -86,12 +86,16 @@ function AssetsContent() {
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
-    if (openId && !selected) {
+    if (openId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("open");
+      window.history.replaceState({}, "", url.pathname + url.search);
+
       fetch(`/api/assets/${openId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data) setSelected(data); });
     }
-  }, [searchParams, selected]);
+  }, [searchParams]);
 
   const loadData = useCallback((archived: boolean) => {
     setLoading(true);
