@@ -86,6 +86,11 @@ const columns: Column<Employee>[] = [
     render: (item) => EMPLOYMENT_LABELS[item.employmentType] || item.employmentType,
   },
   {
+    key: "phone",
+    label: "Phone",
+    render: (item) => item.phone || "—",
+  },
+  {
     key: "location",
     label: "Location",
     render: (item) => LOCATION_LABELS[item.location] || item.location,
