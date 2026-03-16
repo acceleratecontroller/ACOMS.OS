@@ -214,9 +214,7 @@ export default function EmployeesPage() {
     });
 
     if (res.ok) {
-      const updated = await res.json();
-      setSelected(updated);
-      setEditing(false);
+      closeModal();
       loadEmployees(showArchived);
     } else {
       const data = await res.json();
@@ -374,7 +372,7 @@ export default function EmployeesPage() {
                 <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
-                <button type="button" onClick={() => { setEditing(false); setError(""); }} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
               </div>

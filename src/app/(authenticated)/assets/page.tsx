@@ -146,7 +146,7 @@ export default function AssetsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { const updated = await res.json(); setSelected(updated); setEditing(false); loadData(showArchived); }
+    if (res.ok) { closeModal(); loadData(showArchived); }
     else { const data = await res.json(); setError(data.error || "Failed to update."); }
     setSaving(false);
   }
