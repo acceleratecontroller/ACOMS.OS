@@ -6,6 +6,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField, ClearableDateField } from "@/shared/components/FormField";
 
 const LOCATION_LABELS: Record<string, string> = {
@@ -125,6 +126,7 @@ function EmployeesContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
   const handledOpenRef = useRef<string | null>(null);
 
   // Open a specific record if ?open=id is in the URL (from global search)
@@ -245,10 +247,9 @@ function EmployeesContent() {
 
   async function handleArchive() {
     if (!selected) return;
-    if (!confirm("Are you sure you want to archive this employee?")) return;
-
     const res = await fetch(`/api/employees/${selected.id}`, { method: "DELETE" });
     if (res.ok) {
+      setConfirmAction(null);
       closeModal();
       loadEmployees(showArchived);
     }
@@ -256,10 +257,9 @@ function EmployeesContent() {
 
   async function handleRestore() {
     if (!selected) return;
-    if (!confirm("Are you sure you want to restore this employee?")) return;
-
     const res = await fetch(`/api/employees/${selected.id}/restore`, { method: "POST" });
     if (res.ok) {
+      setConfirmAction(null);
       closeModal();
       loadEmployees(showArchived);
     }
@@ -347,12 +347,9 @@ function EmployeesContent() {
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
               {selected.isArchived ? (
-                <button onClick={handleRestore} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
+                <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
               ) : (
-                <>
-                  <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
-                  <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
-                </>
+                <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
               )}
             </div>
           </div>
@@ -394,6 +391,10 @@ function EmployeesContent() {
                 </button>
                 <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                   Cancel
+                </button>
+                <div className="flex-1" />
+                <button type="button" onClick={() => setConfirmAction({ type: "archive" })} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
+                  Archive
                 </button>
               </div>
             </form>
@@ -440,6 +441,18 @@ function EmployeesContent() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        title={confirmAction?.type === "archive" ? "Archive Employee" : "Restore Employee"}
+        message={confirmAction?.type === "archive"
+          ? "Are you sure you want to archive this employee? They will be moved to the archived list."
+          : "Are you sure you want to restore this employee? They will be moved back to the active list."}
+        confirmLabel={confirmAction?.type === "archive" ? "Archive" : "Restore"}
+        confirmVariant={confirmAction?.type === "archive" ? "danger" : "success"}
+        onConfirm={confirmAction?.type === "archive" ? handleArchive : handleRestore}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

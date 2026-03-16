@@ -6,6 +6,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 
 const STATUS_OPTIONS = [
@@ -82,6 +83,7 @@ function AssetsContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
   const handledOpenRef = useRef<string | null>(null);
 
   // Open a specific record if ?open=id is in the URL (from global search)
@@ -172,18 +174,18 @@ function AssetsContent() {
   }
 
   async function handleArchive() {
-    if (!selected || !confirm("Are you sure you want to archive this asset?")) return;
+    if (!selected) return;
     const res = await fetch(`/api/assets/${selected.id}`, { method: "DELETE" });
-    if (res.ok) { closeModal(); loadData(showArchived); }
+    if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
   }
 
   async function handleRestore() {
-    if (!selected || !confirm("Are you sure you want to restore this asset?")) return;
+    if (!selected) return;
     const res = await fetch(`/api/assets/${selected.id}/restore`, { method: "POST" });
-    if (res.ok) { closeModal(); loadData(showArchived); }
+    if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
   }
 
-  function AssetForm({ defaults, onSubmit, submitLabel }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string }) {
+  function AssetForm({ defaults, onSubmit, submitLabel, onArchive }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onArchive?: () => void }) {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -215,6 +217,7 @@ function AssetsContent() {
         <div className="flex gap-3 pt-3">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
           <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+          {onArchive && <><div className="flex-1" /><button type="button" onClick={onArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button></>}
         </div>
       </form>
     );
@@ -277,12 +280,9 @@ function AssetsContent() {
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
               {selected.isArchived ? (
-                <button onClick={handleRestore} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
+                <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
               ) : (
-                <>
-                  <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
-                  <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
-                </>
+                <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
               )}
             </div>
           </div>
@@ -290,7 +290,7 @@ function AssetsContent() {
         {selected && editing && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-5">Edit Asset</h2>
-            <AssetForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" />
+            <AssetForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onArchive={() => setConfirmAction({ type: "archive" })} />
           </div>
         )}
       </Modal>
@@ -299,6 +299,18 @@ function AssetsContent() {
         <h2 className="text-xl font-bold text-gray-900 mb-5">Add Asset</h2>
         <AssetForm onSubmit={handleCreate} submitLabel="Create Asset" />
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!confirmAction}
+        title={confirmAction?.type === "archive" ? "Archive Asset" : "Restore Asset"}
+        message={confirmAction?.type === "archive"
+          ? "Are you sure you want to archive this asset? It will be moved to the archived list."
+          : "Are you sure you want to restore this asset? It will be moved back to the active list."}
+        confirmLabel={confirmAction?.type === "archive" ? "Archive" : "Restore"}
+        confirmVariant={confirmAction?.type === "archive" ? "danger" : "success"}
+        onConfirm={confirmAction?.type === "archive" ? handleArchive : handleRestore}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }
