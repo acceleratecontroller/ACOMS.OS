@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface FormFieldProps {
   label: string;
   name: string;
@@ -72,6 +76,52 @@ export function SelectField({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+interface ClearableDateFieldProps {
+  label: string;
+  name: string;
+  required?: boolean;
+  defaultValue?: string;
+}
+
+export function ClearableDateField({
+  label,
+  name,
+  required = false,
+  defaultValue = "",
+}: ClearableDateFieldProps) {
+  const [value, setValue] = useState(defaultValue);
+  return (
+    <div>
+      <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="flex gap-1">
+        <input
+          id={name}
+          name={name}
+          type="date"
+          required={required}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="flex-1 min-w-0 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {value && !required && (
+          <button
+            type="button"
+            onClick={() => setValue("")}
+            className="px-2 py-2 border border-gray-300 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-50 text-sm transition-colors"
+            aria-label={`Clear ${label}`}
+            title="Clear date"
+          >
+            x
+          </button>
+        )}
+      </div>
     </div>
   );
 }

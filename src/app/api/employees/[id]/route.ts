@@ -46,6 +46,20 @@ export async function PUT(
 
   const data = parsed.data;
 
+  // Auto-resolve status based on end date
+  let status = data.status;
+  if (data.endDate !== undefined) {
+    if (data.endDate) {
+      const end = new Date(data.endDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (end <= today) status = "TERMINATED";
+    } else if (status === "TERMINATED") {
+      // End date was cleared — revert status from TERMINATED to ACTIVE
+      status = "ACTIVE";
+    }
+  }
+
   const employee = await prisma.employee.update({
     where: { id },
     data: {
@@ -59,7 +73,7 @@ export async function PUT(
       ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
       ...(data.endDate !== undefined && { endDate: data.endDate ? new Date(data.endDate) : null }),
       ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
-      ...(data.status !== undefined && { status: data.status }),
+      ...(status !== undefined && { status }),
       ...(data.notes !== undefined && { notes: data.notes || null }),
     },
   });

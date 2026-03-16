@@ -53,6 +53,15 @@ export async function POST(request: NextRequest) {
   }
   const employeeNumber = `E${String(nextNumber).padStart(4, "0")}`;
 
+  // Auto-resolve status based on end date
+  let status = data.status;
+  if (data.endDate) {
+    const end = new Date(data.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (end <= today) status = "TERMINATED";
+  }
+
   const employee = await prisma.employee.create({
     data: {
       employeeNumber,
@@ -66,7 +75,7 @@ export async function POST(request: NextRequest) {
       startDate: new Date(data.startDate),
       endDate: data.endDate ? new Date(data.endDate) : null,
       probationDate: data.probationDate ? new Date(data.probationDate) : null,
-      status: data.status,
+      status,
       notes: data.notes || null,
       createdById: session.user.id,
     },

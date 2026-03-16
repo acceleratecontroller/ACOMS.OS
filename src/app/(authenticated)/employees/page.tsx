@@ -5,7 +5,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
-import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import { FormField, SelectField, TextAreaField, ClearableDateField } from "@/shared/components/FormField";
 
 const LOCATION_LABELS: Record<string, string> = {
   BRISBANE: "Brisbane",
@@ -91,19 +91,21 @@ const columns: Column<Employee>[] = [
   {
     key: "status",
     label: "Status",
-    render: (item) => <StatusBadge status={getDisplayStatus(item)} />,
+    render: (item) => <StatusBadge status={item.status} />,
   },
 ];
 
-/** Derive displayed status: if end date is today or in the past, show TERMINATED */
-function getDisplayStatus(emp: Employee): string {
-  if (emp.endDate) {
-    const end = new Date(emp.endDate.split("T")[0]);
+/** Auto-determine status based on end date. Returns the correct status value to save. */
+function resolveStatus(endDate: string | null, currentStatus: string): string {
+  if (endDate) {
+    const end = new Date(endDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (end <= today) return "TERMINATED";
   }
-  return emp.status;
+  // If end date was cleared and status is still TERMINATED, revert to ACTIVE
+  if (!endDate && currentStatus === "TERMINATED") return "ACTIVE";
+  return currentStatus;
 }
 
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
@@ -145,6 +147,8 @@ export default function EmployeesPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
+    const endDate = form.get("endDate") as string || "";
+    const status = resolveStatus(endDate || null, form.get("status") as string);
     const body = {
       firstName: form.get("firstName"),
       lastName: form.get("lastName"),
@@ -154,8 +158,9 @@ export default function EmployeesPage() {
       employmentType: form.get("employmentType"),
       location: form.get("location"),
       startDate: form.get("startDate"),
+      endDate: endDate || undefined,
       probationDate: form.get("probationDate"),
-      status: form.get("status"),
+      status,
       notes: form.get("notes"),
     };
 
@@ -182,6 +187,9 @@ export default function EmployeesPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
+    const endDate = form.get("endDate") as string || "";
+    const formStatus = form.get("status") as string;
+    const status = resolveStatus(endDate || null, formStatus);
     const body = {
       firstName: form.get("firstName"),
       lastName: form.get("lastName"),
@@ -191,9 +199,9 @@ export default function EmployeesPage() {
       employmentType: form.get("employmentType"),
       location: form.get("location"),
       startDate: form.get("startDate"),
-      endDate: form.get("endDate"),
+      endDate: endDate || null,
       probationDate: form.get("probationDate"),
-      status: form.get("status"),
+      status,
       notes: form.get("notes"),
     };
 
@@ -295,7 +303,7 @@ export default function EmployeesPage() {
               <h2 className="text-lg md:text-xl font-bold text-gray-900">
                 {selected.firstName} {selected.lastName}
               </h2>
-              <StatusBadge status={getDisplayStatus(selected)} />
+              <StatusBadge status={selected.status} />
               {selected.isArchived && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
               )}
@@ -353,9 +361,9 @@ export default function EmployeesPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(selected.startDate)} />
-                <FormField label="End Date" name="endDate" type="date" defaultValue={formatDate(selected.endDate)} />
+                <ClearableDateField label="End Date" name="endDate" defaultValue={formatDate(selected.endDate)} />
               </div>
-              <FormField label="Probation Review Date" name="probationDate" type="date" defaultValue={formatDate(selected.probationDate)} />
+              <ClearableDateField label="Probation Review Date" name="probationDate" defaultValue={formatDate(selected.probationDate)} />
               <TextAreaField label="Notes" name="notes" defaultValue={selected.notes || ""} />
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -396,7 +404,7 @@ export default function EmployeesPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Start Date" name="startDate" type="date" required />
-            <FormField label="Probation Review Date" name="probationDate" type="date" />
+            <ClearableDateField label="Probation Review Date" name="probationDate" />
           </div>
           <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
 
