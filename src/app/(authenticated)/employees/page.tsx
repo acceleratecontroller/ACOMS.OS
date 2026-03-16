@@ -147,21 +147,22 @@ export default function EmployeesPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
-    const endDate = form.get("endDate") as string || "";
-    const status = resolveStatus(endDate || null, form.get("status") as string);
+    const endDate = (form.get("endDate") as string) || "";
+    const probationDate = (form.get("probationDate") as string) || "";
+    const status = resolveStatus(endDate || null, (form.get("status") as string) || "ACTIVE");
     const body = {
-      firstName: form.get("firstName"),
-      lastName: form.get("lastName"),
-      email: form.get("email"),
-      phone: form.get("phone"),
-      roleType: form.get("roleType"),
-      employmentType: form.get("employmentType"),
-      location: form.get("location"),
-      startDate: form.get("startDate"),
-      endDate: endDate || undefined,
-      probationDate: form.get("probationDate"),
+      firstName: (form.get("firstName") as string) || "",
+      lastName: (form.get("lastName") as string) || "",
+      email: (form.get("email") as string) || "",
+      phone: (form.get("phone") as string) || "",
+      roleType: (form.get("roleType") as string) || "",
+      employmentType: (form.get("employmentType") as string) || "",
+      location: (form.get("location") as string) || "",
+      startDate: (form.get("startDate") as string) || "",
+      endDate: endDate || null,
+      probationDate: probationDate || null,
       status,
-      notes: form.get("notes"),
+      notes: (form.get("notes") as string) || "",
     };
 
     const res = await fetch("/api/employees", {
@@ -187,22 +188,23 @@ export default function EmployeesPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
-    const endDate = form.get("endDate") as string || "";
-    const formStatus = form.get("status") as string;
+    const endDate = (form.get("endDate") as string) || "";
+    const probationDate = (form.get("probationDate") as string) || "";
+    const formStatus = (form.get("status") as string) || "ACTIVE";
     const status = resolveStatus(endDate || null, formStatus);
     const body = {
-      firstName: form.get("firstName"),
-      lastName: form.get("lastName"),
-      email: form.get("email"),
-      phone: form.get("phone"),
-      roleType: form.get("roleType"),
-      employmentType: form.get("employmentType"),
-      location: form.get("location"),
-      startDate: form.get("startDate"),
+      firstName: (form.get("firstName") as string) || "",
+      lastName: (form.get("lastName") as string) || "",
+      email: (form.get("email") as string) || "",
+      phone: (form.get("phone") as string) || "",
+      roleType: (form.get("roleType") as string) || "",
+      employmentType: (form.get("employmentType") as string) || "",
+      location: (form.get("location") as string) || "",
+      startDate: (form.get("startDate") as string) || "",
       endDate: endDate || null,
-      probationDate: form.get("probationDate"),
+      probationDate: probationDate || null,
       status,
-      notes: form.get("notes"),
+      notes: (form.get("notes") as string) || "",
     };
 
     const res = await fetch(`/api/employees/${selected.id}`, {

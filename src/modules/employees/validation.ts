@@ -1,18 +1,22 @@
 import { z } from "zod/v4";
 
+// Helper: accept string, empty string, null, or undefined — all treated as "no value"
+const optionalString = z.string().optional().or(z.literal("")).or(z.null());
+const optionalEmail = z.string().email().optional().or(z.literal("")).or(z.null());
+
 export const createEmployeeSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
+  email: optionalEmail,
+  phone: optionalString,
   roleType: z.enum(["OFFICE", "FIELD"]),
   employmentType: z.enum(["FULL_TIME", "TRAINEE", "CASUAL", "ABN"]),
   location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]),
   startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().optional().or(z.literal("")),
-  probationDate: z.string().optional().or(z.literal("")),
+  endDate: optionalString,
+  probationDate: optionalString,
   status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).default("ACTIVE"),
-  notes: z.string().optional().or(z.literal("")),
+  notes: optionalString,
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();
