@@ -291,8 +291,8 @@ export default function EmployeesPage() {
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
         {selected && !editing && (
           <div>
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-6">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900">
                 {selected.firstName} {selected.lastName}
               </h2>
               <StatusBadge status={getDisplayStatus(selected)} />
@@ -300,7 +300,7 @@ export default function EmployeesPage() {
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
               )}
             </div>
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employee #</dt><dd className="font-medium text-gray-900">{selected.employeeNumber}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Role Type</dt><dd className="font-medium text-gray-900">{selected.roleType === "OFFICE" ? "Office" : "Field"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employment Type</dt><dd className="font-medium text-gray-900">{EMPLOYMENT_LABELS[selected.employmentType]}</dd></div>
@@ -335,23 +335,23 @@ export default function EmployeesPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-1">Edit Employee</h2>
             <p className="text-sm text-gray-500 mb-5">Employee # {selected.employeeNumber}</p>
             <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField label="First Name" name="firstName" required defaultValue={selected.firstName} />
                 <FormField label="Last Name" name="lastName" required defaultValue={selected.lastName} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField label="Email" name="email" type="email" defaultValue={selected.email || ""} />
                 <FormField label="Phone" name="phone" defaultValue={selected.phone || ""} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SelectField label="Role Type" name="roleType" required defaultValue={selected.roleType} options={ROLE_TYPE_OPTIONS} />
                 <SelectField label="Employment Type" name="employmentType" required defaultValue={selected.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SelectField label="Location" name="location" required defaultValue={selected.location} options={LOCATION_OPTIONS} />
                 <SelectField label="Status" name="status" required defaultValue={selected.status} options={STATUS_OPTIONS} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(selected.startDate)} />
                 <FormField label="End Date" name="endDate" type="date" defaultValue={formatDate(selected.endDate)} />
               </div>
@@ -378,23 +378,23 @@ export default function EmployeesPage() {
         <h2 className="text-xl font-bold text-gray-900 mb-1">Add Employee</h2>
         <p className="text-sm text-gray-500 mb-5">Employee number will be auto-generated.</p>
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="First Name" name="firstName" required />
             <FormField label="Last Name" name="lastName" required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Email" name="email" type="email" />
             <FormField label="Phone" name="phone" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SelectField label="Role Type" name="roleType" required options={ROLE_TYPE_OPTIONS} />
             <SelectField label="Employment Type" name="employmentType" required options={EMPLOYMENT_TYPE_OPTIONS} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SelectField label="Location" name="location" required options={LOCATION_OPTIONS} />
             <SelectField label="Status" name="status" required defaultValue="ACTIVE" options={STATUS_OPTIONS} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Start Date" name="startDate" type="date" required />
             <FormField label="Probation Review Date" name="probationDate" type="date" />
           </div>

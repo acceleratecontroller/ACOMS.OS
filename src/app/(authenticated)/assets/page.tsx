@@ -166,27 +166,27 @@ export default function AssetsPage() {
   function AssetForm({ defaults, onSubmit, submitLabel }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string }) {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Asset Number" name="assetNumber" required placeholder="e.g. AST-001" defaultValue={defaults?.assetNumber || ""} />
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Name" name="name" required placeholder="e.g. Makita Impact Drill" defaultValue={defaults?.name || ""} />
           <FormField label="Category" name="category" required placeholder="e.g. Power Tool" defaultValue={defaults?.category || ""} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Make" name="make" placeholder="e.g. Makita" defaultValue={defaults?.make || ""} />
           <FormField label="Model" name="model" placeholder="e.g. DTD172" defaultValue={defaults?.model || ""} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Serial Number" name="serialNumber" defaultValue={defaults?.serialNumber || ""} />
           <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Location" name="location" placeholder="e.g. Workshop A" defaultValue={defaults?.location || ""} />
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
@@ -241,7 +241,7 @@ export default function AssetsPage() {
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
               )}
             </div>
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Asset #</dt><dd className="font-medium text-gray-900">{selected.assetNumber}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
