@@ -90,7 +90,8 @@ export default function ActivityLogPage() {
   const [loading, setLoading] = useState(true);
   const [entityType, setEntityType] = useState("");
   const [action, setAction] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(true);
 
   const load = useCallback((page: number) => {
     setLoading(true);
@@ -103,10 +104,39 @@ export default function ActivityLogPage() {
       .then((data) => {
         setLogs(data.logs);
         setPagination(data.pagination);
+        // Default: expand all entries that have changes
+        const expandable = (data.logs as AuditEntry[])
+          .filter((l) => l.changes)
+          .map((l) => l.id);
+        setExpanded(new Set(expandable));
+        setAllExpanded(true);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [entityType, action]);
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpanded(new Set());
+      setAllExpanded(false);
+    } else {
+      const expandable = logs.filter((l) => l.changes).map((l) => l.id);
+      setExpanded(new Set(expandable));
+      setAllExpanded(true);
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => { load(1); }, [load]);
 
@@ -140,6 +170,22 @@ export default function ActivityLogPage() {
           <option value="ARCHIVE">Archived</option>
           <option value="RESTORE">Restored</option>
         </select>
+        <button
+          onClick={toggleAll}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+        >
+          {allExpanded ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              Collapse All
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              Expand All
+            </>
+          )}
+        </button>
         {(entityType || action) && (
           <button
             onClick={() => { setEntityType(""); setAction(""); }}
@@ -164,7 +210,7 @@ export default function ActivityLogPage() {
           {logs.map((log) => (
             <div key={log.id} className="bg-white border rounded-lg">
               <button
-                onClick={() => setExpanded(expanded === log.id ? null : log.id)}
+                onClick={() => toggleOne(log.id)}
                 className="w-full text-left px-4 py-3 flex flex-wrap items-center gap-2 hover:bg-gray-50 transition-colors"
               >
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLORS[log.action] || "bg-gray-100 text-gray-600"}`}>
@@ -178,13 +224,13 @@ export default function ActivityLogPage() {
                   {log.performedBy.name} &middot; {timeAgo(log.performedAt)}
                 </span>
                 {log.changes && (
-                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded === log.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded.has(log.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 )}
               </button>
 
-              {expanded === log.id && log.changes && (
+              {expanded.has(log.id) && log.changes && (
                 <div className="px-4 pb-3 border-t">
                   <table className="w-full text-sm mt-2">
                     <thead>
