@@ -1,0 +1,172 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { PageHeader } from "@/shared/components/PageHeader";
+import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import { StatusBadge } from "@/shared/components/StatusBadge";
+
+interface Employee {
+  id: string;
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  position: string;
+  department: string | null;
+  startDate: string;
+  endDate: string | null;
+  status: string;
+  notes: string | null;
+  isArchived: boolean;
+}
+
+export default function EmployeeDetailPage() {
+  const { id } = useParams();
+  const router = useRouter();
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/employees/${id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setEmployee(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [id]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+
+    const form = new FormData(e.currentTarget);
+    const body = {
+      employeeNumber: form.get("employeeNumber"),
+      firstName: form.get("firstName"),
+      lastName: form.get("lastName"),
+      email: form.get("email"),
+      phone: form.get("phone"),
+      position: form.get("position"),
+      department: form.get("department"),
+      startDate: form.get("startDate"),
+      endDate: form.get("endDate"),
+      status: form.get("status"),
+      notes: form.get("notes"),
+    };
+
+    const res = await fetch(`/api/employees/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      const updated = await res.json();
+      setEmployee(updated);
+      setEditing(false);
+    } else {
+      const data = await res.json();
+      setError(data.error || "Failed to update.");
+    }
+    setSaving(false);
+  }
+
+  async function handleArchive() {
+    if (!confirm("Are you sure you want to archive this employee?")) return;
+
+    const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/employees");
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-500">Loading...</p>;
+  if (!employee) return <p className="text-sm text-red-500">Employee not found.</p>;
+
+  const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
+
+  if (!editing) {
+    return (
+      <div>
+        <PageHeader title={`${employee.firstName} ${employee.lastName}`} />
+        <div className="max-w-2xl bg-white rounded border p-6">
+          <div className="flex gap-2 mb-6">
+            <StatusBadge status={employee.status} />
+            {employee.isArchived && <StatusBadge status="ARCHIVED" />}
+          </div>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div><dt className="text-gray-500">Employee #</dt><dd className="font-medium">{employee.employeeNumber}</dd></div>
+            <div><dt className="text-gray-500">Position</dt><dd className="font-medium">{employee.position}</dd></div>
+            <div><dt className="text-gray-500">Department</dt><dd className="font-medium">{employee.department || "—"}</dd></div>
+            <div><dt className="text-gray-500">Email</dt><dd className="font-medium">{employee.email || "—"}</dd></div>
+            <div><dt className="text-gray-500">Phone</dt><dd className="font-medium">{employee.phone || "—"}</dd></div>
+            <div><dt className="text-gray-500">Start Date</dt><dd className="font-medium">{formatDate(employee.startDate)}</dd></div>
+            <div><dt className="text-gray-500">End Date</dt><dd className="font-medium">{formatDate(employee.endDate) || "—"}</dd></div>
+          </dl>
+          {employee.notes && (
+            <div className="mt-4 text-sm">
+              <p className="text-gray-500 mb-1">Notes</p>
+              <p className="whitespace-pre-wrap">{employee.notes}</p>
+            </div>
+          )}
+          <div className="flex gap-3 mt-6 pt-4 border-t">
+            <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
+            <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
+            <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader title={`Edit: ${employee.firstName} ${employee.lastName}`} />
+      <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Employee Number" name="employeeNumber" required defaultValue={employee.employeeNumber} />
+          <SelectField label="Status" name="status" required defaultValue={employee.status} options={[
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "TERMINATED", label: "Terminated" },
+          ]} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="First Name" name="firstName" required defaultValue={employee.firstName} />
+          <FormField label="Last Name" name="lastName" required defaultValue={employee.lastName} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Email" name="email" type="email" defaultValue={employee.email || ""} />
+          <FormField label="Phone" name="phone" defaultValue={employee.phone || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Position" name="position" required defaultValue={employee.position} />
+          <FormField label="Department" name="department" defaultValue={employee.department || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(employee.startDate)} />
+          <FormField label="End Date" name="endDate" type="date" defaultValue={formatDate(employee.endDate)} />
+        </div>
+        <TextAreaField label="Notes" name="notes" defaultValue={employee.notes || ""} />
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
+        <div className="flex gap-3 pt-2">
+          <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

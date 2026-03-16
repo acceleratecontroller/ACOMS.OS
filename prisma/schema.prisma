@@ -1,0 +1,181 @@
+// ACOMS.OS — Prisma Database Schema
+// This is the single source of truth for the database structure.
+//
+// BUSINESS DISTINCTION:
+//   User     = A login/account record for accessing the system.
+//   Employee = A real person / business record in the company.
+//              Not every employee will have a login (User).
+//
+//   Asset    = Smaller, portable, or general company items.
+//              Examples: drills, tools, phones, laptops, PPE.
+//              Can be assigned to an Employee.
+//
+//   Plant    = Larger operational equipment and machinery.
+//              Examples: cars, trucks, excavators, generators.
+//              Can optionally be assigned to an Employee.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  RETIRED
+}
+
+enum ItemCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum PlantStatus {
+  OPERATIONAL
+  MAINTENANCE
+  DECOMMISSIONED
+  STANDBY
+}
+
+// ─── User (Login / Account) ─────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Records this user created
+  createdEmployees  Employee[] @relation("EmployeeCreatedBy")
+  createdAssets     Asset[]    @relation("AssetCreatedBy")
+  createdPlant      Plant[]    @relation("PlantCreatedBy")
+
+  // Records this user archived
+  archivedEmployees Employee[] @relation("EmployeeArchivedBy")
+  archivedAssets    Asset[]    @relation("AssetArchivedBy")
+  archivedPlant     Plant[]    @relation("PlantArchivedBy")
+}
+
+// ─── Employee (Business Record) ─────────────────────────
+
+model Employee {
+  id             String         @id @default(uuid())
+  employeeNumber String         @unique
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  position       String
+  department     String?
+  startDate      DateTime
+  endDate        DateTime?
+  status         EmployeeStatus @default(ACTIVE)
+  notes          String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("EmployeeArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  // Reverse relations: items assigned to this employee
+  assignedAssets Asset[] @relation("AssetAssignedToEmployee")
+  assignedPlant  Plant[] @relation("PlantAssignedToEmployee")
+}
+
+// ─── Asset (Smaller / Portable Items) ───────────────────
+// Examples: drills, tools, phones, laptops, PPE
+
+model Asset {
+  id           String         @id @default(uuid())
+  assetNumber  String         @unique
+  name         String
+  category     String
+  make         String?
+  model        String?
+  serialNumber String?
+  purchaseDate DateTime?
+  purchaseCost Decimal?
+  location     String?
+  status       AssetStatus    @default(AVAILABLE)
+  condition    ItemCondition?
+  notes        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  // Optional assignment to an Employee
+  assignedTo   Employee? @relation("AssetAssignedToEmployee", fields: [assignedToId], references: [id])
+  assignedToId String?
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("AssetArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+}
+
+// ─── Plant (Larger Operational Equipment) ────────────────
+// Examples: cars, trucks, excavators, generators
+
+model Plant {
+  id                 String         @id @default(uuid())
+  plantNumber        String         @unique
+  name               String
+  category           String
+  make               String?
+  model              String?
+  serialNumber       String?
+  yearOfManufacture  Int?
+  registrationNumber String?
+  purchaseDate       DateTime?
+  purchaseCost       Decimal?
+  location           String?
+  status             PlantStatus    @default(OPERATIONAL)
+  condition          ItemCondition?
+  lastServiceDate    DateTime?
+  nextServiceDue     DateTime?
+  notes              String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("PlantCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  // Optional assignment to an Employee
+  assignedTo   Employee? @relation("PlantAssignedToEmployee", fields: [assignedToId], references: [id])
+  assignedToId String?
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("PlantArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+}
