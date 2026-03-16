@@ -14,11 +14,24 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+      document.body.style.top = `-${window.scrollY}px`;
     } else {
+      const scrollY = document.body.style.top;
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.top = "";
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY, 10) * -1);
+      }
     }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.top = "";
     };
   }, [isOpen]);
 
@@ -44,17 +57,17 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto md:py-8"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto overscroll-none md:flex md:items-start md:justify-center md:py-8"
     >
-      <div className="bg-white shadow-xl w-full relative animate-in min-h-screen md:min-h-0 md:rounded-lg md:max-w-3xl md:mx-4">
+      <div className="bg-white shadow-xl w-full relative min-h-screen overscroll-none md:min-h-0 md:rounded-lg md:max-w-3xl md:mx-4">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
+          className="sticky top-0 float-right z-10 mt-3 mr-3 text-gray-400 hover:text-gray-600 text-xl leading-none w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-gray-100 transition-colors"
           aria-label="Close"
         >
           x
         </button>
-        <div className="p-4 pt-5 md:p-6">
+        <div className="p-4 pt-2 md:p-6 clear-both">
           {children}
         </div>
       </div>
