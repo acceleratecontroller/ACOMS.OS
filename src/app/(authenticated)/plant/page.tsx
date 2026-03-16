@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
@@ -79,6 +79,7 @@ export default function PlantPage() {
 
 function PlantContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [plant, setPlant] = useState<PlantItem[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,20 +90,17 @@ function PlantContent() {
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
-  const handledOpenRef = useRef<string | null>(null);
-
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
-    if (openId && handledOpenRef.current !== openId) {
-      handledOpenRef.current = openId;
-      window.history.replaceState({}, "", window.location.pathname);
+    if (openId) {
+      router.replace(window.location.pathname, { scroll: false });
 
       fetch(`/api/plant/${openId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data) setSelected(data); });
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const loadData = useCallback((archived: boolean) => {
     setLoading(true);
