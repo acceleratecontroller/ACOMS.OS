@@ -80,10 +80,13 @@ export default function PlantPage() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback((archived: boolean) => {
+    setLoading(true);
+    const plantUrl = archived ? "/api/plant?archived=true" : "/api/plant";
     Promise.all([
-      fetch("/api/plant").then((r) => r.json()),
+      fetch(plantUrl).then((r) => r.json()),
       fetch("/api/employees").then((r) => r.json()),
     ]).then(([plantData, empData]) => {
       setPlant(plantData);
@@ -92,7 +95,7 @@ export default function PlantPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(showArchived); }, [loadData, showArchived]);
 
   const employeeOptions = employees.map((e) => ({
     value: e.id,
@@ -137,7 +140,7 @@ export default function PlantPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { closeModal(); loadData(); }
+    if (res.ok) { closeModal(); loadData(showArchived); }
     else { const data = await res.json(); setError(data.error || "Failed to create."); }
     setSaving(false);
   }
@@ -152,7 +155,7 @@ export default function PlantPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { const updated = await res.json(); setSelected(updated); setEditing(false); loadData(); }
+    if (res.ok) { const updated = await res.json(); setSelected(updated); setEditing(false); loadData(showArchived); }
     else { const data = await res.json(); setError(data.error || "Failed to update."); }
     setSaving(false);
   }
@@ -160,7 +163,13 @@ export default function PlantPage() {
   async function handleArchive() {
     if (!selected || !confirm("Are you sure you want to archive this plant item?")) return;
     const res = await fetch(`/api/plant/${selected.id}`, { method: "DELETE" });
-    if (res.ok) { closeModal(); loadData(); }
+    if (res.ok) { closeModal(); loadData(showArchived); }
+  }
+
+  async function handleRestore() {
+    if (!selected || !confirm("Are you sure you want to restore this plant item?")) return;
+    const res = await fetch(`/api/plant/${selected.id}/restore`, { method: "POST" });
+    if (res.ok) { closeModal(); loadData(showArchived); }
   }
 
   function PlantForm({ defaults, onSubmit, submitLabel }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string }) {
@@ -211,11 +220,31 @@ export default function PlantPage() {
   return (
     <div>
       <PageHeader title="Plant Register" description="Manage cars, trucks, excavators, and heavy equipment." />
-      <div className="mb-4">
-        <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Plant</button>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              !showArchived ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              showArchived ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Archived
+          </button>
+        </div>
+        {!showArchived && (
+          <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Plant</button>
+        )}
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
-        <DataTable columns={columns} data={plant} onRowClick={(p) => { setSelected(p); setEditing(false); }} emptyMessage="No plant items found. Click '+ Add Plant' to create one." />
+        <DataTable columns={columns} data={plant} onRowClick={(p) => { setSelected(p); setEditing(false); }} emptyMessage={showArchived ? "No archived plant items." : "No plant items found. Click '+ Add Plant' to create one."} />
       )}
 
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
@@ -225,6 +254,9 @@ export default function PlantPage() {
               <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
               <StatusBadge status={selected.status} />
               {selected.condition && <StatusBadge status={selected.condition} />}
+              {selected.isArchived && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
+              )}
             </div>
             <dl className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Plant #</dt><dd className="font-medium text-gray-900">{selected.plantNumber}</dd></div>
@@ -245,8 +277,14 @@ export default function PlantPage() {
               <div className="mt-5 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
-              <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
-              <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+              {selected.isArchived ? (
+                <button onClick={handleRestore} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
+              ) : (
+                <>
+                  <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
+                  <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -91,9 +91,20 @@ const columns: Column<Employee>[] = [
   {
     key: "status",
     label: "Status",
-    render: (item) => <StatusBadge status={item.status} />,
+    render: (item) => <StatusBadge status={getDisplayStatus(item)} />,
   },
 ];
+
+/** Derive displayed status: if end date is today or in the past, show TERMINATED */
+function getDisplayStatus(emp: Employee): string {
+  if (emp.endDate) {
+    const end = new Date(emp.endDate.split("T")[0]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (end <= today) return "TERMINATED";
+  }
+  return emp.status;
+}
 
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
 
@@ -105,9 +116,12 @@ export default function EmployeesPage() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
-  const loadEmployees = useCallback(() => {
-    fetch("/api/employees")
+  const loadEmployees = useCallback((archived: boolean) => {
+    setLoading(true);
+    const url = archived ? "/api/employees?archived=true" : "/api/employees";
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         setEmployees(data);
@@ -116,7 +130,7 @@ export default function EmployeesPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadEmployees(); }, [loadEmployees]);
+  useEffect(() => { loadEmployees(showArchived); }, [loadEmployees, showArchived]);
 
   function closeModal() {
     setSelected(null);
@@ -153,7 +167,7 @@ export default function EmployeesPage() {
 
     if (res.ok) {
       closeModal();
-      loadEmployees();
+      loadEmployees(showArchived);
     } else {
       const data = await res.json();
       setError(data.error || "Failed to create employee.");
@@ -193,7 +207,7 @@ export default function EmployeesPage() {
       const updated = await res.json();
       setSelected(updated);
       setEditing(false);
-      loadEmployees();
+      loadEmployees(showArchived);
     } else {
       const data = await res.json();
       setError(data.error || "Failed to update.");
@@ -208,7 +222,18 @@ export default function EmployeesPage() {
     const res = await fetch(`/api/employees/${selected.id}`, { method: "DELETE" });
     if (res.ok) {
       closeModal();
-      loadEmployees();
+      loadEmployees(showArchived);
+    }
+  }
+
+  async function handleRestore() {
+    if (!selected) return;
+    if (!confirm("Are you sure you want to restore this employee?")) return;
+
+    const res = await fetch(`/api/employees/${selected.id}/restore`, { method: "POST" });
+    if (res.ok) {
+      closeModal();
+      loadEmployees(showArchived);
     }
   }
 
@@ -218,13 +243,37 @@ export default function EmployeesPage() {
         title="Employee Register"
         description="Manage employee records, roles, and locations."
       />
-      <div className="mb-4">
-        <button
-          onClick={() => setCreating(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          + Add Employee
-        </button>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              !showArchived
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              showArchived
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Archived
+          </button>
+        </div>
+        {!showArchived && (
+          <button
+            onClick={() => setCreating(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            + Add Employee
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -234,7 +283,7 @@ export default function EmployeesPage() {
           columns={columns}
           data={employees}
           onRowClick={(emp) => { setSelected(emp); setEditing(false); }}
-          emptyMessage="No employees found. Click '+ Add Employee' to create one."
+          emptyMessage={showArchived ? "No archived employees." : "No employees found. Click '+ Add Employee' to create one."}
         />
       )}
 
@@ -246,7 +295,10 @@ export default function EmployeesPage() {
               <h2 className="text-xl font-bold text-gray-900">
                 {selected.firstName} {selected.lastName}
               </h2>
-              <StatusBadge status={selected.status} />
+              <StatusBadge status={getDisplayStatus(selected)} />
+              {selected.isArchived && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
+              )}
             </div>
             <dl className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employee #</dt><dd className="font-medium text-gray-900">{selected.employeeNumber}</dd></div>
@@ -266,8 +318,14 @@ export default function EmployeesPage() {
               </div>
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
-              <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
-              <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+              {selected.isArchived ? (
+                <button onClick={handleRestore} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
+              ) : (
+                <>
+                  <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
+                  <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+                </>
+              )}
             </div>
           </div>
         )}

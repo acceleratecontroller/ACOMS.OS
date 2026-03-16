@@ -75,10 +75,13 @@ export default function AssetsPage() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback((archived: boolean) => {
+    setLoading(true);
+    const assetUrl = archived ? "/api/assets?archived=true" : "/api/assets";
     Promise.all([
-      fetch("/api/assets").then((r) => r.json()),
+      fetch(assetUrl).then((r) => r.json()),
       fetch("/api/employees").then((r) => r.json()),
     ]).then(([assetData, empData]) => {
       setAssets(assetData);
@@ -87,7 +90,7 @@ export default function AssetsPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(showArchived); }, [loadData, showArchived]);
 
   const employeeOptions = employees.map((e) => ({
     value: e.id,
@@ -128,7 +131,7 @@ export default function AssetsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { closeModal(); loadData(); }
+    if (res.ok) { closeModal(); loadData(showArchived); }
     else { const data = await res.json(); setError(data.error || "Failed to create."); }
     setSaving(false);
   }
@@ -143,7 +146,7 @@ export default function AssetsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { const updated = await res.json(); setSelected(updated); setEditing(false); loadData(); }
+    if (res.ok) { const updated = await res.json(); setSelected(updated); setEditing(false); loadData(showArchived); }
     else { const data = await res.json(); setError(data.error || "Failed to update."); }
     setSaving(false);
   }
@@ -151,7 +154,13 @@ export default function AssetsPage() {
   async function handleArchive() {
     if (!selected || !confirm("Are you sure you want to archive this asset?")) return;
     const res = await fetch(`/api/assets/${selected.id}`, { method: "DELETE" });
-    if (res.ok) { closeModal(); loadData(); }
+    if (res.ok) { closeModal(); loadData(showArchived); }
+  }
+
+  async function handleRestore() {
+    if (!selected || !confirm("Are you sure you want to restore this asset?")) return;
+    const res = await fetch(`/api/assets/${selected.id}/restore`, { method: "POST" });
+    if (res.ok) { closeModal(); loadData(showArchived); }
   }
 
   function AssetForm({ defaults, onSubmit, submitLabel }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string }) {
@@ -194,11 +203,31 @@ export default function AssetsPage() {
   return (
     <div>
       <PageHeader title="Asset Register" description="Track tools, phones, laptops, PPE, and other portable items." />
-      <div className="mb-4">
-        <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Asset</button>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              !showArchived ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              showArchived ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Archived
+          </button>
+        </div>
+        {!showArchived && (
+          <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Asset</button>
+        )}
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
-        <DataTable columns={columns} data={assets} onRowClick={(a) => { setSelected(a); setEditing(false); }} emptyMessage="No assets found. Click '+ Add Asset' to create one." />
+        <DataTable columns={columns} data={assets} onRowClick={(a) => { setSelected(a); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
       )}
 
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
@@ -208,6 +237,9 @@ export default function AssetsPage() {
               <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
               <StatusBadge status={selected.status} />
               {selected.condition && <StatusBadge status={selected.condition} />}
+              {selected.isArchived && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
+              )}
             </div>
             <dl className="grid grid-cols-2 gap-x-8 gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Asset #</dt><dd className="font-medium text-gray-900">{selected.assetNumber}</dd></div>
@@ -224,8 +256,14 @@ export default function AssetsPage() {
               <div className="mt-5 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
-              <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
-              <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+              {selected.isArchived ? (
+                <button onClick={handleRestore} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
+              ) : (
+                <>
+                  <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
+                  <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button>
+                </>
+              )}
             </div>
           </div>
         )}
