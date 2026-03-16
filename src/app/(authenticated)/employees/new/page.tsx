@@ -17,14 +17,15 @@ export default function NewEmployeePage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      employeeNumber: form.get("employeeNumber"),
       firstName: form.get("firstName"),
       lastName: form.get("lastName"),
       email: form.get("email"),
       phone: form.get("phone"),
-      position: form.get("position"),
-      department: form.get("department"),
+      roleType: form.get("roleType"),
+      employmentType: form.get("employmentType"),
+      location: form.get("location"),
       startDate: form.get("startDate"),
+      probationDate: form.get("probationDate"),
       status: form.get("status"),
       notes: form.get("notes"),
     };
@@ -46,22 +47,8 @@ export default function NewEmployeePage() {
 
   return (
     <div>
-      <PageHeader title="Add Employee" />
+      <PageHeader title="Add Employee" description="Employee number will be auto-generated." />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Employee Number" name="employeeNumber" required placeholder="e.g. EMP-001" />
-          <SelectField
-            label="Status"
-            name="status"
-            required
-            defaultValue="ACTIVE"
-            options={[
-              { value: "ACTIVE", label: "Active" },
-              { value: "INACTIVE", label: "Inactive" },
-              { value: "TERMINATED", label: "Terminated" },
-            ]}
-          />
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="First Name" name="firstName" required />
           <FormField label="Last Name" name="lastName" required />
@@ -71,10 +58,35 @@ export default function NewEmployeePage() {
           <FormField label="Phone" name="phone" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Position" name="position" required />
-          <FormField label="Department" name="department" />
+          <SelectField label="Role Type" name="roleType" required options={[
+            { value: "OFFICE", label: "Office" },
+            { value: "FIELD", label: "Field" },
+          ]} />
+          <SelectField label="Employment Type" name="employmentType" required options={[
+            { value: "FULL_TIME", label: "Full-Time" },
+            { value: "TRAINEE", label: "Trainee" },
+            { value: "CASUAL", label: "Casual" },
+            { value: "ABN", label: "ABN" },
+          ]} />
         </div>
-        <FormField label="Start Date" name="startDate" type="date" required />
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField label="Location" name="location" required options={[
+            { value: "BRISBANE", label: "Brisbane" },
+            { value: "BUNDABERG", label: "Bundaberg" },
+            { value: "HERVEY_BAY", label: "Hervey Bay" },
+            { value: "MACKAY", label: "Mackay" },
+            { value: "OTHER", label: "Other" },
+          ]} />
+          <SelectField label="Status" name="status" required defaultValue="ACTIVE" options={[
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "TERMINATED", label: "Terminated" },
+          ]} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Start Date" name="startDate" type="date" required />
+          <FormField label="Probation Review Date" name="probationDate" type="date" />
+        </div>
         <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}

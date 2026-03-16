@@ -5,15 +5,30 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 
+const LOCATION_LABELS: Record<string, string> = {
+  BRISBANE: "Brisbane",
+  BUNDABERG: "Bundaberg",
+  HERVEY_BAY: "Hervey Bay",
+  MACKAY: "Mackay",
+  OTHER: "Other",
+};
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+  FULL_TIME: "Full-Time",
+  TRAINEE: "Trainee",
+  CASUAL: "Casual",
+  ABN: "ABN",
+};
+
 interface Employee {
   id: string;
   employeeNumber: string;
   firstName: string;
   lastName: string;
-  position: string;
-  department: string | null;
+  roleType: string;
+  employmentType: string;
+  location: string;
   status: string;
-  email: string | null;
 }
 
 const columns: Column<Employee>[] = [
@@ -23,8 +38,21 @@ const columns: Column<Employee>[] = [
     label: "Name",
     render: (item) => `${item.firstName} ${item.lastName}`,
   },
-  { key: "position", label: "Position" },
-  { key: "department", label: "Department" },
+  {
+    key: "roleType",
+    label: "Role Type",
+    render: (item) => item.roleType === "OFFICE" ? "Office" : "Field",
+  },
+  {
+    key: "employmentType",
+    label: "Employment",
+    render: (item) => EMPLOYMENT_LABELS[item.employmentType] || item.employmentType,
+  },
+  {
+    key: "location",
+    label: "Location",
+    render: (item) => LOCATION_LABELS[item.location] || item.location,
+  },
   {
     key: "status",
     label: "Status",
@@ -50,7 +78,7 @@ export default function EmployeesPage() {
     <div>
       <PageHeader
         title="Employee Register"
-        description="Manage employee records, positions, and departments."
+        description="Manage employee records, roles, and locations."
         action={{ label: "Add Employee", href: "/employees/new" }}
       />
       {loading ? (

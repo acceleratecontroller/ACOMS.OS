@@ -35,6 +35,26 @@ enum EmployeeStatus {
   TERMINATED
 }
 
+enum EmployeeLocation {
+  BRISBANE
+  BUNDABERG
+  HERVEY_BAY
+  MACKAY
+  OTHER
+}
+
+enum RoleType {
+  OFFICE
+  FIELD
+}
+
+enum EmploymentType {
+  FULL_TIME
+  TRAINEE
+  CASUAL
+  ABN
+}
+
 enum AssetStatus {
   AVAILABLE
   IN_USE
@@ -83,16 +103,18 @@ model User {
 
 model Employee {
   id             String         @id @default(uuid())
-  employeeNumber String         @unique
+  employeeNumber String           @unique  // Auto-generated: E0001, E0002, etc.
   firstName      String
   lastName       String
   email          String?
   phone          String?
-  position       String
-  department     String?
+  roleType       RoleType                  // Office or Field
+  employmentType EmploymentType            // Full-Time, Trainee, Casual, ABN
+  location       EmployeeLocation          // Brisbane, Bundaberg, Hervey Bay, Mackay, Other
   startDate      DateTime
   endDate        DateTime?
-  status         EmployeeStatus @default(ACTIVE)
+  probationDate  DateTime?                 // Probation review date
+  status         EmployeeStatus   @default(ACTIVE)
   notes          String?
 
   createdAt    DateTime @default(now())

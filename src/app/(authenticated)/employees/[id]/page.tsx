@@ -6,6 +6,21 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 
+const LOCATION_LABELS: Record<string, string> = {
+  BRISBANE: "Brisbane",
+  BUNDABERG: "Bundaberg",
+  HERVEY_BAY: "Hervey Bay",
+  MACKAY: "Mackay",
+  OTHER: "Other",
+};
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+  FULL_TIME: "Full-Time",
+  TRAINEE: "Trainee",
+  CASUAL: "Casual",
+  ABN: "ABN",
+};
+
 interface Employee {
   id: string;
   employeeNumber: string;
@@ -13,10 +28,12 @@ interface Employee {
   lastName: string;
   email: string | null;
   phone: string | null;
-  position: string;
-  department: string | null;
+  roleType: string;
+  employmentType: string;
+  location: string;
   startDate: string;
   endDate: string | null;
+  probationDate: string | null;
   status: string;
   notes: string | null;
   isArchived: boolean;
@@ -48,15 +65,16 @@ export default function EmployeeDetailPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      employeeNumber: form.get("employeeNumber"),
       firstName: form.get("firstName"),
       lastName: form.get("lastName"),
       email: form.get("email"),
       phone: form.get("phone"),
-      position: form.get("position"),
-      department: form.get("department"),
+      roleType: form.get("roleType"),
+      employmentType: form.get("employmentType"),
+      location: form.get("location"),
       startDate: form.get("startDate"),
       endDate: form.get("endDate"),
+      probationDate: form.get("probationDate"),
       status: form.get("status"),
       notes: form.get("notes"),
     };
@@ -103,12 +121,14 @@ export default function EmployeeDetailPage() {
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div><dt className="text-gray-500">Employee #</dt><dd className="font-medium">{employee.employeeNumber}</dd></div>
-            <div><dt className="text-gray-500">Position</dt><dd className="font-medium">{employee.position}</dd></div>
-            <div><dt className="text-gray-500">Department</dt><dd className="font-medium">{employee.department || "—"}</dd></div>
+            <div><dt className="text-gray-500">Role Type</dt><dd className="font-medium">{employee.roleType === "OFFICE" ? "Office" : "Field"}</dd></div>
+            <div><dt className="text-gray-500">Employment Type</dt><dd className="font-medium">{EMPLOYMENT_LABELS[employee.employmentType] || employee.employmentType}</dd></div>
+            <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{LOCATION_LABELS[employee.location] || employee.location}</dd></div>
             <div><dt className="text-gray-500">Email</dt><dd className="font-medium">{employee.email || "—"}</dd></div>
             <div><dt className="text-gray-500">Phone</dt><dd className="font-medium">{employee.phone || "—"}</dd></div>
             <div><dt className="text-gray-500">Start Date</dt><dd className="font-medium">{formatDate(employee.startDate)}</dd></div>
             <div><dt className="text-gray-500">End Date</dt><dd className="font-medium">{formatDate(employee.endDate) || "—"}</dd></div>
+            <div><dt className="text-gray-500">Probation Review Date</dt><dd className="font-medium">{formatDate(employee.probationDate) || "—"}</dd></div>
           </dl>
           {employee.notes && (
             <div className="mt-4 text-sm">
@@ -128,16 +148,8 @@ export default function EmployeeDetailPage() {
 
   return (
     <div>
-      <PageHeader title={`Edit: ${employee.firstName} ${employee.lastName}`} />
+      <PageHeader title={`Edit: ${employee.firstName} ${employee.lastName}`} description={`Employee # ${employee.employeeNumber}`} />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Employee Number" name="employeeNumber" required defaultValue={employee.employeeNumber} />
-          <SelectField label="Status" name="status" required defaultValue={employee.status} options={[
-            { value: "ACTIVE", label: "Active" },
-            { value: "INACTIVE", label: "Inactive" },
-            { value: "TERMINATED", label: "Terminated" },
-          ]} />
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="First Name" name="firstName" required defaultValue={employee.firstName} />
           <FormField label="Last Name" name="lastName" required defaultValue={employee.lastName} />
@@ -147,13 +159,36 @@ export default function EmployeeDetailPage() {
           <FormField label="Phone" name="phone" defaultValue={employee.phone || ""} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Position" name="position" required defaultValue={employee.position} />
-          <FormField label="Department" name="department" defaultValue={employee.department || ""} />
+          <SelectField label="Role Type" name="roleType" required defaultValue={employee.roleType} options={[
+            { value: "OFFICE", label: "Office" },
+            { value: "FIELD", label: "Field" },
+          ]} />
+          <SelectField label="Employment Type" name="employmentType" required defaultValue={employee.employmentType} options={[
+            { value: "FULL_TIME", label: "Full-Time" },
+            { value: "TRAINEE", label: "Trainee" },
+            { value: "CASUAL", label: "Casual" },
+            { value: "ABN", label: "ABN" },
+          ]} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField label="Location" name="location" required defaultValue={employee.location} options={[
+            { value: "BRISBANE", label: "Brisbane" },
+            { value: "BUNDABERG", label: "Bundaberg" },
+            { value: "HERVEY_BAY", label: "Hervey Bay" },
+            { value: "MACKAY", label: "Mackay" },
+            { value: "OTHER", label: "Other" },
+          ]} />
+          <SelectField label="Status" name="status" required defaultValue={employee.status} options={[
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "TERMINATED", label: "Terminated" },
+          ]} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(employee.startDate)} />
           <FormField label="End Date" name="endDate" type="date" defaultValue={formatDate(employee.endDate)} />
         </div>
+        <FormField label="Probation Review Date" name="probationDate" type="date" defaultValue={formatDate(employee.probationDate)} />
         <TextAreaField label="Notes" name="notes" defaultValue={employee.notes || ""} />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}

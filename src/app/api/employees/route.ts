@@ -39,17 +39,33 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data;
 
+  // Auto-generate employee number: E0001, E0002, etc.
+  const lastEmployee = await prisma.employee.findFirst({
+    orderBy: { employeeNumber: "desc" },
+  });
+
+  let nextNumber = 1;
+  if (lastEmployee) {
+    const match = lastEmployee.employeeNumber.match(/E(\d+)/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+  const employeeNumber = `E${String(nextNumber).padStart(4, "0")}`;
+
   const employee = await prisma.employee.create({
     data: {
-      employeeNumber: data.employeeNumber,
+      employeeNumber,
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email || null,
       phone: data.phone || null,
-      position: data.position,
-      department: data.department || null,
+      roleType: data.roleType,
+      employmentType: data.employmentType,
+      location: data.location,
       startDate: new Date(data.startDate),
       endDate: data.endDate ? new Date(data.endDate) : null,
+      probationDate: data.probationDate ? new Date(data.probationDate) : null,
       status: data.status,
       notes: data.notes || null,
       createdById: session.user.id,
