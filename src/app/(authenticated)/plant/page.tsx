@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
@@ -87,14 +87,14 @@ function PlantContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const handledOpenRef = useRef<string | null>(null);
 
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
-    if (openId) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("open");
-      window.history.replaceState({}, "", url.pathname + url.search);
+    if (openId && handledOpenRef.current !== openId) {
+      handledOpenRef.current = openId;
+      window.history.replaceState({}, "", window.location.pathname);
 
       fetch(`/api/plant/${openId}`)
         .then((r) => r.ok ? r.json() : null)
