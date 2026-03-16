@@ -6,6 +6,8 @@ export interface Column<T> {
   render?: (item: T) => React.ReactNode;
   /** Hide this column from mobile card view (still visible on desktop table) */
   hideOnMobile?: boolean;
+  /** Small inline SVG icon shown before the value on mobile cards */
+  mobileIcon?: React.ReactNode;
 }
 
 interface DataTableProps<T extends { id: string }> {
@@ -88,8 +90,8 @@ export function DataTable<T extends { id: string }>({
             <div
               key={item.id}
               onClick={() => onRowClick?.(item)}
-              className={`bg-white rounded-md border px-3 py-2 ${
-                onRowClick ? "active:bg-blue-50 cursor-pointer" : ""
+              className={`bg-white rounded-md border px-3 py-2 transition-shadow ${
+                onRowClick ? "active:bg-blue-50 cursor-pointer hover:shadow-md" : ""
               }`}
             >
               {/* Header: ID + Name, status right */}
@@ -114,7 +116,8 @@ export function DataTable<T extends { id: string }>({
               {detailCols.length > 0 && (
                 <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500 mt-0.5">
                   {detailCols.map((col) => (
-                    <span key={String(col.key)}>
+                    <span key={String(col.key)} className="inline-flex items-center gap-1">
+                      {col.mobileIcon && <span className="text-gray-400">{col.mobileIcon}</span>}
                       <span className="text-gray-600">{getCellValue(item, col)}</span>
                     </span>
                   ))}
