@@ -10,11 +10,11 @@
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed": "node scripts/seed.mjs",
     "db:studio": "prisma studio"
   },
   "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
