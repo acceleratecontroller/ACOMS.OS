@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
 import { StatusBadge } from "@/shared/components/StatusBadge";
@@ -72,6 +73,11 @@ const columns: Column<PlantItem>[] = [
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
 
 export default function PlantPage() {
+  return <Suspense><PlantContent /></Suspense>;
+}
+
+function PlantContent() {
+  const searchParams = useSearchParams();
   const [plant, setPlant] = useState<PlantItem[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +87,16 @@ export default function PlantPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+
+  // Open a specific record if ?open=id is in the URL (from global search)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (openId && !selected) {
+      fetch(`/api/plant/${openId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data) setSelected(data); });
+    }
+  }, [searchParams, selected]);
 
   const loadData = useCallback((archived: boolean) => {
     setLoading(true);
