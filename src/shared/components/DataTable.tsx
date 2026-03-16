@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 export interface Column<T> {
   key: keyof T | string;
   label: string;
@@ -11,33 +9,33 @@ export interface Column<T> {
 interface DataTableProps<T extends { id: string }> {
   columns: Column<T>[];
   data: T[];
-  linkPrefix: string; // e.g. "/employees" — each row links to /employees/[id]
+  onRowClick?: (item: T) => void;
   emptyMessage?: string;
 }
 
 export function DataTable<T extends { id: string }>({
   columns,
   data,
-  linkPrefix,
+  onRowClick,
   emptyMessage = "No records found.",
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500 bg-white rounded border">
+      <div className="text-center py-12 text-gray-500 bg-white rounded-lg border">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto bg-white rounded border">
+    <div className="overflow-x-auto bg-white rounded-lg border shadow-sm">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-gray-50">
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                className="text-left px-4 py-3 font-medium text-gray-700"
+                className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase tracking-wider"
               >
                 {col.label}
               </th>
@@ -48,19 +46,21 @@ export function DataTable<T extends { id: string }>({
           {data.map((item) => (
             <tr
               key={item.id}
-              className="border-b last:border-b-0 hover:bg-gray-50 transition-colors"
+              onClick={() => onRowClick?.(item)}
+              className={`border-b last:border-b-0 transition-colors ${
+                onRowClick
+                  ? "hover:bg-blue-50 cursor-pointer"
+                  : "hover:bg-gray-50"
+              }`}
             >
               {columns.map((col, colIdx) => (
                 <td key={String(col.key)} className="px-4 py-3">
                   {colIdx === 0 ? (
-                    <Link
-                      href={`${linkPrefix}/${item.id}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
+                    <span className="text-blue-600 font-medium">
                       {col.render
                         ? col.render(item)
                         : String((item as Record<string, unknown>)[String(col.key)] ?? "")}
-                    </Link>
+                    </span>
                   ) : col.render ? (
                     col.render(item)
                   ) : (
