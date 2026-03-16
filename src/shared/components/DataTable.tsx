@@ -94,33 +94,35 @@ export function DataTable<T extends { id: string }>({
                 onRowClick ? "active:bg-blue-50 cursor-pointer hover:shadow-md" : ""
               }`}
             >
-              {/* Header: ID + Name, status right */}
+              {/* Top line: Name left, ID# right */}
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-blue-600 font-medium text-sm shrink-0">
-                    {getCellValue(item, mobileCols[0])}
-                  </span>
-                  {mobileCols.length > 1 && (
-                    <span className="text-gray-900 font-medium text-sm truncate">
-                      {getCellValue(item, mobileCols[1])}
-                    </span>
-                  )}
-                </div>
-                {mobileCols.length > 2 && (
-                  <span className="shrink-0">
-                    {getCellValue(item, mobileCols[mobileCols.length - 1])}
+                {mobileCols.length > 1 && (
+                  <span className="text-gray-900 font-medium text-sm truncate">
+                    {getCellValue(item, mobileCols[1])}
                   </span>
                 )}
+                <span className="text-blue-600 font-medium text-xs shrink-0">
+                  {getCellValue(item, mobileCols[0])}
+                </span>
               </div>
-              {/* Detail line */}
-              {detailCols.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500 mt-0.5">
-                  {detailCols.map((col) => (
-                    <span key={String(col.key)} className="inline-flex items-center gap-1">
-                      {col.mobileIcon && <span className="text-gray-400">{col.mobileIcon}</span>}
-                      <span className="text-gray-600">{getCellValue(item, col)}</span>
+              {/* Bottom line: details left, status right */}
+              {(detailCols.length > 0 || mobileCols.length > 2) && (
+                <div className="flex items-center justify-between gap-2 mt-0.5">
+                  {detailCols.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
+                      {detailCols.map((col) => (
+                        <span key={String(col.key)} className="inline-flex items-center gap-1">
+                          {col.mobileIcon && <span className="text-gray-400">{col.mobileIcon}</span>}
+                          <span className="text-gray-600">{getCellValue(item, col)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {mobileCols.length > 2 && (
+                    <span className="shrink-0">
+                      {getCellValue(item, mobileCols[mobileCols.length - 1])}
                     </span>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
