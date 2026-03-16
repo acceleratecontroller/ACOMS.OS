@@ -79,11 +79,13 @@ const columns: Column<Employee>[] = [
     key: "roleType",
     label: "Role Type",
     render: (item) => (item.roleType === "OFFICE" ? "Office" : "Field"),
+    hideOnMobile: true,
   },
   {
     key: "employmentType",
     label: "Employment",
     render: (item) => EMPLOYMENT_LABELS[item.employmentType] || item.employmentType,
+    hideOnMobile: true,
   },
   {
     key: "phone",

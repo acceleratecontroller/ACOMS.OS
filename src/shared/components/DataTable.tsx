@@ -4,6 +4,8 @@ export interface Column<T> {
   key: keyof T | string;
   label: string;
   render?: (item: T) => React.ReactNode;
+  /** Hide this column from mobile card view (still visible on desktop table) */
+  hideOnMobile?: boolean;
 }
 
 interface DataTableProps<T extends { id: string }> {
@@ -78,47 +80,49 @@ export function DataTable<T extends { id: string }>({
       </div>
 
       {/* Mobile card list — visible only on small screens */}
-      <div className="md:hidden space-y-1.5">
-        {data.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => onRowClick?.(item)}
-            className={`bg-white rounded-lg border shadow-sm px-3 py-2.5 ${
-              onRowClick ? "active:bg-blue-50 cursor-pointer" : ""
-            }`}
-          >
-            {/* Top row: ID + Name inline, status floated right */}
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-blue-600 font-medium text-sm shrink-0">
-                  {getCellValue(item, columns[0])}
-                </span>
-                {columns.length > 1 && (
-                  <span className="text-gray-900 font-medium text-sm truncate">
-                    {getCellValue(item, columns[1])}
+      <div className="md:hidden space-y-1">
+        {data.map((item) => {
+          const mobileCols = columns.filter((c) => !c.hideOnMobile);
+          const detailCols = mobileCols.slice(2, -1);
+          return (
+            <div
+              key={item.id}
+              onClick={() => onRowClick?.(item)}
+              className={`bg-white rounded-md border px-3 py-2 ${
+                onRowClick ? "active:bg-blue-50 cursor-pointer" : ""
+              }`}
+            >
+              {/* Header: ID + Name, status right */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-blue-600 font-medium text-sm shrink-0">
+                    {getCellValue(item, mobileCols[0])}
+                  </span>
+                  {mobileCols.length > 1 && (
+                    <span className="text-gray-900 font-medium text-sm truncate">
+                      {getCellValue(item, mobileCols[1])}
+                    </span>
+                  )}
+                </div>
+                {mobileCols.length > 2 && (
+                  <span className="shrink-0">
+                    {getCellValue(item, mobileCols[mobileCols.length - 1])}
                   </span>
                 )}
               </div>
-              {/* Render the last column (usually Status) as a badge on the right */}
-              {columns.length > 2 && (
-                <span className="shrink-0">
-                  {getCellValue(item, columns[columns.length - 1])}
-                </span>
+              {/* Detail line */}
+              {detailCols.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-3 text-xs text-gray-500 mt-0.5">
+                  {detailCols.map((col) => (
+                    <span key={String(col.key)}>
+                      <span className="text-gray-600">{getCellValue(item, col)}</span>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
-            {/* Remaining columns as compact inline tags */}
-            {columns.length > 2 && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                {columns.slice(2, -1).map((col) => (
-                  <span key={String(col.key)}>
-                    <span className="text-gray-400">{col.label}:</span>{" "}
-                    <span className="text-gray-600">{getCellValue(item, col)}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
