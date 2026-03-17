@@ -126,8 +126,13 @@ model Employee {
   employeeNumber String           @unique  // Auto-generated: E0001, E0002, etc.
   firstName      String
   lastName       String
-  email          String?
+  email          String?                   // Work email
+  personalEmail  String?                   // Personal email
   phone          String?
+  address        String?                   // Residential address
+  dateOfBirth    DateTime?
+  shirtSize      String?                   // Uniform shirt size
+  pantsSize      String?                   // Uniform pants size
   roleType       RoleType                  // Office or Field
   employmentType EmploymentType            // Full-Time, Trainee, Casual, ABN
   location       EmployeeLocation          // Brisbane, Bundaberg, Hervey Bay, Mackay, Other

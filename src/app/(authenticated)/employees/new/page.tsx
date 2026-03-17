@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
 
 export default function NewEmployeePage() {
   const router = useRouter();
@@ -20,7 +21,12 @@ export default function NewEmployeePage() {
       firstName: form.get("firstName"),
       lastName: form.get("lastName"),
       email: form.get("email"),
+      personalEmail: form.get("personalEmail"),
       phone: form.get("phone"),
+      address: form.get("address"),
+      dateOfBirth: form.get("dateOfBirth") || null,
+      shirtSize: form.get("shirtSize"),
+      pantsSize: form.get("pantsSize"),
       roleType: form.get("roleType"),
       employmentType: form.get("employmentType"),
       location: form.get("location"),
@@ -54,9 +60,14 @@ export default function NewEmployeePage() {
           <FormField label="Last Name" name="lastName" required />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Email" name="email" type="email" />
-          <FormField label="Phone" name="phone" />
+          <FormField label="Work Email" name="email" type="email" />
+          <FormField label="Personal Email" name="personalEmail" type="email" />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Phone" name="phone" />
+          <FormField label="Date of Birth" name="dateOfBirth" type="date" />
+        </div>
+        <AddressAutocomplete label="Address" name="address" />
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Role Type" name="roleType" required options={[
             { value: "OFFICE", label: "Office" },
@@ -86,6 +97,18 @@ export default function NewEmployeePage() {
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Start Date" name="startDate" type="date" required />
           <FormField label="Probation Review Date" name="probationDate" type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField label="Shirt Size" name="shirtSize" options={[
+            { value: "XS", label: "XS" }, { value: "S", label: "S" }, { value: "M", label: "M" },
+            { value: "L", label: "L" }, { value: "XL", label: "XL" }, { value: "2XL", label: "2XL" },
+            { value: "3XL", label: "3XL" }, { value: "4XL", label: "4XL" }, { value: "5XL", label: "5XL" },
+          ]} />
+          <SelectField label="Pants Size" name="pantsSize" options={[
+            { value: "28", label: "28" }, { value: "30", label: "30" }, { value: "32", label: "32" },
+            { value: "34", label: "34" }, { value: "36", label: "36" }, { value: "38", label: "38" },
+            { value: "40", label: "40" }, { value: "42", label: "42" }, { value: "44", label: "44" },
+          ]} />
         </div>
         <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
 

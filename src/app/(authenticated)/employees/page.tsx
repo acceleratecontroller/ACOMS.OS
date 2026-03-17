@@ -8,6 +8,7 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField, ClearableDateField } from "@/shared/components/FormField";
+import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
 
 const LOCATION_LABELS: Record<string, string> = {
   BRISBANE: "Brisbane",
@@ -50,13 +51,42 @@ const STATUS_OPTIONS = [
   { value: "TERMINATED", label: "Terminated" },
 ];
 
+const SHIRT_SIZE_OPTIONS = [
+  { value: "XS", label: "XS" },
+  { value: "S", label: "S" },
+  { value: "M", label: "M" },
+  { value: "L", label: "L" },
+  { value: "XL", label: "XL" },
+  { value: "2XL", label: "2XL" },
+  { value: "3XL", label: "3XL" },
+  { value: "4XL", label: "4XL" },
+  { value: "5XL", label: "5XL" },
+];
+
+const PANTS_SIZE_OPTIONS = [
+  { value: "28", label: "28" },
+  { value: "30", label: "30" },
+  { value: "32", label: "32" },
+  { value: "34", label: "34" },
+  { value: "36", label: "36" },
+  { value: "38", label: "38" },
+  { value: "40", label: "40" },
+  { value: "42", label: "42" },
+  { value: "44", label: "44" },
+];
+
 interface Employee {
   id: string;
   employeeNumber: string;
   firstName: string;
   lastName: string;
   email: string | null;
+  personalEmail: string | null;
   phone: string | null;
+  address: string | null;
+  dateOfBirth: string | null;
+  shirtSize: string | null;
+  pantsSize: string | null;
   roleType: string;
   employmentType: string;
   location: string;
@@ -192,7 +222,12 @@ function EmployeesContent() {
       firstName: (form.get("firstName") as string) || "",
       lastName: (form.get("lastName") as string) || "",
       email: (form.get("email") as string) || "",
+      personalEmail: (form.get("personalEmail") as string) || "",
       phone: (form.get("phone") as string) || "",
+      address: (form.get("address") as string) || "",
+      dateOfBirth: (form.get("dateOfBirth") as string) || null,
+      shirtSize: (form.get("shirtSize") as string) || "",
+      pantsSize: (form.get("pantsSize") as string) || "",
       roleType: (form.get("roleType") as string) || "",
       employmentType: (form.get("employmentType") as string) || "",
       location: (form.get("location") as string) || "",
@@ -234,7 +269,12 @@ function EmployeesContent() {
       firstName: (form.get("firstName") as string) || "",
       lastName: (form.get("lastName") as string) || "",
       email: (form.get("email") as string) || "",
+      personalEmail: (form.get("personalEmail") as string) || "",
       phone: (form.get("phone") as string) || "",
+      address: (form.get("address") as string) || "",
+      dateOfBirth: (form.get("dateOfBirth") as string) || null,
+      shirtSize: (form.get("shirtSize") as string) || "",
+      pantsSize: (form.get("pantsSize") as string) || "",
       roleType: (form.get("roleType") as string) || "",
       employmentType: (form.get("employmentType") as string) || "",
       location: (form.get("location") as string) || "",
@@ -349,11 +389,16 @@ function EmployeesContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Role Type</dt><dd className="font-medium text-gray-900">{selected.roleType === "OFFICE" ? "Office" : "Field"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employment Type</dt><dd className="font-medium text-gray-900">{EMPLOYMENT_LABELS[selected.employmentType]}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{LOCATION_LABELS[selected.location]}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Email</dt><dd className="font-medium text-gray-900">{selected.email || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Work Email</dt><dd className="font-medium text-gray-900">{selected.email || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Personal Email</dt><dd className="font-medium text-gray-900">{selected.personalEmail || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Phone</dt><dd className="font-medium text-gray-900">{selected.phone || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Date of Birth</dt><dd className="font-medium text-gray-900">{formatDate(selected.dateOfBirth) || "—"}</dd></div>
+              <div className="md:col-span-2"><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Address</dt><dd className="font-medium text-gray-900">{selected.address || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Start Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.startDate)}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">End Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.endDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Probation Review</dt><dd className="font-medium text-gray-900">{formatDate(selected.probationDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Shirt Size</dt><dd className="font-medium text-gray-900">{selected.shirtSize || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Pants Size</dt><dd className="font-medium text-gray-900">{selected.pantsSize || "—"}</dd></div>
             </dl>
             {selected.notes && (
               <div className="mt-5 text-sm">
@@ -381,9 +426,14 @@ function EmployeesContent() {
                 <FormField label="Last Name" name="lastName" required defaultValue={selected.lastName} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField label="Email" name="email" type="email" defaultValue={selected.email || ""} />
-                <FormField label="Phone" name="phone" defaultValue={selected.phone || ""} />
+                <FormField label="Work Email" name="email" type="email" defaultValue={selected.email || ""} />
+                <FormField label="Personal Email" name="personalEmail" type="email" defaultValue={selected.personalEmail || ""} />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Phone" name="phone" defaultValue={selected.phone || ""} />
+                <FormField label="Date of Birth" name="dateOfBirth" type="date" defaultValue={formatDate(selected.dateOfBirth)} />
+              </div>
+              <AddressAutocomplete label="Address" name="address" defaultValue={selected.address || ""} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SelectField label="Role Type" name="roleType" required defaultValue={selected.roleType} options={ROLE_TYPE_OPTIONS} />
                 <SelectField label="Employment Type" name="employmentType" required defaultValue={selected.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
@@ -397,6 +447,10 @@ function EmployeesContent() {
                 <ClearableDateField label="End Date" name="endDate" defaultValue={formatDate(selected.endDate)} />
               </div>
               <ClearableDateField label="Probation Review Date" name="probationDate" defaultValue={formatDate(selected.probationDate)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SelectField label="Shirt Size" name="shirtSize" defaultValue={selected.shirtSize || ""} options={SHIRT_SIZE_OPTIONS} />
+                <SelectField label="Pants Size" name="pantsSize" defaultValue={selected.pantsSize || ""} options={PANTS_SIZE_OPTIONS} />
+              </div>
               <TextAreaField label="Notes" name="notes" defaultValue={selected.notes || ""} />
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -428,9 +482,14 @@ function EmployeesContent() {
             <FormField label="Last Name" name="lastName" required />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Email" name="email" type="email" />
-            <FormField label="Phone" name="phone" />
+            <FormField label="Work Email" name="email" type="email" />
+            <FormField label="Personal Email" name="personalEmail" type="email" />
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Phone" name="phone" />
+            <FormField label="Date of Birth" name="dateOfBirth" type="date" />
+          </div>
+          <AddressAutocomplete label="Address" name="address" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SelectField label="Role Type" name="roleType" required options={ROLE_TYPE_OPTIONS} />
             <SelectField label="Employment Type" name="employmentType" required options={EMPLOYMENT_TYPE_OPTIONS} />
@@ -442,6 +501,10 @@ function EmployeesContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Start Date" name="startDate" type="date" required />
             <ClearableDateField label="Probation Review Date" name="probationDate" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SelectField label="Shirt Size" name="shirtSize" options={SHIRT_SIZE_OPTIONS} />
+            <SelectField label="Pants Size" name="pantsSize" options={PANTS_SIZE_OPTIONS} />
           </div>
           <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
 
