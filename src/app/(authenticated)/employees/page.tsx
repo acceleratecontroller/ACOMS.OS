@@ -393,13 +393,27 @@ function EmployeesContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Personal Email</dt><dd className="font-medium text-gray-900">{selected.personalEmail || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Phone</dt><dd className="font-medium text-gray-900">{selected.phone || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Date of Birth</dt><dd className="font-medium text-gray-900">{formatDate(selected.dateOfBirth) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Shirt Size</dt><dd className="font-medium text-gray-900">{selected.shirtSize || "—"}</dd></div>
-              <div className="md:col-span-2"><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Address</dt><dd className="font-medium text-gray-900">{selected.address || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Pants Size</dt><dd className="font-medium text-gray-900">{selected.pantsSize || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Start Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.startDate)}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">End Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.endDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Probation Review</dt><dd className="font-medium text-gray-900">{formatDate(selected.probationDate) || "—"}</dd></div>
+              <div className="md:col-span-3"><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Address</dt><dd className="font-medium text-gray-900">{selected.address || "—"}</dd></div>
             </dl>
+            <div className="mt-4 inline-flex items-center gap-4 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+              <span className="text-gray-400 text-xs uppercase tracking-wider font-medium">Uniform</span>
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+                <span className="text-sm font-medium text-gray-900">{selected.shirtSize || "—"}</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300" />
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                </svg>
+                <span className="text-sm font-medium text-gray-900">{selected.pantsSize || "—"}</span>
+              </div>
+            </div>
             {selected.notes && (
               <div className="mt-5 text-sm">
                 <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p>
@@ -448,8 +462,33 @@ function EmployeesContent() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <SelectField label="Status" name="status" required defaultValue={selected.status} options={STATUS_OPTIONS} />
-                <SelectField label="Shirt Size" name="shirtSize" defaultValue={selected.shirtSize || ""} options={SHIRT_SIZE_OPTIONS} />
-                <SelectField label="Pants Size" name="pantsSize" defaultValue={selected.pantsSize || ""} options={PANTS_SIZE_OPTIONS} />
+              </div>
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Uniform Size</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                      Shirt
+                    </label>
+                    <select name="shirtSize" defaultValue={selected.shirtSize || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">Select...</option>
+                      {SHIRT_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                      Pants
+                    </label>
+                    <select name="pantsSize" defaultValue={selected.pantsSize || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">Select...</option>
+                      {PANTS_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
               <TextAreaField label="Notes" name="notes" defaultValue={selected.notes || ""} rows={2} />
 
@@ -502,9 +541,32 @@ function EmployeesContent() {
             <ClearableDateField label="Probation Review Date" name="probationDate" />
             <SelectField label="Status" name="status" required defaultValue="ACTIVE" options={STATUS_OPTIONS} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <SelectField label="Shirt Size" name="shirtSize" options={SHIRT_SIZE_OPTIONS} />
-            <SelectField label="Pants Size" name="pantsSize" options={PANTS_SIZE_OPTIONS} />
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Uniform Size</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                  Shirt
+                </label>
+                <select name="shirtSize" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select...</option>
+                  {SHIRT_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                  Pants
+                </label>
+                <select name="pantsSize" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select...</option>
+                  {PANTS_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
           <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." rows={2} />
 
