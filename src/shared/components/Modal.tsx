@@ -59,7 +59,7 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
       onClick={handleOverlayClick}
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto overscroll-none md:flex md:items-start md:justify-center md:py-8"
     >
-      <div className="bg-white shadow-xl w-full relative min-h-screen overscroll-none md:min-h-0 md:rounded-lg md:max-w-3xl md:mx-4">
+      <div className="bg-white shadow-xl w-full relative min-h-screen overscroll-none md:min-h-0 md:rounded-lg md:max-w-5xl md:mx-4">
         <button
           onClick={onClose}
           className="sticky top-0 float-right z-10 mt-3 mr-3 text-gray-400 hover:text-gray-600 text-xl leading-none w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-gray-100 transition-colors"
