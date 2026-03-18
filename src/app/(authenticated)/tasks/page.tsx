@@ -99,14 +99,17 @@ export default function TaskManagerPage() {
 
   useEffect(() => {
     async function init() {
-      try {
-        const sessionRes = await fetch("/api/auth/session");
-        if (sessionRes.ok) {
-          const sess = await sessionRes.json();
-          setIsAdmin(sess?.user?.role === "ADMIN");
-        }
-      } catch { /* ignore */ }
-      await Promise.all([loadEmployees(), loadTasks(showArchived), loadRecurringTasks(showArchived)]);
+      // Fetch session and all data in parallel instead of sequentially
+      const [sessionRes] = await Promise.all([
+        fetch("/api/auth/session").catch(() => null),
+        loadEmployees(),
+        loadTasks(showArchived),
+        loadRecurringTasks(showArchived),
+      ]);
+      if (sessionRes?.ok) {
+        const sess = await sessionRes.json();
+        setIsAdmin(sess?.user?.role === "ADMIN");
+      }
       setLoading(false);
     }
     init();
