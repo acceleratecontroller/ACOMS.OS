@@ -117,6 +117,17 @@ function PlantContent() {
   const [linkError, setLinkError] = useState("");
   const [unlinkConfirm, setUnlinkConfirm] = useState<LinkedAsset | null>(null);
 
+  // Assets queued during plant creation (before the plant exists)
+  interface QueuedExistingAsset { type: "existing"; asset: AvailableAsset; notes: string }
+  interface QueuedNewAsset { type: "new"; name: string; category: string; make: string; model: string; serialNumber: string; status: string; condition: string; notes: string; linkNotes: string }
+  type QueuedAsset = QueuedExistingAsset | QueuedNewAsset;
+  const [queuedAssets, setQueuedAssets] = useState<QueuedAsset[]>([]);
+  const [showQueueLinkModal, setShowQueueLinkModal] = useState(false);
+  const [showQueueCreateModal, setShowQueueCreateModal] = useState(false);
+  const [queueLinkSearch, setQueueLinkSearch] = useState("");
+  const [queueLinkSelected, setQueueLinkSelected] = useState<AvailableAsset | null>(null);
+  const [queueLinkNotes, setQueueLinkNotes] = useState("");
+
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -172,6 +183,7 @@ function PlantContent() {
     setCreating(false);
     setError("");
     setLinkedAssets([]);
+    setQueuedAssets([]);
   }
 
   // Load available (unlinked to this plant) assets for linking
@@ -283,6 +295,29 @@ function PlantContent() {
     });
     if (res.ok) {
       const created = await res.json();
+      // Link any queued assets
+      for (const queued of queuedAssets) {
+        if (queued.type === "existing") {
+          await fetch(`/api/plant/${created.id}/assets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assetId: queued.asset.id, notes: queued.notes || undefined }),
+          });
+        } else {
+          await fetch(`/api/plant/${created.id}/assets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              create: {
+                name: queued.name, category: queued.category, make: queued.make, model: queued.model,
+                serialNumber: queued.serialNumber, status: queued.status, condition: queued.condition, notes: queued.notes,
+              },
+              notes: queued.linkNotes || undefined,
+            }),
+          });
+        }
+      }
+      setQueuedAssets([]);
       setCreating(false);
       setError("");
       loadData(showArchived);
@@ -509,9 +544,138 @@ function PlantContent() {
       </Modal>
 
       {/* Create Plant Modal */}
-      <Modal isOpen={creating} onClose={closeModal}>
+      <Modal isOpen={creating && !showQueueLinkModal && !showQueueCreateModal} onClose={() => { closeModal(); setQueuedAssets([]); }}>
         <h2 className="text-xl font-bold text-gray-900 mb-5">Add Plant</h2>
         <PlantForm onSubmit={handleCreate} submitLabel="Create Plant Item" />
+
+        {/* Queued assets section */}
+        <div className="mt-6 pt-5 border-t">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Linked Assets</h3>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => {
+                setShowQueueLinkModal(true);
+                setQueueLinkSearch("");
+                setQueueLinkSelected(null);
+                setQueueLinkNotes("");
+                fetch("/api/assets").then((r) => r.json()).then((data) => {
+                  const queuedIds = new Set(queuedAssets.filter((q) => q.type === "existing").map((q) => (q as QueuedExistingAsset).asset.id));
+                  setAvailableAssets((data as AvailableAsset[]).filter((a) => !queuedIds.has(a.id)));
+                });
+              }} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                + Link Existing
+              </button>
+              <button type="button" onClick={() => { setShowQueueCreateModal(true); setLinkError(""); }} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                + Create New
+              </button>
+            </div>
+          </div>
+          {queuedAssets.length === 0 ? (
+            <p className="text-sm text-gray-400">No assets linked yet. You can add them now or after creation.</p>
+          ) : (
+            <div className="space-y-2">
+              {queuedAssets.map((q, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded border text-sm">
+                  <div>
+                    <span className="font-medium text-gray-900">{q.type === "existing" ? q.asset.name : q.name}</span>
+                    {q.type === "existing" && <span className="text-gray-500 ml-2">({q.asset.assetNumber})</span>}
+                    {q.type === "new" && <span className="text-gray-400 ml-2">(new)</span>}
+                    <span className="text-gray-400 ml-2">{q.type === "existing" ? q.asset.category : q.category}</span>
+                  </div>
+                  <button type="button" onClick={() => setQueuedAssets(queuedAssets.filter((_, j) => j !== i))} className="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Queue: Link Existing Asset (during create) */}
+      <Modal isOpen={showQueueLinkModal} onClose={() => setShowQueueLinkModal(false)}>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Link Existing Asset</h2>
+        <input
+          type="text"
+          placeholder="Search by name, number, or category..."
+          value={queueLinkSearch}
+          onChange={(e) => setQueueLinkSearch(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <div className="max-h-48 overflow-y-auto border rounded mb-3">
+          {availableAssets.filter((a) => {
+            if (!queueLinkSearch) return true;
+            const q = queueLinkSearch.toLowerCase();
+            return a.name.toLowerCase().includes(q) || a.assetNumber.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+          }).length === 0 ? (
+            <p className="text-sm text-gray-400 p-3">No available assets found.</p>
+          ) : (
+            availableAssets.filter((a) => {
+              if (!queueLinkSearch) return true;
+              const q = queueLinkSearch.toLowerCase();
+              return a.name.toLowerCase().includes(q) || a.assetNumber.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+            }).map((a) => (
+              <button key={a.id} type="button" onClick={() => setQueueLinkSelected(a)}
+                className={`w-full text-left px-3 py-2 text-sm border-b last:border-0 hover:bg-blue-50 transition-colors ${queueLinkSelected?.id === a.id ? "bg-blue-50 border-blue-200" : ""}`}>
+                <span className="font-medium text-gray-900">{a.name}</span>
+                <span className="text-gray-500 ml-2">({a.assetNumber})</span>
+                <span className="text-gray-400 ml-2">{a.category}</span>
+              </button>
+            ))
+          )}
+        </div>
+        <TextAreaField label="Link Notes (optional)" name="queueLinkNotes" value={queueLinkNotes} onChange={(e) => setQueueLinkNotes(e.target.value)} placeholder="e.g. Mounted behind driver seat" />
+        <div className="flex gap-3 pt-3">
+          <button type="button" disabled={!queueLinkSelected} onClick={() => {
+            if (queueLinkSelected) {
+              setQueuedAssets([...queuedAssets, { type: "existing", asset: queueLinkSelected, notes: queueLinkNotes }]);
+              setShowQueueLinkModal(false);
+            }
+          }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">Add Asset</button>
+          <button type="button" onClick={() => setShowQueueLinkModal(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+        </div>
+      </Modal>
+
+      {/* Queue: Create New Asset (during create) */}
+      <Modal isOpen={showQueueCreateModal} onClose={() => setShowQueueCreateModal(false)}>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Asset</h2>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const form = new FormData(e.currentTarget);
+          setQueuedAssets([...queuedAssets, {
+            type: "new",
+            name: form.get("name") as string,
+            category: form.get("category") as string,
+            make: form.get("make") as string,
+            model: form.get("model") as string,
+            serialNumber: form.get("serialNumber") as string,
+            status: form.get("status") as string,
+            condition: form.get("condition") as string,
+            notes: form.get("assetNotes") as string,
+            linkNotes: form.get("linkNotes") as string,
+          }]);
+          setShowQueueCreateModal(false);
+        }} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SelectField label="Status" name="status" required defaultValue="IN_USE" options={ASSET_STATUS_OPTIONS} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Name" name="name" required placeholder="e.g. First Aid Kit" />
+            <FormField label="Category" name="category" required placeholder="e.g. Safety Equipment" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Make" name="make" placeholder="e.g. St John" />
+            <FormField label="Model" name="model" placeholder="e.g. Vehicle Kit" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Serial Number" name="serialNumber" />
+            <SelectField label="Condition" name="condition" defaultValue="" options={CONDITION_OPTIONS} />
+          </div>
+          <TextAreaField label="Asset Notes" name="assetNotes" placeholder="Optional notes about the asset..." />
+          <TextAreaField label="Link Notes" name="linkNotes" placeholder="e.g. Located under passenger seat" />
+          <div className="flex gap-3 pt-3">
+            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Add Asset</button>
+            <button type="button" onClick={() => setShowQueueCreateModal(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+          </div>
+        </form>
       </Modal>
 
       {/* Link Existing Asset Modal */}
