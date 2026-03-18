@@ -1230,18 +1230,15 @@ function TaskRow({
   const overdue = task.status !== "COMPLETED" && isOverdue(task.dueDate);
   const completed = task.status === "COMPLETED";
 
+  const borderColor = PRIORITY_COLORS[task.priority] || "border-l-gray-300";
+
   return (
-    <div
-      className={`border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm ${
-        PRIORITY_COLORS[task.priority] || "border-l-gray-300"
-      } ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""} cursor-pointer active:bg-blue-50`}
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onEdit(); }}
-    >
+    <>
       {/* Desktop layout */}
-      <div className="hidden md:flex items-center gap-3 px-4 py-3">
+      <div
+        onClick={onEdit}
+        className={`hidden md:flex items-center gap-3 px-4 py-3 border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm cursor-pointer hover:bg-blue-50/60 ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
+      >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`font-semibold text-sm text-gray-900 ${completed ? "line-through" : ""}`}>
@@ -1299,7 +1296,10 @@ function TaskRow({
       </div>
 
       {/* Mobile layout */}
-      <div className="md:hidden p-3">
+      <div
+        onClick={onEdit}
+        className={`md:hidden border rounded-lg mb-2 border-l-4 px-3 py-2 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
+      >
         <div className="flex items-start justify-between mb-2">
           <span className={`font-semibold text-sm text-gray-900 flex-1 ${completed ? "line-through" : ""}`}>
             {task.title}
@@ -1315,20 +1315,8 @@ function TaskRow({
           <div><span className="text-gray-400">Status:</span> <span className="font-medium text-gray-700">{formatStatusLabel(task.status)}</span></div>
         </div>
         {task.notes && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.notes}</p>}
-        {isAdmin && (
-          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-            <button onClick={onComplete} className="text-xs text-green-600 font-medium">
-              {completed ? "Undo" : "Complete"}
-            </button>
-            {task.isArchived ? (
-              <button onClick={onRestore} className="text-xs text-green-600 font-medium">Restore</button>
-            ) : (
-              <button onClick={onArchive} className="text-xs text-red-500 font-medium">Archive</button>
-            )}
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1367,17 +1355,14 @@ function RecurringTaskRow({
   }
 
   return (
-    <div
-      className={`border-b last:border-b-0 transition-all hover:bg-gray-50 ${
-        overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
-      } cursor-pointer active:bg-blue-50`}
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onEdit(); }}
-    >
+    <>
       {/* Desktop */}
-      <div className="hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center">
+      <div
+        onClick={onEdit}
+        className={`hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center border-b last:border-b-0 transition-all cursor-pointer hover:bg-blue-50/60 ${
+          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
+        }`}
+      >
         <div className="col-span-2">
           <div className="font-semibold text-sm text-gray-900">{task.title}</div>
           {task.description && <p className="text-xs text-gray-500 italic truncate">{task.description}</p>}
@@ -1416,7 +1401,12 @@ function RecurringTaskRow({
       </div>
 
       {/* Mobile */}
-      <div className="md:hidden p-3">
+      <div
+        onClick={onEdit}
+        className={`md:hidden rounded-md border px-3 py-2 mb-1 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${
+          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : "bg-white"
+        }`}
+      >
         <div className="flex items-start justify-between mb-2">
           <span className="font-semibold text-sm text-gray-900 flex-1">{task.title}</span>
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ml-2 ${statusColor}`}>
@@ -1430,17 +1420,7 @@ function RecurringTaskRow({
           <div><span className="text-gray-400">Next Due:</span> <span className={`font-medium ${overdue ? "text-red-600" : "text-gray-700"}`}>{task.nextDue ? formatDate(task.nextDue) : "Not set"}</span></div>
         </div>
         {task.description && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.description}</p>}
-        {isAdmin && (
-          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-            <button onClick={onComplete} className="text-xs text-green-600 font-medium">Complete</button>
-            {task.isArchived ? (
-              <button onClick={onRestore} className="text-xs text-green-600 font-medium">Restore</button>
-            ) : (
-              <button onClick={onArchive} className="text-xs text-red-500 font-medium">Archive</button>
-            )}
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
