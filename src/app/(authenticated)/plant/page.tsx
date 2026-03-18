@@ -281,7 +281,13 @@ function PlantContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
-    if (res.ok) { closeModal(); loadData(showArchived); }
+    if (res.ok) {
+      const created = await res.json();
+      setCreating(false);
+      setError("");
+      loadData(showArchived);
+      loadPlantDetail(created.id);
+    }
     else { const data = await res.json(); setError(data.error || "Failed to create."); }
     setSaving(false);
   }

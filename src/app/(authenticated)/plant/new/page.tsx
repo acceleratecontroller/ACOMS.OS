@@ -58,7 +58,8 @@ export default function NewPlantPage() {
     });
 
     if (res.ok) {
-      router.push("/plant");
+      const created = await res.json();
+      router.push(`/plant?open=${created.id}`);
     } else {
       const data = await res.json();
       setError(data.error || "Failed to create plant item.");
