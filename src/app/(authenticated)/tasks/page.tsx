@@ -1234,7 +1234,8 @@ function TaskRow({
     <div
       className={`border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm ${
         PRIORITY_COLORS[task.priority] || "border-l-gray-300"
-      } ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
+      } ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""} ${isAdmin ? "cursor-pointer" : ""}`}
+      onClick={isAdmin ? onEdit : undefined}
     >
       {/* Desktop layout */}
       <div className="hidden md:flex items-center gap-3 px-4 py-3">
@@ -1265,12 +1266,7 @@ function TaskRow({
           {task.priority}
         </span>
         {isAdmin && (
-          <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 transition-colors" title="Edit">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             <button onClick={onComplete} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title={completed ? "Undo complete" : "Complete"}>
               {completed ? (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1317,8 +1313,7 @@ function TaskRow({
         </div>
         {task.notes && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.notes}</p>}
         {isAdmin && (
-          <div className="flex justify-end gap-2">
-            <button onClick={onEdit} className="text-xs text-blue-600 font-medium">Edit</button>
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button onClick={onComplete} className="text-xs text-green-600 font-medium">
               {completed ? "Undo" : "Complete"}
             </button>
@@ -1372,7 +1367,8 @@ function RecurringTaskRow({
     <div
       className={`border-b last:border-b-0 transition-all hover:bg-gray-50 ${
         overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
-      }`}
+      } ${isAdmin ? "cursor-pointer" : ""}`}
+      onClick={isAdmin ? onEdit : undefined}
     >
       {/* Desktop */}
       <div className="hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center">
@@ -1390,12 +1386,7 @@ function RecurringTaskRow({
           {statusText}
         </span>
         {isAdmin && (
-          <div className="flex items-center gap-1 justify-end">
-            <button onClick={onEdit} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 transition-colors" title="Edit">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
             <button onClick={onComplete} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title="Mark completed">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -1434,8 +1425,7 @@ function RecurringTaskRow({
         </div>
         {task.description && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.description}</p>}
         {isAdmin && (
-          <div className="flex justify-end gap-2">
-            <button onClick={onEdit} className="text-xs text-blue-600 font-medium">Edit</button>
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button onClick={onComplete} className="text-xs text-green-600 font-medium">Complete</button>
             {task.isArchived ? (
               <button onClick={onRestore} className="text-xs text-green-600 font-medium">Restore</button>
