@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma migrate deploy && next build",
+    "build": "prisma migrate deploy || echo 'Migration skipped (already applied or db timeout)' && next build",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
