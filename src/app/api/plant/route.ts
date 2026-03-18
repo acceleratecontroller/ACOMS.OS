@@ -57,10 +57,24 @@ export async function POST(request: NextRequest) {
   const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
   if (refError) return refError;
 
+  // Auto-generate plant number: PLT-0001, PLT-0002, etc.
+  const lastPlant = await prisma.plant.findFirst({
+    orderBy: { plantNumber: "desc" },
+  });
+
+  let nextNumber = 1;
+  if (lastPlant) {
+    const match = lastPlant.plantNumber.match(/PLT-(\d+)/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+  const plantNumber = `PLT-${String(nextNumber).padStart(4, "0")}`;
+
   const { result: plant, error } = await withPrismaError("Failed to create plant", () =>
     prisma.plant.create({
       data: {
-        plantNumber: data.plantNumber,
+        plantNumber,
         name: data.name,
         category: data.category,
         make: data.make || null,

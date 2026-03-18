@@ -11,6 +11,8 @@ import { FormField, SelectField, TextAreaField } from "@/shared/components/FormF
 import {
   ASSET_STATUS_OPTIONS as STATUS_OPTIONS,
   CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -129,7 +131,6 @@ function AssetsContent() {
 
   function getFormBody(form: FormData) {
     return {
-      assetNumber: form.get("assetNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -190,7 +191,17 @@ function AssetsContent() {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Asset Number" name="assetNumber" required placeholder="e.g. AST-001" defaultValue={defaults?.assetNumber || ""} />
+          {defaults?.assetNumber ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
+              <p className="text-sm font-medium text-gray-900 py-2">{defaults.assetNumber}</p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
+              <p className="text-sm text-gray-500 py-2">Auto-generated</p>
+            </div>
+          )}
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -210,7 +221,7 @@ function AssetsContent() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Workshop A" defaultValue={defaults?.location || ""} />
+          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
         <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
@@ -271,7 +282,7 @@ function AssetsContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Serial Number</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>

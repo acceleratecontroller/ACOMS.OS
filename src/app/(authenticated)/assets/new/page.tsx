@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import { LOCATION_OPTIONS } from "@/config/constants";
 
 interface EmployeeOption {
   id: string;
@@ -32,7 +33,6 @@ export default function NewAssetPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      assetNumber: form.get("assetNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -64,10 +64,9 @@ export default function NewAssetPage() {
 
   return (
     <div>
-      <PageHeader title="Add Asset" />
+      <PageHeader title="Add Asset" description="Asset number will be auto-generated." />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Asset Number" name="assetNumber" required placeholder="e.g. AST-001" />
           <SelectField label="Status" name="status" required defaultValue="AVAILABLE" options={[
             { value: "AVAILABLE", label: "Available" },
             { value: "IN_USE", label: "In Use" },
@@ -97,7 +96,7 @@ export default function NewAssetPage() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Workshop A" />
+          <SelectField label="Location" name="location" options={LOCATION_OPTIONS} />
           <SelectField
             label="Assigned To (Employee)"
             name="assignedToId"

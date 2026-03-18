@@ -12,6 +12,8 @@ import {
   PLANT_STATUS_OPTIONS as STATUS_OPTIONS,
   ASSET_STATUS_OPTIONS,
   CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -252,7 +254,6 @@ function PlantContent() {
 
   function getFormBody(form: FormData) {
     return {
-      plantNumber: form.get("plantNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -322,7 +323,17 @@ function PlantContent() {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Plant Number" name="plantNumber" required placeholder="e.g. PLT-001" defaultValue={defaults?.plantNumber || ""} />
+          {defaults?.plantNumber ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
+              <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
+              <p className="text-sm text-gray-500 py-2">Auto-generated</p>
+            </div>
+          )}
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,7 +357,7 @@ function PlantContent() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Site B" defaultValue={defaults?.location || ""} />
+          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -425,7 +436,7 @@ function PlantContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Serial Number</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Year</dt><dd className="font-medium text-gray-900">{selected.yearOfManufacture || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Registration</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.lastServiceDate) || "—"}</dd></div>

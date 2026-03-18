@@ -8,6 +8,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import {
   PLANT_STATUS_OPTIONS as STATUS_OPTIONS,
   CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
 } from "@/config/constants";
 
 interface PlantItem {
@@ -68,7 +70,6 @@ export default function PlantDetailPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      plantNumber: form.get("plantNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -133,7 +134,7 @@ export default function PlantDetailPage() {
             <div><dt className="text-gray-500">Serial Number</dt><dd className="font-medium">{plant.serialNumber || "—"}</dd></div>
             <div><dt className="text-gray-500">Year of Manufacture</dt><dd className="font-medium">{plant.yearOfManufacture || "—"}</dd></div>
             <div><dt className="text-gray-500">Registration</dt><dd className="font-medium">{plant.registrationNumber || "—"}</dd></div>
-            <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{plant.location || "—"}</dd></div>
+            <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{plant.location ? (LOCATION_LABELS[plant.location] || plant.location) : "—"}</dd></div>
             <div><dt className="text-gray-500">Purchase Date</dt><dd className="font-medium">{formatDate(plant.purchaseDate) || "—"}</dd></div>
             <div><dt className="text-gray-500">Purchase Cost</dt><dd className="font-medium">{plant.purchaseCost ? `$${plant.purchaseCost}` : "—"}</dd></div>
             <div><dt className="text-gray-500">Last Service</dt><dd className="font-medium">{formatDate(plant.lastServiceDate) || "—"}</dd></div>
@@ -161,7 +162,10 @@ export default function PlantDetailPage() {
       <PageHeader title={`Edit: ${plant.name}`} />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Plant Number" name="plantNumber" required defaultValue={plant.plantNumber} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
+            <p className="text-sm font-medium text-gray-900 py-2">{plant.plantNumber}</p>
+          </div>
           <SelectField label="Status" name="status" required defaultValue={plant.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -185,7 +189,7 @@ export default function PlantDetailPage() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" defaultValue={plant.purchaseCost?.toString() || ""} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Location" name="location" defaultValue={plant.location || ""} />
+          <SelectField label="Location" name="location" defaultValue={plant.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To (Employee)" name="assignedToId" defaultValue={plant.assignedToId || ""} options={employees.map((emp) => ({
             value: emp.id,
             label: `${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`,

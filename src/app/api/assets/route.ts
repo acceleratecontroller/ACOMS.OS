@@ -51,10 +51,24 @@ export async function POST(request: NextRequest) {
   const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
   if (refError) return refError;
 
+  // Auto-generate asset number: AST-0001, AST-0002, etc.
+  const lastAsset = await prisma.asset.findFirst({
+    orderBy: { assetNumber: "desc" },
+  });
+
+  let nextNumber = 1;
+  if (lastAsset) {
+    const match = lastAsset.assetNumber.match(/AST-(\d+)/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+  const assetNumber = `AST-${String(nextNumber).padStart(4, "0")}`;
+
   const { result: asset, error } = await withPrismaError("Failed to create asset", () =>
     prisma.asset.create({
       data: {
-        assetNumber: data.assetNumber,
+        assetNumber,
         name: data.name,
         category: data.category,
         make: data.make || null,

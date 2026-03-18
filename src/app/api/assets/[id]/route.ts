@@ -76,7 +76,6 @@ export async function PUT(
     prisma.asset.update({
       where: { id },
       data: {
-        ...(data.assetNumber !== undefined && { assetNumber: data.assetNumber }),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.category !== undefined && { category: data.category }),
         ...(data.make !== undefined && { make: data.make || null }),

@@ -79,7 +79,6 @@ export async function PUT(
     prisma.plant.update({
       where: { id },
       data: {
-        ...(data.plantNumber !== undefined && { plantNumber: data.plantNumber }),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.category !== undefined && { category: data.category }),
         ...(data.make !== undefined && { make: data.make || null }),

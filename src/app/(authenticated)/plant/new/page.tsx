@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import { LOCATION_OPTIONS } from "@/config/constants";
 
 interface EmployeeOption {
   id: string;
@@ -32,7 +33,6 @@ export default function NewPlantPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      plantNumber: form.get("plantNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -68,10 +68,9 @@ export default function NewPlantPage() {
 
   return (
     <div>
-      <PageHeader title="Add Plant" />
+      <PageHeader title="Add Plant" description="Plant number will be auto-generated." />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Plant Number" name="plantNumber" required placeholder="e.g. PLT-001" />
           <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={[
             { value: "OPERATIONAL", label: "Operational" },
             { value: "MAINTENANCE", label: "Maintenance" },
@@ -105,7 +104,7 @@ export default function NewPlantPage() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Site B" />
+          <SelectField label="Location" name="location" options={LOCATION_OPTIONS} />
           <SelectField
             label="Assigned To (Employee)"
             name="assignedToId"

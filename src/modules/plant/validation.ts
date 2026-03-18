@@ -31,7 +31,6 @@ const optionalIntString = z
   });
 
 export const createPlantSchema = z.object({
-  plantNumber: z.string().min(1, "Plant number is required"),
   name: z.string().min(1, "Name is required"),
   category: z.string().min(1, "Category is required"),
   make: optionalString,
@@ -41,7 +40,7 @@ export const createPlantSchema = z.object({
   registrationNumber: optionalString,
   purchaseDate: optionalString,
   purchaseCost: optionalNumericString,
-  location: optionalString,
+  location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   assignedToId: optionalString,
   status: z.enum(["OPERATIONAL", "MAINTENANCE", "DECOMMISSIONED", "STANDBY"]).default("OPERATIONAL"),
   condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
