@@ -4,168 +4,27 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
-
-// ─── Types ────────────────────────────────────────────────
-
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  employeeNumber: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  projectId: string | null;
-  notes: string | null;
-  label: string;
-  dueDate: string | null;
-  status: string;
-  priority: string;
-  ownerId: string;
-  owner: Employee;
-  isArchived: boolean;
-  createdAt: string;
-}
-
-interface RecurringTask {
-  id: string;
-  title: string;
-  description: string | null;
-  category: string;
-  frequencyType: string;
-  frequencyValue: number;
-  scheduleType: string;
-  lastCompleted: string | null;
-  nextDue: string | null;
-  ownerId: string;
-  owner: Employee;
-  isArchived: boolean;
-  createdAt: string;
-}
-
-// ─── Constants ────────────────────────────────────────────
-
-const STATUS_OPTIONS = [
-  { value: "NOT_STARTED", label: "Not Started" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "STUCK", label: "Stuck" },
-  { value: "AWAITING_RESPONSE", label: "Awaiting Response" },
-  { value: "COMPLETED", label: "Completed" },
-];
-
-const PRIORITY_OPTIONS = [
-  { value: "LOW", label: "Low" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "HIGH", label: "High" },
-];
-
-const FREQUENCY_OPTIONS = [
-  { value: "WEEKLY", label: "Weekly" },
-  { value: "FORTNIGHTLY", label: "Fortnightly" },
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "QUARTERLY", label: "Quarterly" },
-  { value: "YEARLY", label: "Yearly" },
-];
-
-const SCHEDULE_OPTIONS = [
-  { value: "FLOATING", label: "Floating (from completion date)" },
-  { value: "FIXED", label: "Fixed (anchored schedule)" },
-];
-
-const STATUS_COLORS: Record<string, string> = {
-  NOT_STARTED: "bg-gray-100 text-gray-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  STUCK: "bg-red-100 text-red-700",
-  AWAITING_RESPONSE: "bg-yellow-100 text-yellow-700",
-  COMPLETED: "bg-green-100 text-green-700",
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  LOW: "border-l-green-500",
-  MEDIUM: "border-l-yellow-500",
-  HIGH: "border-l-red-500",
-};
-
-const PRIORITY_BADGE_COLORS: Record<string, string> = {
-  LOW: "bg-green-100 text-green-700",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  HIGH: "bg-red-100 text-red-700",
-};
-
-// ─── Helpers ──────────────────────────────────────────────
-
-function formatStatusLabel(status: string): string {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
-}
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-function formatDateISO(dateStr: string | null | undefined): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isOverdue(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return d < today;
-}
-
-function isDueSoon(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const week = new Date(today);
-  week.setDate(week.getDate() + 7);
-  return d >= today && d <= week;
-}
-
-function getDateGroupLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (d.getTime() === today.getTime()) return "Today";
-  if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
-  if (d.getTime() === yesterday.getTime()) return "Yesterday";
-  return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
-}
-
-function tomorrowISO(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return formatDateISO(d.toISOString());
-}
-
-function ownerName(emp: Employee): string {
-  return `${emp.firstName} ${emp.lastName}`;
-}
-
-function frequencyLabel(type: string, value: number): string {
-  const typeLabel = FREQUENCY_OPTIONS.find((o) => o.value === type)?.label ?? type;
-  if (value === 1) return typeLabel;
-  return `Every ${value} ${typeLabel.toLowerCase()}`;
-}
+import {
+  TASK_STATUS_OPTIONS as STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+  FREQUENCY_OPTIONS,
+  SCHEDULE_OPTIONS,
+  RECURRING_CATEGORY_OPTIONS,
+} from "@/config/constants";
+import {
+  Employee,
+  Task,
+  RecurringTask,
+  isOverdue,
+  isDueSoon,
+  formatDateISO,
+  getDateGroupLabel,
+  tomorrowISO,
+  ownerName,
+} from "./types";
+import { TaskRow } from "./TaskRow";
+import { RecurringTaskRow } from "./RecurringTaskRow";
+import { RecurringCalendar } from "./RecurringCalendar";
 
 // ─── Main Page Component ─────────────────────────────────
 
@@ -194,7 +53,6 @@ export default function TaskManagerPage() {
   const [recurringView, setRecurringView] = useState<"list" | "calendar">("list");
   const [showAddRecurring, setShowAddRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringTask | null>(null);
-  const [calendarDate, setCalendarDate] = useState(new Date());
 
   // Confirm dialog
   const [confirmAction, setConfirmAction] = useState<{
@@ -302,7 +160,6 @@ export default function TaskManagerPage() {
   // Group tasks by due date
   const groupedTasks = useMemo(() => {
     const sorted = [...filteredTasks].sort((a, b) => {
-      // Overdue first, then by date ascending, no-date last
       const aOverdue = a.status !== "COMPLETED" && isOverdue(a.dueDate);
       const bOverdue = b.status !== "COMPLETED" && isOverdue(b.dueDate);
       if (aOverdue && !bOverdue) return -1;
@@ -535,37 +392,6 @@ export default function TaskManagerPage() {
     }
     setConfirmAction(null);
   }
-
-  // ─── Calendar Helpers ─────────────────────────────────
-
-  const calendarDays = useMemo(() => {
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-    const days: { date: Date; isCurrentMonth: boolean; isToday: boolean; tasks: RecurringTask[] }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      d.setHours(0, 0, 0, 0);
-      const dateStr = formatDateISO(d.toISOString());
-      const tasksOnDay = recurringTasks.filter(
-        (t) => t.nextDue && formatDateISO(t.nextDue) === dateStr,
-      );
-      days.push({
-        date: d,
-        isCurrentMonth: d.getMonth() === month,
-        isToday: d.getTime() === today.getTime(),
-        tasks: tasksOnDay,
-      });
-    }
-    return days;
-  }, [calendarDate, recurringTasks]);
 
   // ─── Render ────────────────────────────────────────────
 
@@ -834,79 +660,7 @@ export default function TaskManagerPage() {
           )}
 
           {/* Calendar View */}
-          {recurringView === "calendar" && (
-            <div className="bg-white border rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-800 text-white">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      const d = new Date(calendarDate);
-                      d.setMonth(d.getMonth() - 1);
-                      setCalendarDate(d);
-                    }}
-                    className="text-lg px-2 py-1 rounded hover:bg-white/20 transition-colors"
-                  >
-                    &lsaquo;
-                  </button>
-                  <span className="font-semibold">
-                    {calendarDate.toLocaleDateString("en-AU", { month: "long", year: "numeric" })}
-                  </span>
-                  <button
-                    onClick={() => {
-                      const d = new Date(calendarDate);
-                      d.setMonth(d.getMonth() + 1);
-                      setCalendarDate(d);
-                    }}
-                    className="text-lg px-2 py-1 rounded hover:bg-white/20 transition-colors"
-                  >
-                    &rsaquo;
-                  </button>
-                </div>
-                <button
-                  onClick={() => setCalendarDate(new Date())}
-                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Today
-                </button>
-              </div>
-              <div className="grid grid-cols-7">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                  <div key={d} className="px-2 py-2 bg-gray-50 text-center text-xs font-semibold text-gray-500 border-b">
-                    {d}
-                  </div>
-                ))}
-                {calendarDays.map((day, i) => (
-                  <div
-                    key={i}
-                    className={`min-h-[80px] border-r border-b p-1 ${
-                      !day.isCurrentMonth ? "bg-gray-50 text-gray-300" : ""
-                    } ${day.isToday ? "bg-blue-50" : ""}`}
-                  >
-                    <div className="text-xs text-gray-500 mb-1">{day.date.getDate()}</div>
-                    {day.tasks.map((t) => {
-                      const overdue = isOverdue(t.nextDue);
-                      const soon = isDueSoon(t.nextDue);
-                      return (
-                        <div
-                          key={t.id}
-                          title={t.title}
-                          className={`text-[10px] px-1 py-0.5 mb-0.5 rounded truncate cursor-default ${
-                            overdue
-                              ? "bg-red-600 text-white"
-                              : soon
-                                ? "bg-yellow-400 text-black"
-                                : "bg-green-500 text-white"
-                          }`}
-                        >
-                          {t.title}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {recurringView === "calendar" && <RecurringCalendar tasks={recurringTasks} />}
         </div>
       )}
 
@@ -1059,11 +813,9 @@ export default function TaskManagerPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select name="category" defaultValue="Task" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="Task">Task</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Report">Report</option>
-                  <option value="Inspection">Inspection</option>
-                  <option value="Maintenance">Maintenance</option>
+                  {RECURRING_CATEGORY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1131,11 +883,9 @@ export default function TaskManagerPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select name="category" defaultValue={editingRecurring.category} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="Task">Task</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Report">Report</option>
-                  <option value="Inspection">Inspection</option>
-                  <option value="Maintenance">Maintenance</option>
+                  {RECURRING_CATEGORY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1207,220 +957,5 @@ export default function TaskManagerPage() {
         onCancel={() => setConfirmAction(null)}
       />
     </div>
-  );
-}
-
-// ─── Task Row Component ──────────────────────────────────
-
-function TaskRow({
-  task,
-  isAdmin,
-  onEdit,
-  onComplete,
-  onArchive,
-  onRestore,
-}: {
-  task: Task;
-  isAdmin: boolean;
-  onEdit: () => void;
-  onComplete: () => void;
-  onArchive: () => void;
-  onRestore: () => void;
-}) {
-  const overdue = task.status !== "COMPLETED" && isOverdue(task.dueDate);
-  const completed = task.status === "COMPLETED";
-
-  const borderColor = PRIORITY_COLORS[task.priority] || "border-l-gray-300";
-
-  return (
-    <>
-      {/* Desktop layout */}
-      <div
-        onClick={onEdit}
-        className={`hidden md:flex items-center gap-3 px-4 py-3 border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm cursor-pointer hover:bg-blue-50/60 ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`font-semibold text-sm text-gray-900 ${completed ? "line-through" : ""}`}>
-              {task.title}
-            </span>
-            {task.projectId && (
-              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">
-                {task.projectId}
-              </span>
-            )}
-          </div>
-          {task.notes && (
-            <p className="text-xs text-gray-500 italic mt-0.5 truncate max-w-md">{task.notes}</p>
-          )}
-        </div>
-        <div className="text-xs text-gray-600 font-medium w-24 truncate">{ownerName(task.owner)}</div>
-        <div className="text-xs text-gray-500 w-16">{task.label}</div>
-        <div className={`text-xs w-20 ${overdue ? "text-red-600 font-bold" : "text-gray-600"}`}>
-          {formatDate(task.dueDate) || "No date"}
-        </div>
-        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full w-28 text-center ${STATUS_COLORS[task.status] || ""}`}>
-          {formatStatusLabel(task.status)}
-        </span>
-        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full w-16 text-center ${PRIORITY_BADGE_COLORS[task.priority] || ""}`}>
-          {task.priority}
-        </span>
-        {isAdmin && (
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-            <button onClick={onComplete} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title={completed ? "Undo complete" : "Complete"}>
-              {completed ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              )}
-            </button>
-            {task.isArchived ? (
-              <button onClick={onRestore} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title="Restore">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-                </svg>
-              </button>
-            ) : (
-              <button onClick={onArchive} className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors" title="Archive">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Mobile layout */}
-      <div
-        onClick={onEdit}
-        className={`md:hidden border rounded-lg mb-2 border-l-4 px-3 py-2 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <span className={`font-semibold text-sm text-gray-900 flex-1 ${completed ? "line-through" : ""}`}>
-            {task.title}
-          </span>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ml-2 ${PRIORITY_BADGE_COLORS[task.priority] || ""}`}>
-            {task.priority}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-1 text-xs mb-2">
-          <div><span className="text-gray-400">Owner:</span> <span className="font-medium text-gray-700">{ownerName(task.owner)}</span></div>
-          <div><span className="text-gray-400">Due:</span> <span className={`font-medium ${overdue ? "text-red-600" : "text-gray-700"}`}>{formatDate(task.dueDate) || "None"}</span></div>
-          {task.projectId && <div><span className="text-gray-400">Project:</span> <span className="font-medium text-gray-700">{task.projectId}</span></div>}
-          <div><span className="text-gray-400">Status:</span> <span className="font-medium text-gray-700">{formatStatusLabel(task.status)}</span></div>
-        </div>
-        {task.notes && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.notes}</p>}
-      </div>
-    </>
-  );
-}
-
-// ─── Recurring Task Row Component ────────────────────────
-
-function RecurringTaskRow({
-  task,
-  isAdmin,
-  onEdit,
-  onComplete,
-  onArchive,
-  onRestore,
-}: {
-  task: RecurringTask;
-  isAdmin: boolean;
-  onEdit: () => void;
-  onComplete: () => void;
-  onArchive: () => void;
-  onRestore: () => void;
-}) {
-  const overdue = isOverdue(task.nextDue);
-  const soon = isDueSoon(task.nextDue) && !overdue;
-
-  let statusText = "On Track";
-  let statusColor = "bg-green-100 text-green-700";
-  if (overdue) {
-    const days = Math.floor(
-      (new Date().setHours(0, 0, 0, 0) - new Date(task.nextDue!).setHours(0, 0, 0, 0)) /
-        (24 * 60 * 60 * 1000),
-    );
-    statusText = `Overdue ${days}d`;
-    statusColor = "bg-red-100 text-red-700";
-  } else if (soon) {
-    statusText = "Due Soon";
-    statusColor = "bg-yellow-100 text-yellow-700";
-  }
-
-  return (
-    <>
-      {/* Desktop */}
-      <div
-        onClick={onEdit}
-        className={`hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center border-b last:border-b-0 transition-all cursor-pointer hover:bg-blue-50/60 ${
-          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
-        }`}
-      >
-        <div className="col-span-2">
-          <div className="font-semibold text-sm text-gray-900">{task.title}</div>
-          {task.description && <p className="text-xs text-gray-500 italic truncate">{task.description}</p>}
-        </div>
-        <div className="text-xs text-gray-600 font-medium truncate">{ownerName(task.owner)}</div>
-        <div className="text-xs text-gray-600">{frequencyLabel(task.frequencyType, task.frequencyValue)}</div>
-        <div className="text-xs text-gray-600">{task.lastCompleted ? formatDate(task.lastCompleted) : "Never"}</div>
-        <div className={`text-xs font-medium ${overdue ? "text-red-600 font-bold" : "text-gray-600"}`}>
-          {task.nextDue ? formatDate(task.nextDue) : "Not set"}
-        </div>
-        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full text-center ${statusColor}`}>
-          {statusText}
-        </span>
-        {isAdmin && (
-          <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-            <button onClick={onComplete} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title="Mark completed">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            </button>
-            {task.isArchived ? (
-              <button onClick={onRestore} className="p-1.5 rounded hover:bg-green-100 text-green-600 transition-colors" title="Restore">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-                </svg>
-              </button>
-            ) : (
-              <button onClick={onArchive} className="p-1.5 rounded hover:bg-red-100 text-red-500 transition-colors" title="Archive">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Mobile */}
-      <div
-        onClick={onEdit}
-        className={`md:hidden rounded-md border px-3 py-2 mb-1 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${
-          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : "bg-white"
-        }`}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <span className="font-semibold text-sm text-gray-900 flex-1">{task.title}</span>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ml-2 ${statusColor}`}>
-            {statusText}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-1 text-xs mb-2">
-          <div><span className="text-gray-400">Owner:</span> <span className="font-medium text-gray-700">{ownerName(task.owner)}</span></div>
-          <div><span className="text-gray-400">Frequency:</span> <span className="font-medium text-gray-700">{frequencyLabel(task.frequencyType, task.frequencyValue)}</span></div>
-          <div><span className="text-gray-400">Last Done:</span> <span className="font-medium text-gray-700">{task.lastCompleted ? formatDate(task.lastCompleted) : "Never"}</span></div>
-          <div><span className="text-gray-400">Next Due:</span> <span className={`font-medium ${overdue ? "text-red-600" : "text-gray-700"}`}>{task.nextDue ? formatDate(task.nextDue) : "Not set"}</span></div>
-        </div>
-        {task.description && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.description}</p>}
-      </div>
-    </>
   );
 }

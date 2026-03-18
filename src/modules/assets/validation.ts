@@ -1,19 +1,35 @@
 import { z } from "zod/v4";
 
+const optionalString = z.string().optional().or(z.literal("")).or(z.null());
+
+/**
+ * Transform a string to a number, returning null for empty/invalid values.
+ * Used for optional numeric fields sent as strings from HTML forms.
+ */
+const optionalNumericString = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((val) => {
+    if (val === null || val === undefined || val === "") return null;
+    if (typeof val === "number") return val;
+    const n = parseFloat(val);
+    return isNaN(n) ? null : n;
+  });
+
 export const createAssetSchema = z.object({
   assetNumber: z.string().min(1, "Asset number is required"),
   name: z.string().min(1, "Name is required"),
   category: z.string().min(1, "Category is required"),
-  make: z.string().optional().or(z.literal("")),
-  model: z.string().optional().or(z.literal("")),
-  serialNumber: z.string().optional().or(z.literal("")),
-  purchaseDate: z.string().optional().or(z.literal("")),
-  purchaseCost: z.string().optional().or(z.literal("")),
-  location: z.string().optional().or(z.literal("")),
-  assignedToId: z.string().optional().or(z.literal("")),
+  make: optionalString,
+  model: optionalString,
+  serialNumber: optionalString,
+  purchaseDate: optionalString,
+  purchaseCost: optionalNumericString,
+  location: optionalString,
+  assignedToId: optionalString,
   status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "RETIRED"]).default("AVAILABLE"),
   condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
-  notes: z.string().optional().or(z.literal("")),
+  notes: optionalString,
 });
 
 export const updateAssetSchema = createAssetSchema.partial();

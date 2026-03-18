@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { createTaskSchema } from "@/modules/tasks/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/tasks — List tasks
 export async function GET(request: NextRequest) {
@@ -31,7 +32,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = createTaskSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -43,8 +46,12 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data;
 
-  try {
-    const task = await prisma.task.create({
+  // Validate ownerId references an existing employee
+  const refError = await validateEmployeeRef(data.ownerId, "ownerId");
+  if (refError) return refError;
+
+  const { result: task, error } = await withPrismaError("Failed to create task", () =>
+    prisma.task.create({
       data: {
         title: data.title,
         projectId: data.projectId || null,
@@ -59,20 +66,17 @@ export async function POST(request: NextRequest) {
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
       },
-    });
+    }),
+  );
+  if (error) return error;
 
-    audit({
-      entityType: "Task",
-      entityId: task.id,
-      action: "CREATE",
-      entityLabel: task.title,
-      performedById: session.user.id,
-    });
+  audit({
+    entityType: "Task",
+    entityId: task.id,
+    action: "CREATE",
+    entityLabel: task.title,
+    performedById: session.user.id,
+  });
 
-    return NextResponse.json(task, { status: 201 });
-  } catch (err) {
-    console.error("Failed to create task:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: `Failed to create task: ${message}` }, { status: 500 });
-  }
+  return NextResponse.json(task, { status: 201 });
 }

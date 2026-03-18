@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updateTaskSchema } from "@/modules/tasks/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
+import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/tasks/[id]
 export async function GET(
@@ -40,7 +41,9 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = updateTaskSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -52,10 +55,16 @@ export async function PUT(
 
   const data = parsed.data;
 
-  try {
-    const before = await prisma.task.findUnique({ where: { id } });
+  // Validate ownerId if provided
+  if (data.ownerId !== undefined) {
+    const refError = await validateEmployeeRef(data.ownerId, "ownerId");
+    if (refError) return refError;
+  }
 
-    const task = await prisma.task.update({
+  const before = await prisma.task.findUnique({ where: { id } });
+
+  const { result: task, error } = await withPrismaError("Failed to update task", () =>
+    prisma.task.update({
       where: { id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
@@ -72,30 +81,27 @@ export async function PUT(
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
       },
-    });
+    }),
+  );
+  if (error) return error;
 
-    const changes = before
-      ? diff(
-          before as unknown as Record<string, unknown>,
-          task as unknown as Record<string, unknown>,
-        )
-      : null;
+  const changes = before
+    ? diff(
+        before as unknown as Record<string, unknown>,
+        task as unknown as Record<string, unknown>,
+      )
+    : null;
 
-    audit({
-      entityType: "Task",
-      entityId: task.id,
-      action: "UPDATE",
-      entityLabel: task.title,
-      performedById: session.user.id,
-      changes,
-    });
+  audit({
+    entityType: "Task",
+    entityId: task.id,
+    action: "UPDATE",
+    entityLabel: task.title,
+    performedById: session.user.id,
+    changes,
+  });
 
-    return NextResponse.json(task);
-  } catch (err) {
-    console.error("Failed to update task:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: `Failed to update task: ${message}` }, { status: 500 });
-  }
+  return NextResponse.json(task);
 }
 
 // DELETE /api/tasks/[id] — Soft-delete (archive)
@@ -110,28 +116,25 @@ export async function DELETE(
 
   const { id } = await params;
 
-  try {
-    const task = await prisma.task.update({
+  const { result: task, error } = await withPrismaError("Failed to archive task", () =>
+    prisma.task.update({
       where: { id },
       data: {
         isArchived: true,
         archivedAt: new Date(),
         archivedById: session.user.id,
       },
-    });
+    }),
+  );
+  if (error) return error;
 
-    audit({
-      entityType: "Task",
-      entityId: task.id,
-      action: "ARCHIVE",
-      entityLabel: task.title,
-      performedById: session.user.id,
-    });
+  audit({
+    entityType: "Task",
+    entityId: task.id,
+    action: "ARCHIVE",
+    entityLabel: task.title,
+    performedById: session.user.id,
+  });
 
-    return NextResponse.json(task);
-  } catch (err) {
-    console.error("Failed to archive task:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: `Failed to archive task: ${message}` }, { status: 500 });
-  }
+  return NextResponse.json(task);
 }

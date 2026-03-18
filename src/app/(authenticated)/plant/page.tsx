@@ -8,20 +8,10 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
-
-const STATUS_OPTIONS = [
-  { value: "OPERATIONAL", label: "Operational" },
-  { value: "MAINTENANCE", label: "Maintenance" },
-  { value: "DECOMMISSIONED", label: "Decommissioned" },
-  { value: "STANDBY", label: "Standby" },
-];
-
-const CONDITION_OPTIONS = [
-  { value: "NEW", label: "New" },
-  { value: "GOOD", label: "Good" },
-  { value: "FAIR", label: "Fair" },
-  { value: "POOR", label: "Poor" },
-];
+import {
+  PLANT_STATUS_OPTIONS as STATUS_OPTIONS,
+  CONDITION_OPTIONS,
+} from "@/config/constants";
 
 interface EmployeeOption {
   id: string;

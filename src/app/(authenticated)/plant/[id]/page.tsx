@@ -5,6 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { StatusBadge } from "@/shared/components/StatusBadge";
+import {
+  PLANT_STATUS_OPTIONS as STATUS_OPTIONS,
+  CONDITION_OPTIONS,
+} from "@/config/constants";
 
 interface PlantItem {
   id: string;
@@ -158,12 +162,7 @@ export default function PlantDetailPage() {
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Plant Number" name="plantNumber" required defaultValue={plant.plantNumber} />
-          <SelectField label="Status" name="status" required defaultValue={plant.status} options={[
-            { value: "OPERATIONAL", label: "Operational" },
-            { value: "MAINTENANCE", label: "Maintenance" },
-            { value: "DECOMMISSIONED", label: "Decommissioned" },
-            { value: "STANDBY", label: "Standby" },
-          ]} />
+          <SelectField label="Status" name="status" required defaultValue={plant.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Name" name="name" required defaultValue={plant.name} />
@@ -179,12 +178,7 @@ export default function PlantDetailPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Registration Number" name="registrationNumber" defaultValue={plant.registrationNumber || ""} />
-          <SelectField label="Condition" name="condition" defaultValue={plant.condition || ""} options={[
-            { value: "NEW", label: "New" },
-            { value: "GOOD", label: "Good" },
-            { value: "FAIR", label: "Fair" },
-            { value: "POOR", label: "Poor" },
-          ]} />
+          <SelectField label="Condition" name="condition" defaultValue={plant.condition || ""} options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(plant.purchaseDate)} />

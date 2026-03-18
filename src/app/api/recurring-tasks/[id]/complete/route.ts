@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { calculateNextDue } from "@/modules/tasks/recurrence";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { withPrismaError } from "@/shared/api/helpers";
 
 // POST /api/recurring-tasks/[id]/complete — Mark as completed and advance next due
 export async function POST(
@@ -32,16 +33,19 @@ export async function POST(
     task.nextDue,
   );
 
-  const updated = await prisma.recurringTask.update({
-    where: { id },
-    data: {
-      lastCompleted: now,
-      nextDue,
-    },
-    include: {
-      owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-    },
-  });
+  const { result: updated, error } = await withPrismaError("Failed to complete recurring task", () =>
+    prisma.recurringTask.update({
+      where: { id },
+      data: {
+        lastCompleted: now,
+        nextDue,
+      },
+      include: {
+        owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "RecurringTask",

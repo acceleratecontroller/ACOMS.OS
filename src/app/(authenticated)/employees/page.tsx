@@ -9,71 +9,16 @@ import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField, ClearableDateField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
-
-const LOCATION_LABELS: Record<string, string> = {
-  BRISBANE: "Brisbane",
-  BUNDABERG: "Bundaberg",
-  HERVEY_BAY: "Hervey Bay",
-  MACKAY: "Mackay",
-  OTHER: "Other",
-};
-
-const EMPLOYMENT_LABELS: Record<string, string> = {
-  FULL_TIME: "Full-Time",
-  TRAINEE: "Trainee",
-  CASUAL: "Casual",
-  ABN: "ABN",
-};
-
-const LOCATION_OPTIONS = [
-  { value: "BRISBANE", label: "Brisbane" },
-  { value: "BUNDABERG", label: "Bundaberg" },
-  { value: "HERVEY_BAY", label: "Hervey Bay" },
-  { value: "MACKAY", label: "Mackay" },
-  { value: "OTHER", label: "Other" },
-];
-
-const ROLE_TYPE_OPTIONS = [
-  { value: "OFFICE", label: "Office" },
-  { value: "FIELD", label: "Field" },
-];
-
-const EMPLOYMENT_TYPE_OPTIONS = [
-  { value: "FULL_TIME", label: "Full-Time" },
-  { value: "TRAINEE", label: "Trainee" },
-  { value: "CASUAL", label: "Casual" },
-  { value: "ABN", label: "ABN" },
-];
-
-const STATUS_OPTIONS = [
-  { value: "ACTIVE", label: "Active" },
-  { value: "INACTIVE", label: "Inactive" },
-  { value: "TERMINATED", label: "Terminated" },
-];
-
-const SHIRT_SIZE_OPTIONS = [
-  { value: "XS", label: "XS" },
-  { value: "S", label: "S" },
-  { value: "M", label: "M" },
-  { value: "L", label: "L" },
-  { value: "XL", label: "XL" },
-  { value: "2XL", label: "2XL" },
-  { value: "3XL", label: "3XL" },
-  { value: "4XL", label: "4XL" },
-  { value: "5XL", label: "5XL" },
-];
-
-const PANTS_SIZE_OPTIONS = [
-  { value: "28", label: "28" },
-  { value: "30", label: "30" },
-  { value: "32", label: "32" },
-  { value: "34", label: "34" },
-  { value: "36", label: "36" },
-  { value: "38", label: "38" },
-  { value: "40", label: "40" },
-  { value: "42", label: "42" },
-  { value: "44", label: "44" },
-];
+import {
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
+  ROLE_TYPE_OPTIONS,
+  EMPLOYMENT_TYPE_OPTIONS,
+  EMPLOYMENT_LABELS,
+  EMPLOYEE_STATUS_OPTIONS as STATUS_OPTIONS,
+  SHIRT_SIZE_OPTIONS,
+  PANTS_SIZE_OPTIONS,
+} from "@/config/constants";
 
 interface Employee {
   id: string;

@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updateEmployeeSchema } from "@/modules/employees/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
+import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees/[id] — Get a single employee
 export async function GET(
@@ -15,7 +16,10 @@ export async function GET(
   }
 
   const { id } = await params;
-  const employee = await prisma.employee.findUnique({ where: { id } });
+  const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
+    prisma.employee.findUnique({ where: { id } }),
+  );
+  if (error) return error;
 
   if (!employee) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,13 +39,15 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = updateEmployeeSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.issues },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -63,28 +69,31 @@ export async function PUT(
 
   const before = await prisma.employee.findUnique({ where: { id } });
 
-  const employee = await prisma.employee.update({
-    where: { id },
-    data: {
-      ...(data.firstName !== undefined && { firstName: data.firstName }),
-      ...(data.lastName !== undefined && { lastName: data.lastName }),
-      ...(data.email !== undefined && { email: data.email || null }),
-      ...(data.personalEmail !== undefined && { personalEmail: data.personalEmail || null }),
-      ...(data.phone !== undefined && { phone: data.phone || null }),
-      ...(data.address !== undefined && { address: data.address || null }),
-      ...(data.dateOfBirth !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
-      ...(data.shirtSize !== undefined && { shirtSize: data.shirtSize || null }),
-      ...(data.pantsSize !== undefined && { pantsSize: data.pantsSize || null }),
-      ...(data.roleType !== undefined && { roleType: data.roleType }),
-      ...(data.employmentType !== undefined && { employmentType: data.employmentType }),
-      ...(data.location !== undefined && { location: data.location }),
-      ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
-      ...(data.endDate !== undefined && { endDate: data.endDate ? new Date(data.endDate) : null }),
-      ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
-      ...(status !== undefined && { status }),
-      ...(data.notes !== undefined && { notes: data.notes || null }),
-    },
-  });
+  const { result: employee, error } = await withPrismaError("Failed to update employee", () =>
+    prisma.employee.update({
+      where: { id },
+      data: {
+        ...(data.firstName !== undefined && { firstName: data.firstName }),
+        ...(data.lastName !== undefined && { lastName: data.lastName }),
+        ...(data.email !== undefined && { email: data.email || null }),
+        ...(data.personalEmail !== undefined && { personalEmail: data.personalEmail || null }),
+        ...(data.phone !== undefined && { phone: data.phone || null }),
+        ...(data.address !== undefined && { address: data.address || null }),
+        ...(data.dateOfBirth !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
+        ...(data.shirtSize !== undefined && { shirtSize: data.shirtSize || null }),
+        ...(data.pantsSize !== undefined && { pantsSize: data.pantsSize || null }),
+        ...(data.roleType !== undefined && { roleType: data.roleType }),
+        ...(data.employmentType !== undefined && { employmentType: data.employmentType }),
+        ...(data.location !== undefined && { location: data.location }),
+        ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
+        ...(data.endDate !== undefined && { endDate: data.endDate ? new Date(data.endDate) : null }),
+        ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
+        ...(status !== undefined && { status }),
+        ...(data.notes !== undefined && { notes: data.notes || null }),
+      },
+    }),
+  );
+  if (error) return error;
 
   const changes = before ? diff(before as unknown as Record<string, unknown>, employee as unknown as Record<string, unknown>) : null;
 
@@ -112,14 +121,17 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const employee = await prisma.employee.update({
-    where: { id },
-    data: {
-      isArchived: true,
-      archivedAt: new Date(),
-      archivedById: session.user.id,
-    },
-  });
+  const { result: employee, error } = await withPrismaError("Failed to archive employee", () =>
+    prisma.employee.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedById: session.user.id,
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Employee",

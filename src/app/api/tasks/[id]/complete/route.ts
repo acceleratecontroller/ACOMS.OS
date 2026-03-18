@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { withPrismaError } from "@/shared/api/helpers";
 
 // POST /api/tasks/[id]/complete — Toggle task completion
 export async function POST(
@@ -22,13 +23,16 @@ export async function POST(
 
   const newStatus = task.status === "COMPLETED" ? "NOT_STARTED" : "COMPLETED";
 
-  const updated = await prisma.task.update({
-    where: { id },
-    data: { status: newStatus },
-    include: {
-      owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-    },
-  });
+  const { result: updated, error } = await withPrismaError("Failed to toggle task completion", () =>
+    prisma.task.update({
+      where: { id },
+      data: { status: newStatus },
+      include: {
+        owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Task",

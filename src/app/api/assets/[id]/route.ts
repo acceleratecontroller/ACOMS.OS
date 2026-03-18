@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updateAssetSchema } from "@/modules/assets/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
+import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/assets/[id] — Get a single asset
 export async function GET(
@@ -15,10 +16,13 @@ export async function GET(
   }
 
   const { id } = await params;
-  const asset = await prisma.asset.findUnique({
-    where: { id },
-    include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
-  });
+  const { result: asset, error } = await withPrismaError("Failed to get asset", () =>
+    prisma.asset.findUnique({
+      where: { id },
+      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+    }),
+  );
+  if (error) return error;
 
   if (!asset) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -38,38 +42,49 @@ export async function PUT(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = updateAssetSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.issues },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const data = parsed.data;
 
+  // Validate assignedToId if provided
+  if (data.assignedToId !== undefined) {
+    const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
+    if (refError) return refError;
+  }
+
   const before = await prisma.asset.findUnique({ where: { id } });
 
-  const asset = await prisma.asset.update({
-    where: { id },
-    data: {
-      ...(data.assetNumber !== undefined && { assetNumber: data.assetNumber }),
-      ...(data.name !== undefined && { name: data.name }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.make !== undefined && { make: data.make || null }),
-      ...(data.model !== undefined && { model: data.model || null }),
-      ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber || null }),
-      ...(data.purchaseDate !== undefined && { purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null }),
-      ...(data.purchaseCost !== undefined && { purchaseCost: data.purchaseCost ? parseFloat(data.purchaseCost) : null }),
-      ...(data.location !== undefined && { location: data.location || null }),
-      ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId || null }),
-      ...(data.status !== undefined && { status: data.status }),
-      ...(data.condition !== undefined && { condition: data.condition || null }),
-      ...(data.notes !== undefined && { notes: data.notes || null }),
-    },
-  });
+  const { result: asset, error } = await withPrismaError("Failed to update asset", () =>
+    prisma.asset.update({
+      where: { id },
+      data: {
+        ...(data.assetNumber !== undefined && { assetNumber: data.assetNumber }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.category !== undefined && { category: data.category }),
+        ...(data.make !== undefined && { make: data.make || null }),
+        ...(data.model !== undefined && { model: data.model || null }),
+        ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber || null }),
+        ...(data.purchaseDate !== undefined && { purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null }),
+        ...(data.purchaseCost !== undefined && { purchaseCost: data.purchaseCost ?? null }),
+        ...(data.location !== undefined && { location: data.location || null }),
+        ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId || null }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.condition !== undefined && { condition: data.condition || null }),
+        ...(data.notes !== undefined && { notes: data.notes || null }),
+      },
+    }),
+  );
+  if (error) return error;
 
   const changes = before ? diff(before as unknown as Record<string, unknown>, asset as unknown as Record<string, unknown>) : null;
 
@@ -97,14 +112,17 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const asset = await prisma.asset.update({
-    where: { id },
-    data: {
-      isArchived: true,
-      archivedAt: new Date(),
-      archivedById: session.user.id,
-    },
-  });
+  const { result: asset, error } = await withPrismaError("Failed to archive asset", () =>
+    prisma.asset.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedById: session.user.id,
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Asset",

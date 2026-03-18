@@ -1,23 +1,53 @@
 import { z } from "zod/v4";
 
+const optionalString = z.string().optional().or(z.literal("")).or(z.null());
+
+/**
+ * Transform a string to a number, returning null for empty/invalid values.
+ * Used for optional numeric fields sent as strings from HTML forms.
+ */
+const optionalNumericString = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((val) => {
+    if (val === null || val === undefined || val === "") return null;
+    if (typeof val === "number") return val;
+    const n = parseFloat(val);
+    return isNaN(n) ? null : n;
+  });
+
+/**
+ * Transform a string to an integer, returning null for empty/invalid values.
+ * Used for yearOfManufacture.
+ */
+const optionalIntString = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((val) => {
+    if (val === null || val === undefined || val === "") return null;
+    if (typeof val === "number") return Math.floor(val);
+    const n = parseInt(val, 10);
+    return isNaN(n) ? null : n;
+  });
+
 export const createPlantSchema = z.object({
   plantNumber: z.string().min(1, "Plant number is required"),
   name: z.string().min(1, "Name is required"),
   category: z.string().min(1, "Category is required"),
-  make: z.string().optional().or(z.literal("")),
-  model: z.string().optional().or(z.literal("")),
-  serialNumber: z.string().optional().or(z.literal("")),
-  yearOfManufacture: z.string().optional().or(z.literal("")),
-  registrationNumber: z.string().optional().or(z.literal("")),
-  purchaseDate: z.string().optional().or(z.literal("")),
-  purchaseCost: z.string().optional().or(z.literal("")),
-  location: z.string().optional().or(z.literal("")),
-  assignedToId: z.string().optional().or(z.literal("")),
+  make: optionalString,
+  model: optionalString,
+  serialNumber: optionalString,
+  yearOfManufacture: optionalIntString,
+  registrationNumber: optionalString,
+  purchaseDate: optionalString,
+  purchaseCost: optionalNumericString,
+  location: optionalString,
+  assignedToId: optionalString,
   status: z.enum(["OPERATIONAL", "MAINTENANCE", "DECOMMISSIONED", "STANDBY"]).default("OPERATIONAL"),
   condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
-  lastServiceDate: z.string().optional().or(z.literal("")),
-  nextServiceDue: z.string().optional().or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
+  lastServiceDate: optionalString,
+  nextServiceDue: optionalString,
+  notes: optionalString,
 });
 
 export const updatePlantSchema = createPlantSchema.partial();

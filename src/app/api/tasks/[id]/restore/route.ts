@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { withPrismaError } from "@/shared/api/helpers";
 
 // POST /api/tasks/[id]/restore — Restore an archived task
 export async function POST(
@@ -15,14 +16,17 @@ export async function POST(
 
   const { id } = await params;
 
-  const task = await prisma.task.update({
-    where: { id },
-    data: {
-      isArchived: false,
-      archivedAt: null,
-      archivedById: null,
-    },
-  });
+  const { result: task, error } = await withPrismaError("Failed to restore task", () =>
+    prisma.task.update({
+      where: { id },
+      data: {
+        isArchived: false,
+        archivedAt: null,
+        archivedById: null,
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Task",

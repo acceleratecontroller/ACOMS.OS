@@ -4,6 +4,7 @@ import { createRecurringTaskSchema } from "@/modules/tasks/validation";
 import { calculateNextDue } from "@/modules/tasks/recurrence";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/recurring-tasks — List recurring tasks
 export async function GET(request: NextRequest) {
@@ -32,7 +33,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = createRecurringTaskSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -44,17 +47,21 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data;
 
-  try {
-    const lastCompleted = data.lastCompleted ? new Date(data.lastCompleted) : null;
-    const nextDue = calculateNextDue(
-      data.frequencyType,
-      data.frequencyValue,
-      data.scheduleType,
-      lastCompleted,
-      null,
-    );
+  // Validate ownerId references an existing employee
+  const refError = await validateEmployeeRef(data.ownerId, "ownerId");
+  if (refError) return refError;
 
-    const task = await prisma.recurringTask.create({
+  const lastCompleted = data.lastCompleted ? new Date(data.lastCompleted) : null;
+  const nextDue = calculateNextDue(
+    data.frequencyType,
+    data.frequencyValue,
+    data.scheduleType,
+    lastCompleted,
+    null,
+  );
+
+  const { result: task, error } = await withPrismaError("Failed to create recurring task", () =>
+    prisma.recurringTask.create({
       data: {
         title: data.title,
         description: data.description || null,
@@ -70,20 +77,17 @@ export async function POST(request: NextRequest) {
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
       },
-    });
+    }),
+  );
+  if (error) return error;
 
-    audit({
-      entityType: "RecurringTask",
-      entityId: task.id,
-      action: "CREATE",
-      entityLabel: task.title,
-      performedById: session.user.id,
-    });
+  audit({
+    entityType: "RecurringTask",
+    entityId: task.id,
+    action: "CREATE",
+    entityLabel: task.title,
+    performedById: session.user.id,
+  });
 
-    return NextResponse.json(task, { status: 201 });
-  } catch (err) {
-    console.error("Failed to create recurring task:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: `Failed to create recurring task: ${message}` }, { status: 500 });
-  }
+  return NextResponse.json(task, { status: 201 });
 }

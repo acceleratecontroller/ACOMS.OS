@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { createPlantSchema } from "@/modules/plant/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/plant — List all active (non-archived) plant items
 export async function GET(request: NextRequest) {
@@ -13,11 +14,14 @@ export async function GET(request: NextRequest) {
 
   const showArchived = request.nextUrl.searchParams.get("archived") === "true";
 
-  const plant = await prisma.plant.findMany({
-    where: { isArchived: showArchived },
-    include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const { result: plant, error } = await withPrismaError("Failed to list plant", () =>
+    prisma.plant.findMany({
+      where: { isArchived: showArchived },
+      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  );
+  if (error) return error;
 
   return NextResponse.json(plant);
 }
@@ -29,40 +33,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = createPlantSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.issues },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const data = parsed.data;
 
-  const plant = await prisma.plant.create({
-    data: {
-      plantNumber: data.plantNumber,
-      name: data.name,
-      category: data.category,
-      make: data.make || null,
-      model: data.model || null,
-      serialNumber: data.serialNumber || null,
-      yearOfManufacture: data.yearOfManufacture ? parseInt(data.yearOfManufacture) : null,
-      registrationNumber: data.registrationNumber || null,
-      purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-      purchaseCost: data.purchaseCost ? parseFloat(data.purchaseCost) : null,
-      location: data.location || null,
-      assignedToId: data.assignedToId || null,
-      status: data.status,
-      condition: data.condition || null,
-      lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : null,
-      nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null,
-      notes: data.notes || null,
-      createdById: session.user.id,
-    },
-  });
+  // Validate assignedToId references an existing employee
+  const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
+  if (refError) return refError;
+
+  const { result: plant, error } = await withPrismaError("Failed to create plant", () =>
+    prisma.plant.create({
+      data: {
+        plantNumber: data.plantNumber,
+        name: data.name,
+        category: data.category,
+        make: data.make || null,
+        model: data.model || null,
+        serialNumber: data.serialNumber || null,
+        yearOfManufacture: data.yearOfManufacture ?? null,
+        registrationNumber: data.registrationNumber || null,
+        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+        purchaseCost: data.purchaseCost ?? null,
+        location: data.location || null,
+        assignedToId: data.assignedToId || null,
+        status: data.status,
+        condition: data.condition || null,
+        lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : null,
+        nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null,
+        notes: data.notes || null,
+        createdById: session.user.id,
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Plant",

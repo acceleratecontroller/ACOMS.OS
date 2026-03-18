@@ -5,6 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { StatusBadge } from "@/shared/components/StatusBadge";
+import {
+  ASSET_STATUS_OPTIONS as STATUS_OPTIONS,
+  CONDITION_OPTIONS,
+} from "@/config/constants";
 
 interface Asset {
   id: string;
@@ -146,12 +150,7 @@ export default function AssetDetailPage() {
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Asset Number" name="assetNumber" required defaultValue={asset.assetNumber} />
-          <SelectField label="Status" name="status" required defaultValue={asset.status} options={[
-            { value: "AVAILABLE", label: "Available" },
-            { value: "IN_USE", label: "In Use" },
-            { value: "MAINTENANCE", label: "Maintenance" },
-            { value: "RETIRED", label: "Retired" },
-          ]} />
+          <SelectField label="Status" name="status" required defaultValue={asset.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Name" name="name" required defaultValue={asset.name} />
@@ -163,12 +162,7 @@ export default function AssetDetailPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Serial Number" name="serialNumber" defaultValue={asset.serialNumber || ""} />
-          <SelectField label="Condition" name="condition" defaultValue={asset.condition || ""} options={[
-            { value: "NEW", label: "New" },
-            { value: "GOOD", label: "Good" },
-            { value: "FAIR", label: "Fair" },
-            { value: "POOR", label: "Poor" },
-          ]} />
+          <SelectField label="Condition" name="condition" defaultValue={asset.condition || ""} options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(asset.purchaseDate)} />

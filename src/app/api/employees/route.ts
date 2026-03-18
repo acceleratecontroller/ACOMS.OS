@@ -3,6 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { createEmployeeSchema } from "@/modules/employees/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
+import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees — List all active (non-archived) employees
 export async function GET(request: NextRequest) {
@@ -13,12 +14,15 @@ export async function GET(request: NextRequest) {
 
   const showArchived = request.nextUrl.searchParams.get("archived") === "true";
 
-  const employees = await prisma.employee.findMany({
-    where: { isArchived: showArchived },
-    orderBy: { createdAt: "desc" },
-  });
+  const { result, error } = await withPrismaError("Failed to list employees", () =>
+    prisma.employee.findMany({
+      where: { isArchived: showArchived },
+      orderBy: { createdAt: "desc" },
+    }),
+  );
+  if (error) return error;
 
-  return NextResponse.json(employees);
+  return NextResponse.json(result);
 }
 
 // POST /api/employees — Create a new employee
@@ -28,13 +32,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
   const parsed = createEmployeeSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.issues },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -63,29 +69,32 @@ export async function POST(request: NextRequest) {
     if (end <= today) status = "TERMINATED";
   }
 
-  const employee = await prisma.employee.create({
-    data: {
-      employeeNumber,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email || null,
-      personalEmail: data.personalEmail || null,
-      phone: data.phone || null,
-      address: data.address || null,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-      shirtSize: data.shirtSize || null,
-      pantsSize: data.pantsSize || null,
-      roleType: data.roleType,
-      employmentType: data.employmentType,
-      location: data.location,
-      startDate: new Date(data.startDate),
-      endDate: data.endDate ? new Date(data.endDate) : null,
-      probationDate: data.probationDate ? new Date(data.probationDate) : null,
-      status,
-      notes: data.notes || null,
-      createdById: session.user.id,
-    },
-  });
+  const { result: employee, error } = await withPrismaError("Failed to create employee", () =>
+    prisma.employee.create({
+      data: {
+        employeeNumber,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email || null,
+        personalEmail: data.personalEmail || null,
+        phone: data.phone || null,
+        address: data.address || null,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+        shirtSize: data.shirtSize || null,
+        pantsSize: data.pantsSize || null,
+        roleType: data.roleType,
+        employmentType: data.employmentType,
+        location: data.location,
+        startDate: new Date(data.startDate),
+        endDate: data.endDate ? new Date(data.endDate) : null,
+        probationDate: data.probationDate ? new Date(data.probationDate) : null,
+        status,
+        notes: data.notes || null,
+        createdById: session.user.id,
+      },
+    }),
+  );
+  if (error) return error;
 
   audit({
     entityType: "Employee",
