@@ -145,7 +145,7 @@ export function TextAreaField({
   value,
   onChange,
   placeholder,
-  rows = 3,
+  rows = 2,
 }: TextAreaFieldProps) {
   // Use controlled mode if value+onChange provided, otherwise uncontrolled with defaultValue
   const inputProps = value !== undefined

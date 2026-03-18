@@ -361,47 +361,41 @@ function PlantContent() {
 
   function PlantForm({ defaults, onSubmit, submitLabel, onArchive }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onArchive?: () => void }) {
     return (
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {defaults?.plantNumber && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
               <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
             </div>
           )}
-          <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Name" name="name" required placeholder="e.g. CAT 320 Excavator" defaultValue={defaults?.name || ""} />
           <FormField label="Category" name="category" required placeholder="e.g. Excavator" defaultValue={defaults?.category || ""} />
+          <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Make" name="make" placeholder="e.g. Caterpillar" defaultValue={defaults?.make || ""} />
           <FormField label="Model" name="model" placeholder="e.g. 320" defaultValue={defaults?.model || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Serial Number" name="serialNumber" defaultValue={defaults?.serialNumber || ""} />
-          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" placeholder="e.g. 2020" defaultValue={defaults?.yearOfManufacture?.toString() || ""} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" placeholder="e.g. 2020" defaultValue={defaults?.yearOfManufacture?.toString() || ""} />
           <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" defaultValue={defaults?.registrationNumber || ""} />
           <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
-          <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
           <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
           <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
         </div>
         <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-3 pt-3">
+        <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
           <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           {onArchive && <><div className="flex-1" /><button type="button" onClick={onArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button></>}
@@ -455,7 +449,7 @@ function PlantContent() {
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
         {selected && !editing && (
           <div>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
               <StatusBadge status={selected.status} />
               {selected.condition && <StatusBadge status={selected.condition} />}
@@ -463,27 +457,28 @@ function PlantContent() {
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
               )}
             </div>
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Plant #</dt><dd className="font-medium text-gray-900">{selected.plantNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Serial Number</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Year</dt><dd className="font-medium text-gray-900">{selected.yearOfManufacture || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Registration</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.lastServiceDate) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Next Service Due</dt><dd className="font-medium text-gray-900">{formatDate(selected.nextServiceDue) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Plant #</dt><dd className="font-medium text-gray-900">{selected.plantNumber}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Serial #</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Year</dt><dd className="font-medium text-gray-900">{selected.yearOfManufacture || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Rego</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{selected.condition || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.lastServiceDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Next Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.nextServiceDue) || "—"}</dd></div>
             </dl>
             {selected.notes && (
-              <div className="mt-5 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
+              <div className="mt-3 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
             )}
 
             {/* Linked Assets Section */}
-            <div className="mt-6 pt-5 border-t">
+            <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-900">Linked Assets</h3>
                 {!selected.isArchived && (
@@ -526,7 +521,7 @@ function PlantContent() {
               )}
             </div>
 
-            <div className="flex gap-3 mt-6 pt-5 border-t">
+            <div className="flex gap-3 mt-4 pt-4 border-t">
               {selected.isArchived ? (
                 <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
               ) : (
@@ -537,7 +532,7 @@ function PlantContent() {
         )}
         {selected && editing && (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-5">Edit Plant</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Edit Plant</h2>
             <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onArchive={() => setConfirmAction({ type: "archive" })} />
           </div>
         )}
@@ -545,11 +540,11 @@ function PlantContent() {
 
       {/* Create Plant Modal */}
       <Modal isOpen={creating && !showQueueLinkModal && !showQueueCreateModal} onClose={() => { closeModal(); setQueuedAssets([]); }}>
-        <h2 className="text-xl font-bold text-gray-900 mb-5">Add Plant</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-3">Add Plant</h2>
         <PlantForm onSubmit={handleCreate} submitLabel="Create Plant Item" />
 
         {/* Queued assets section */}
-        <div className="mt-6 pt-5 border-t">
+        <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900">Linked Assets</h3>
             <div className="flex gap-2">
