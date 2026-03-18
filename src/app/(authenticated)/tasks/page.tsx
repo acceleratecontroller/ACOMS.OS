@@ -1234,8 +1234,11 @@ function TaskRow({
     <div
       className={`border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm ${
         PRIORITY_COLORS[task.priority] || "border-l-gray-300"
-      } ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""} cursor-pointer`}
+      } ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""} cursor-pointer active:bg-blue-50`}
+      role="button"
+      tabIndex={0}
       onClick={onEdit}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onEdit(); }}
     >
       {/* Desktop layout */}
       <div className="hidden md:flex items-center gap-3 px-4 py-3">
@@ -1367,8 +1370,11 @@ function RecurringTaskRow({
     <div
       className={`border-b last:border-b-0 transition-all hover:bg-gray-50 ${
         overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
-      } cursor-pointer`}
+      } cursor-pointer active:bg-blue-50`}
+      role="button"
+      tabIndex={0}
       onClick={onEdit}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onEdit(); }}
     >
       {/* Desktop */}
       <div className="hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center">
