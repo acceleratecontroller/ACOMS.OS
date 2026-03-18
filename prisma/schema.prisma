@@ -256,6 +256,25 @@ model RecurringTask {
   @@index([ownerId])
 }
 
+// ─── Plant–Asset Link (many-to-many with history) ───────
+// Links assets to plant items (e.g. first aid kit in a vehicle).
+// When unlinkedAt is null, the link is active.
+
+model PlantAssetLink {
+  id         String    @id @default(uuid())
+  plantId    String
+  plant      Plant     @relation(fields: [plantId], references: [id])
+  assetId    String
+  asset      Asset     @relation(fields: [assetId], references: [id])
+  notes      String?
+  linkedAt   DateTime  @default(now())
+  unlinkedAt DateTime?
+
+  @@unique([plantId, assetId, linkedAt])
+  @@index([plantId])
+  @@index([assetId])
+}
+
 // ─── Asset (Smaller / Portable Items) ───────────────────
 // Examples: drills, tools, phones, laptops, PPE
 
@@ -287,6 +306,9 @@ model Asset {
   archivedAt   DateTime?
   archivedBy   User?    @relation("AssetArchivedBy", fields: [archivedById], references: [id])
   archivedById String?
+
+  // Plant links — assets linked to plant items
+  plantLinks   PlantAssetLink[]
 }
 
 // ─── Plant (Larger Operational Equipment) ────────────────
@@ -324,4 +346,7 @@ model Plant {
   archivedAt   DateTime?
   archivedBy   User?    @relation("PlantArchivedBy", fields: [archivedById], references: [id])
   archivedById String?
+
+  // Linked assets (e.g. first aid kit, fire extinguisher)
+  assetLinks   PlantAssetLink[]
 }

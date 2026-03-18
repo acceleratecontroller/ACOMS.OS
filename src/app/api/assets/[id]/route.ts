@@ -19,7 +19,15 @@ export async function GET(
   const { result: asset, error } = await withPrismaError("Failed to get asset", () =>
     prisma.asset.findUnique({
       where: { id },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        plantLinks: {
+          where: { unlinkedAt: null },
+          include: {
+            plant: { select: { id: true, plantNumber: true, name: true } },
+          },
+        },
+      },
     }),
   );
   if (error) return error;
@@ -111,6 +119,19 @@ export async function DELETE(
   }
 
   const { id } = await params;
+
+  // Check if asset is linked to any active plant items
+  const activeLinks = await prisma.plantAssetLink.findMany({
+    where: { assetId: id, unlinkedAt: null },
+    include: { plant: { select: { name: true, plantNumber: true } } },
+  });
+  if (activeLinks.length > 0) {
+    const plantNames = activeLinks.map((l) => `${l.plant.name} (${l.plant.plantNumber})`).join(", ");
+    return NextResponse.json(
+      { error: `Cannot archive: this asset is linked to ${plantNames}. Unlink it first.` },
+      { status: 400 },
+    );
+  }
 
   const { result: asset, error } = await withPrismaError("Failed to archive asset", () =>
     prisma.asset.update({

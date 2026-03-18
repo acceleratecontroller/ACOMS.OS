@@ -20,6 +20,11 @@ interface EmployeeOption {
   lastName: string;
 }
 
+interface PlantLink {
+  id: string;
+  plant: { id: string; plantNumber: string; name: string };
+}
+
 interface Asset {
   id: string;
   assetNumber: string;
@@ -37,6 +42,7 @@ interface Asset {
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
+  plantLinks?: PlantLink[];
 }
 
 const columns: Column<Asset>[] = [
@@ -106,6 +112,13 @@ function AssetsContent() {
     value: e.id,
     label: `${e.firstName} ${e.lastName} (${e.employeeNumber})`,
   }));
+
+  // Load full asset detail (includes plantLinks)
+  function loadAssetDetail(assetId: string) {
+    fetch(`/api/assets/${assetId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setSelected(data); });
+  }
 
   function closeModal() {
     setSelected(null);
@@ -238,7 +251,7 @@ function AssetsContent() {
         )}
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
-        <DataTable columns={columns} data={assets} onRowClick={(a) => { setSelected(a); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
+        <DataTable columns={columns} data={assets} onRowClick={(a) => { loadAssetDetail(a.id); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
       )}
 
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
@@ -265,6 +278,21 @@ function AssetsContent() {
             </dl>
             {selected.notes && (
               <div className="mt-5 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
+            )}
+            {/* Linked Plant Info */}
+            {selected.plantLinks && selected.plantLinks.length > 0 && (
+              <div className="mt-5 pt-4 border-t">
+                <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">Linked to Plant</h3>
+                <div className="space-y-1">
+                  {selected.plantLinks.map((link) => (
+                    <div key={link.id} className="flex items-center gap-2 text-sm">
+                      <span className="inline-block w-2 h-2 rounded-full bg-blue-400" />
+                      <span className="font-medium text-gray-900">{link.plant.name}</span>
+                      <span className="text-gray-500">({link.plant.plantNumber})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
               {selected.isArchived ? (

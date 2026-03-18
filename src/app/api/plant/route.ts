@@ -17,7 +17,13 @@ export async function GET(request: NextRequest) {
   const { result: plant, error } = await withPrismaError("Failed to list plant", () =>
     prisma.plant.findMany({
       where: { isArchived: showArchived },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        assetLinks: {
+          where: { unlinkedAt: null },
+          select: { id: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
   );

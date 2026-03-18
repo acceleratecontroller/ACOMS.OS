@@ -19,7 +19,18 @@ export async function GET(
   const { result: plant, error } = await withPrismaError("Failed to get plant", () =>
     prisma.plant.findUnique({
       where: { id },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        assetLinks: {
+          where: { unlinkedAt: null },
+          include: {
+            asset: {
+              select: { id: true, assetNumber: true, name: true, category: true, status: true, condition: true },
+            },
+          },
+          orderBy: { linkedAt: "desc" },
+        },
+      },
     }),
   );
   if (error) return error;
