@@ -44,40 +44,46 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data;
 
-  const lastCompleted = data.lastCompleted ? new Date(data.lastCompleted) : null;
-  const nextDue = calculateNextDue(
-    data.frequencyType,
-    data.frequencyValue,
-    data.scheduleType,
-    lastCompleted,
-    null,
-  );
-
-  const task = await prisma.recurringTask.create({
-    data: {
-      title: data.title,
-      description: data.description || null,
-      category: data.category || "Task",
-      frequencyType: data.frequencyType,
-      frequencyValue: data.frequencyValue,
-      scheduleType: data.scheduleType,
+  try {
+    const lastCompleted = data.lastCompleted ? new Date(data.lastCompleted) : null;
+    const nextDue = calculateNextDue(
+      data.frequencyType,
+      data.frequencyValue,
+      data.scheduleType,
       lastCompleted,
-      nextDue,
-      ownerId: data.ownerId,
-      createdById: session.user.id,
-    },
-    include: {
-      owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-    },
-  });
+      null,
+    );
 
-  audit({
-    entityType: "RecurringTask",
-    entityId: task.id,
-    action: "CREATE",
-    entityLabel: task.title,
-    performedById: session.user.id,
-  });
+    const task = await prisma.recurringTask.create({
+      data: {
+        title: data.title,
+        description: data.description || null,
+        category: data.category || "Task",
+        frequencyType: data.frequencyType,
+        frequencyValue: data.frequencyValue,
+        scheduleType: data.scheduleType,
+        lastCompleted,
+        nextDue,
+        ownerId: data.ownerId,
+        createdById: session.user.id,
+      },
+      include: {
+        owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+      },
+    });
 
-  return NextResponse.json(task, { status: 201 });
+    audit({
+      entityType: "RecurringTask",
+      entityId: task.id,
+      action: "CREATE",
+      entityLabel: task.title,
+      performedById: session.user.id,
+    });
+
+    return NextResponse.json(task, { status: 201 });
+  } catch (err) {
+    console.error("Failed to create recurring task:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to create recurring task: ${message}` }, { status: 500 });
+  }
 }

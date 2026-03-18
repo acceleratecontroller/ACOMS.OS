@@ -78,41 +78,47 @@ export async function PUT(
     nextDue = calculateNextDue(freqType, freqValue, schedType, lastCompleted, before.nextDue);
   }
 
-  const task = await prisma.recurringTask.update({
-    where: { id },
-    data: {
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.description !== undefined && { description: data.description || null }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.frequencyType !== undefined && { frequencyType: data.frequencyType }),
-      ...(data.frequencyValue !== undefined && { frequencyValue: data.frequencyValue }),
-      ...(data.scheduleType !== undefined && { scheduleType: data.scheduleType }),
-      ...(data.lastCompleted !== undefined && {
-        lastCompleted: data.lastCompleted ? new Date(data.lastCompleted) : null,
-      }),
-      ...(nextDue !== undefined && { nextDue }),
-      ...(data.ownerId !== undefined && { ownerId: data.ownerId }),
-    },
-    include: {
-      owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-    },
-  });
+  try {
+    const task = await prisma.recurringTask.update({
+      where: { id },
+      data: {
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description || null }),
+        ...(data.category !== undefined && { category: data.category }),
+        ...(data.frequencyType !== undefined && { frequencyType: data.frequencyType }),
+        ...(data.frequencyValue !== undefined && { frequencyValue: data.frequencyValue }),
+        ...(data.scheduleType !== undefined && { scheduleType: data.scheduleType }),
+        ...(data.lastCompleted !== undefined && {
+          lastCompleted: data.lastCompleted ? new Date(data.lastCompleted) : null,
+        }),
+        ...(nextDue !== undefined && { nextDue }),
+        ...(data.ownerId !== undefined && { ownerId: data.ownerId }),
+      },
+      include: {
+        owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+      },
+    });
 
-  const changes = diff(
-    before as unknown as Record<string, unknown>,
-    task as unknown as Record<string, unknown>,
-  );
+    const changes = diff(
+      before as unknown as Record<string, unknown>,
+      task as unknown as Record<string, unknown>,
+    );
 
-  audit({
-    entityType: "RecurringTask",
-    entityId: task.id,
-    action: "UPDATE",
-    entityLabel: task.title,
-    performedById: session.user.id,
-    changes,
-  });
+    audit({
+      entityType: "RecurringTask",
+      entityId: task.id,
+      action: "UPDATE",
+      entityLabel: task.title,
+      performedById: session.user.id,
+      changes,
+    });
 
-  return NextResponse.json(task);
+    return NextResponse.json(task);
+  } catch (err) {
+    console.error("Failed to update recurring task:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to update recurring task: ${message}` }, { status: 500 });
+  }
 }
 
 // DELETE /api/recurring-tasks/[id] — Soft-delete (archive)
@@ -127,22 +133,28 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const task = await prisma.recurringTask.update({
-    where: { id },
-    data: {
-      isArchived: true,
-      archivedAt: new Date(),
-      archivedById: session.user.id,
-    },
-  });
+  try {
+    const task = await prisma.recurringTask.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedById: session.user.id,
+      },
+    });
 
-  audit({
-    entityType: "RecurringTask",
-    entityId: task.id,
-    action: "ARCHIVE",
-    entityLabel: task.title,
-    performedById: session.user.id,
-  });
+    audit({
+      entityType: "RecurringTask",
+      entityId: task.id,
+      action: "ARCHIVE",
+      entityLabel: task.title,
+      performedById: session.user.id,
+    });
 
-  return NextResponse.json(task);
+    return NextResponse.json(task);
+  } catch (err) {
+    console.error("Failed to archive recurring task:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to archive recurring task: ${message}` }, { status: 500 });
+  }
 }

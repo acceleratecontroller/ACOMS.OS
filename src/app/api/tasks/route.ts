@@ -43,30 +43,36 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data;
 
-  const task = await prisma.task.create({
-    data: {
-      title: data.title,
-      projectId: data.projectId || null,
-      notes: data.notes || null,
-      label: data.label || "Task",
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      status: data.status,
-      priority: data.priority,
-      ownerId: data.ownerId,
-      createdById: session.user.id,
-    },
-    include: {
-      owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-    },
-  });
+  try {
+    const task = await prisma.task.create({
+      data: {
+        title: data.title,
+        projectId: data.projectId || null,
+        notes: data.notes || null,
+        label: data.label || "Task",
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        status: data.status,
+        priority: data.priority,
+        ownerId: data.ownerId,
+        createdById: session.user.id,
+      },
+      include: {
+        owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+      },
+    });
 
-  audit({
-    entityType: "Task",
-    entityId: task.id,
-    action: "CREATE",
-    entityLabel: task.title,
-    performedById: session.user.id,
-  });
+    audit({
+      entityType: "Task",
+      entityId: task.id,
+      action: "CREATE",
+      entityLabel: task.title,
+      performedById: session.user.id,
+    });
 
-  return NextResponse.json(task, { status: 201 });
+    return NextResponse.json(task, { status: 201 });
+  } catch (err) {
+    console.error("Failed to create task:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to create task: ${message}` }, { status: 500 });
+  }
 }
