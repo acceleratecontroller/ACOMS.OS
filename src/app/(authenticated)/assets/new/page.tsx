@@ -64,7 +64,7 @@ export default function NewAssetPage() {
 
   return (
     <div>
-      <PageHeader title="Add Asset" description="Asset number will be auto-generated." />
+      <PageHeader title="Add Asset" />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Status" name="status" required defaultValue="AVAILABLE" options={[

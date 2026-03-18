@@ -191,15 +191,10 @@ function AssetsContent() {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {defaults?.assetNumber ? (
+          {defaults?.assetNumber && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
               <p className="text-sm font-medium text-gray-900 py-2">{defaults.assetNumber}</p>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
-              <p className="text-sm text-gray-500 py-2">Auto-generated</p>
             </div>
           )}
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />

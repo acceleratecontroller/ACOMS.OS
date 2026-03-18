@@ -68,7 +68,7 @@ export default function NewPlantPage() {
 
   return (
     <div>
-      <PageHeader title="Add Plant" description="Plant number will be auto-generated." />
+      <PageHeader title="Add Plant" />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={[

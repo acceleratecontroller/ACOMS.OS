@@ -121,18 +121,31 @@ export async function POST(
   if ((body as Record<string, unknown>).create) {
     const createData = (body as Record<string, unknown>).create as Record<string, unknown>;
 
-    if (!createData.assetNumber || !createData.name || !createData.category) {
+    if (!createData.name || !createData.category) {
       return NextResponse.json(
-        { error: "Asset number, name, and category are required" },
+        { error: "Name and category are required" },
         { status: 400 },
       );
     }
+
+    // Auto-generate asset number: AST-0001, AST-0002, etc.
+    const lastAsset = await prisma.asset.findFirst({
+      orderBy: { assetNumber: "desc" },
+    });
+    let nextNumber = 1;
+    if (lastAsset) {
+      const match = lastAsset.assetNumber.match(/AST-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    const assetNumber = `AST-${String(nextNumber).padStart(4, "0")}`;
 
     const { result, error } = await withPrismaError("Failed to create and link asset", () =>
       prisma.$transaction(async (tx) => {
         const asset = await tx.asset.create({
           data: {
-            assetNumber: createData.assetNumber as string,
+            assetNumber,
             name: createData.name as string,
             category: createData.category as string,
             make: (createData.make as string) || null,

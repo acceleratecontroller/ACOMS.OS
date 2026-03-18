@@ -219,7 +219,6 @@ function PlantContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         create: {
-          assetNumber: form.get("assetNumber"),
           name: form.get("name"),
           category: form.get("category"),
           make: form.get("make"),
@@ -323,15 +322,10 @@ function PlantContent() {
     return (
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {defaults?.plantNumber ? (
+          {defaults?.plantNumber && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
               <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
-              <p className="text-sm text-gray-500 py-2">Auto-generated</p>
             </div>
           )}
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
@@ -576,7 +570,6 @@ function PlantContent() {
         </p>
         <form onSubmit={handleCreateAndLink} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Asset Number" name="assetNumber" required placeholder="e.g. AST-001" />
             <SelectField label="Status" name="status" required defaultValue="IN_USE" options={ASSET_STATUS_OPTIONS} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
