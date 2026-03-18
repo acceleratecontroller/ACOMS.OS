@@ -346,32 +346,37 @@ export default function TaskManagerPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
-    const fd = new FormData(e.currentTarget);
-    const body = {
-      title: fd.get("title"),
-      projectId: fd.get("projectId") || null,
-      notes: fd.get("notes") || null,
-      label: fd.get("label") || "Task",
-      dueDate: fd.get("dueDate") || null,
-      status: fd.get("status") || "NOT_STARTED",
-      priority: fd.get("priority") || "LOW",
-      ownerId: fd.get("ownerId"),
-    };
+    try {
+      const fd = new FormData(e.currentTarget);
+      const body = {
+        title: fd.get("title"),
+        projectId: fd.get("projectId") || null,
+        notes: fd.get("notes") || null,
+        label: fd.get("label") || "Task",
+        dueDate: fd.get("dueDate") || null,
+        status: "NOT_STARTED",
+        priority: fd.get("priority") || "LOW",
+        ownerId: fd.get("ownerId"),
+      };
 
-    const res = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      setShowAddTask(false);
-      await loadTasks(showArchived);
-    } else {
-      const err = await res.json();
-      setError(err.error || "Failed to create task");
+      if (res.ok) {
+        setShowAddTask(false);
+        await loadTasks(showArchived);
+      } else {
+        const err = await res.json().catch(() => null);
+        setError(err?.error || `Failed to create task (${res.status})`);
+      }
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : "Network error");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleUpdateTask(e: React.FormEvent<HTMLFormElement>) {
@@ -379,32 +384,37 @@ export default function TaskManagerPage() {
     if (!editingTask) return;
     setSaving(true);
     setError("");
-    const fd = new FormData(e.currentTarget);
-    const body = {
-      title: fd.get("title"),
-      projectId: fd.get("projectId") || null,
-      notes: fd.get("notes") || null,
-      label: fd.get("label") || "Task",
-      dueDate: fd.get("dueDate") || null,
-      status: fd.get("status"),
-      priority: fd.get("priority"),
-      ownerId: fd.get("ownerId"),
-    };
+    try {
+      const fd = new FormData(e.currentTarget);
+      const body = {
+        title: fd.get("title"),
+        projectId: fd.get("projectId") || null,
+        notes: fd.get("notes") || null,
+        label: fd.get("label") || "Task",
+        dueDate: fd.get("dueDate") || null,
+        status: fd.get("status"),
+        priority: fd.get("priority"),
+        ownerId: fd.get("ownerId"),
+      };
 
-    const res = await fetch(`/api/tasks/${editingTask.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch(`/api/tasks/${editingTask.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      setEditingTask(null);
-      await loadTasks(showArchived);
-    } else {
-      const err = await res.json();
-      setError(err.error || "Failed to update task");
+      if (res.ok) {
+        setEditingTask(null);
+        await loadTasks(showArchived);
+      } else {
+        const err = await res.json().catch(() => null);
+        setError(err?.error || `Failed to update task (${res.status})`);
+      }
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : "Network error");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleCompleteTask(id: string) {
@@ -426,32 +436,37 @@ export default function TaskManagerPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
-    const fd = new FormData(e.currentTarget);
-    const body = {
-      title: fd.get("title"),
-      description: fd.get("description") || null,
-      category: fd.get("category") || "Task",
-      frequencyType: fd.get("frequencyType") || "WEEKLY",
-      frequencyValue: parseInt(String(fd.get("frequencyValue") || "1"), 10),
-      scheduleType: fd.get("scheduleType") || "FLOATING",
-      lastCompleted: fd.get("lastCompleted") || null,
-      ownerId: fd.get("ownerId"),
-    };
+    try {
+      const fd = new FormData(e.currentTarget);
+      const body = {
+        title: fd.get("title"),
+        description: fd.get("description") || null,
+        category: fd.get("category") || "Task",
+        frequencyType: fd.get("frequencyType") || "WEEKLY",
+        frequencyValue: parseInt(String(fd.get("frequencyValue") || "1"), 10),
+        scheduleType: fd.get("scheduleType") || "FLOATING",
+        lastCompleted: fd.get("lastCompleted") || null,
+        ownerId: fd.get("ownerId"),
+      };
 
-    const res = await fetch("/api/recurring-tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch("/api/recurring-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      setShowAddRecurring(false);
-      await loadRecurringTasks(showArchived);
-    } else {
-      const err = await res.json();
-      setError(err.error || "Failed to create recurring task");
+      if (res.ok) {
+        setShowAddRecurring(false);
+        await loadRecurringTasks(showArchived);
+      } else {
+        const err = await res.json().catch(() => null);
+        setError(err?.error || `Failed to create recurring task (${res.status})`);
+      }
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : "Network error");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleUpdateRecurring(e: React.FormEvent<HTMLFormElement>) {
@@ -459,32 +474,37 @@ export default function TaskManagerPage() {
     if (!editingRecurring) return;
     setSaving(true);
     setError("");
-    const fd = new FormData(e.currentTarget);
-    const body = {
-      title: fd.get("title"),
-      description: fd.get("description") || null,
-      category: fd.get("category") || "Task",
-      frequencyType: fd.get("frequencyType") || "WEEKLY",
-      frequencyValue: parseInt(String(fd.get("frequencyValue") || "1"), 10),
-      scheduleType: fd.get("scheduleType") || "FLOATING",
-      lastCompleted: fd.get("lastCompleted") || null,
-      ownerId: fd.get("ownerId"),
-    };
+    try {
+      const fd = new FormData(e.currentTarget);
+      const body = {
+        title: fd.get("title"),
+        description: fd.get("description") || null,
+        category: fd.get("category") || "Task",
+        frequencyType: fd.get("frequencyType") || "WEEKLY",
+        frequencyValue: parseInt(String(fd.get("frequencyValue") || "1"), 10),
+        scheduleType: fd.get("scheduleType") || "FLOATING",
+        lastCompleted: fd.get("lastCompleted") || null,
+        ownerId: fd.get("ownerId"),
+      };
 
-    const res = await fetch(`/api/recurring-tasks/${editingRecurring.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch(`/api/recurring-tasks/${editingRecurring.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      setEditingRecurring(null);
-      await loadRecurringTasks(showArchived);
-    } else {
-      const err = await res.json();
-      setError(err.error || "Failed to update recurring task");
+      if (res.ok) {
+        setEditingRecurring(null);
+        await loadRecurringTasks(showArchived);
+      } else {
+        const err = await res.json().catch(() => null);
+        setError(err?.error || `Failed to update recurring task (${res.status})`);
+      }
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : "Network error");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleCompleteRecurring(id: string) {
