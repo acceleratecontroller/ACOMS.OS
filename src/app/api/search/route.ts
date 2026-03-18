@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const term = q.toLowerCase();
 
-  const [employees, assets, plant] = await Promise.all([
+  const [employees, assets, plant, tasks] = await Promise.all([
     prisma.employee.findMany({
       where: {
         isArchived: false,
@@ -61,6 +61,18 @@ export async function GET(request: NextRequest) {
       take: 5,
       orderBy: { name: "asc" },
     }),
+    prisma.task.findMany({
+      where: {
+        isArchived: false,
+        OR: [
+          { title: { contains: term, mode: "insensitive" } },
+          { projectId: { contains: term, mode: "insensitive" } },
+          { notes: { contains: term, mode: "insensitive" } },
+        ],
+      },
+      take: 5,
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const results = [
@@ -84,6 +96,13 @@ export async function GET(request: NextRequest) {
       title: p.name,
       subtitle: p.plantNumber,
       href: `/plant?open=${p.id}`,
+    })),
+    ...tasks.map((t) => ({
+      id: t.id,
+      type: "task" as const,
+      title: t.title,
+      subtitle: t.projectId || "Task",
+      href: `/tasks?open=${t.id}`,
     })),
   ];
 

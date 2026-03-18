@@ -98,6 +98,12 @@ model User {
   archivedAssets    Asset[]    @relation("AssetArchivedBy")
   archivedPlant     Plant[]    @relation("PlantArchivedBy")
 
+  // Task relations
+  createdTasks          Task[]          @relation("TaskCreatedBy")
+  archivedTasks         Task[]          @relation("TaskArchivedBy")
+  createdRecurringTasks RecurringTask[] @relation("RecurringTaskCreatedBy")
+  archivedRecurringTasks RecurringTask[] @relation("RecurringTaskArchivedBy")
+
   // Audit log entries performed by this user
   auditLogs AuditLog[]
 }
@@ -155,6 +161,99 @@ model Employee {
   // Reverse relations: items assigned to this employee
   assignedAssets Asset[] @relation("AssetAssignedToEmployee")
   assignedPlant  Plant[] @relation("PlantAssignedToEmployee")
+
+  // Task relations: tasks owned by this employee
+  assignedTasks          Task[]          @relation("TaskOwner")
+  assignedRecurringTasks RecurringTask[] @relation("RecurringTaskOwner")
+}
+
+// ─── Task Enums ───────────────────────────────────────────
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  STUCK
+  AWAITING_RESPONSE
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ScheduleType {
+  FIXED
+  FLOATING
+}
+
+// ─── Task (Quick Tasks) ──────────────────────────────────
+
+model Task {
+  id         String       @id @default(uuid())
+  title      String
+  projectId  String?
+  notes      String?
+  label      String       @default("Task")
+  dueDate    DateTime?
+  status     TaskStatus   @default(NOT_STARTED)
+  priority   TaskPriority @default(LOW)
+
+  ownerId    String
+  owner      Employee     @relation("TaskOwner", fields: [ownerId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("TaskArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([ownerId])
+}
+
+// ─── Recurring Task ──────────────────────────────────────
+
+model RecurringTask {
+  id              String             @id @default(uuid())
+  title           String
+  description     String?
+  category        String             @default("Task")
+  frequencyType   RecurringFrequency @default(WEEKLY)
+  frequencyValue  Int                @default(1)
+  scheduleType    ScheduleType       @default(FLOATING)
+  lastCompleted   DateTime?
+  nextDue         DateTime?
+
+  ownerId    String
+  owner      Employee     @relation("RecurringTaskOwner", fields: [ownerId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("RecurringTaskCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("RecurringTaskArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  @@index([nextDue])
+  @@index([ownerId])
 }
 
 // ─── Asset (Smaller / Portable Items) ───────────────────

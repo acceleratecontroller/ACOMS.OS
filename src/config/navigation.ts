@@ -12,6 +12,7 @@ export const navigationItems: NavItem[] = [
   { label: "Employees", href: "/employees", icon: "E" },
   { label: "Assets", href: "/assets", icon: "A" },
   { label: "Plant", href: "/plant", icon: "P" },
+  { label: "Task Manager", href: "/tasks", icon: "T" },
   { label: "Activity Log", href: "/activity-log", icon: "L" },
 ];
 
