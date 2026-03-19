@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { DataTable, Column } from "@/shared/components/DataTable";
@@ -106,6 +107,60 @@ const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
 
 export default function PlantPage() {
   return <Suspense><PlantContent /></Suspense>;
+}
+
+function AssetHoverList({ links, onClickAsset }: { links: LinkedAsset[]; onClickAsset: (id: string) => void }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleEnter() {
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setShow(true);
+  }
+
+  function handleLeave() {
+    hideTimeout.current = setTimeout(() => setShow(false), 150);
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onClick={(e) => e.stopPropagation()}
+        className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-default"
+      >
+        {links.length} assets
+      </button>
+      {show && pos && createPortal(
+        <div
+          onMouseEnter={() => { if (hideTimeout.current) clearTimeout(hideTimeout.current); }}
+          onMouseLeave={handleLeave}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-white border rounded-lg shadow-lg py-1 min-w-[220px]"
+        >
+          {links.map((link) => (
+            <button
+              key={link.id}
+              onClick={(e) => { e.stopPropagation(); onClickAsset(link.asset.id); setShow(false); }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition-colors"
+            >
+              <span className="font-medium text-gray-900">{link.asset.name}</span>
+              <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
 }
 
 function PlantContent() {
@@ -222,28 +277,7 @@ function PlantContent() {
             </button>
           );
         }
-        return (
-          <div className="relative group">
-            <button
-              onClick={(e) => { e.stopPropagation(); }}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-default"
-            >
-              {links.length} assets
-            </button>
-            <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block bg-white border rounded-lg shadow-lg py-1 min-w-[220px]">
-              {links.map((link) => (
-                <button
-                  key={link.id}
-                  onClick={(e) => { e.stopPropagation(); openAssetPreview(link.asset.id); }}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition-colors"
-                >
-                  <span className="font-medium text-gray-900">{link.asset.name}</span>
-                  <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
+        return <AssetHoverList links={links} onClickAsset={openAssetPreview} />;
       },
     },
     {
