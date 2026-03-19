@@ -124,7 +124,7 @@ function PlantContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: "restore" } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "restore" | "delete" } | null>(null);
   const [showSoldModal, setShowSoldModal] = useState(false);
   const [soldSaving, setSoldSaving] = useState(false);
   const [soldError, setSoldError] = useState("");
@@ -468,6 +468,17 @@ function PlantContent() {
     if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
   }
 
+  async function handlePermanentDelete() {
+    if (!selected) return;
+    const res = await fetch(`/api/plant/${selected.id}/purge`, { method: "POST" });
+    if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
+    else {
+      const data = await res.json();
+      setError(data.error || "Failed to delete.");
+      setConfirmAction(null);
+    }
+  }
+
   function PlantForm({ defaults, onSubmit, submitLabel, onSold }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onSold?: () => void }) {
     return (
       <form onSubmit={onSubmit} className="space-y-3">
@@ -660,7 +671,10 @@ function PlantContent() {
               ) : (
                 <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
               )}
+              <div className="flex-1" />
+              <button onClick={() => setConfirmAction({ type: "delete" })} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Delete</button>
             </div>
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </div>
         )}
         {selected && editing && (
@@ -905,12 +919,23 @@ function PlantContent() {
 
       {/* Restore Confirmation */}
       <ConfirmDialog
-        isOpen={!!confirmAction}
+        isOpen={confirmAction?.type === "restore"}
         title="Restore Plant"
         message="Are you sure you want to restore this plant item? It will be moved back to the active list."
         confirmLabel="Restore"
         confirmVariant="success"
         onConfirm={handleRestore}
+        onCancel={() => setConfirmAction(null)}
+      />
+
+      {/* Permanent Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={confirmAction?.type === "delete"}
+        title="Permanently Delete Plant"
+        message={`Are you sure you want to permanently delete ${selected?.plantNumber || "this plant item"}? This action cannot be undone — all data for this plant will be permanently erased. Any linked assets will be unlinked but not deleted.`}
+        confirmLabel="Delete Permanently"
+        confirmVariant="danger"
+        onConfirm={handlePermanentDelete}
         onCancel={() => setConfirmAction(null)}
       />
 
