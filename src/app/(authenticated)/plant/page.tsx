@@ -276,6 +276,9 @@ function PlantContent() {
   const [linkNotes, setLinkNotes] = useState("");
   const [linkError, setLinkError] = useState("");
   const [unlinkConfirm, setUnlinkConfirm] = useState<LinkedAsset | null>(null);
+  const [reassignAsset, setReassignAsset] = useState<LinkedAsset | null>(null);
+  const [reassignTargetId, setReassignTargetId] = useState("");
+  const [reassignSaving, setReassignSaving] = useState(false);
 
   // Assets queued during plant creation (before the plant exists)
   interface QueuedExistingAsset { type: "existing"; asset: AvailableAsset; notes: string }
@@ -463,6 +466,23 @@ function PlantContent() {
       setUnlinkConfirm(null);
       loadPlantDetail(selected.id);
     }
+  }
+
+  async function handleReassign() {
+    if (!selected || !reassignAsset || !reassignTargetId) return;
+    setReassignSaving(true);
+    // Unlink from current plant
+    await fetch(`/api/plant/${selected.id}/assets/${reassignAsset.id}`, { method: "DELETE" });
+    // Link to new plant
+    await fetch(`/api/plant/${reassignTargetId}/assets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetId: reassignAsset.asset.id, notes: reassignAsset.notes || undefined }),
+    });
+    setReassignAsset(null);
+    setReassignTargetId("");
+    setReassignSaving(false);
+    loadPlantDetail(selected.id);
   }
 
   function getFormBody(form: FormData) {
@@ -818,12 +838,20 @@ function PlantContent() {
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <StatusBadge status={link.asset.status} />
                         {!selected.isArchived && (
-                          <button
-                            onClick={() => setUnlinkConfirm(link)}
-                            className="text-xs text-red-500 hover:text-red-700 font-medium"
-                          >
-                            Unlink
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setReassignAsset(link); setReassignTargetId(""); }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Reassign
+                            </button>
+                            <button
+                              onClick={() => setUnlinkConfirm(link)}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              Unlink
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1080,6 +1108,37 @@ function PlantContent() {
         onConfirm={handleUnlink}
         onCancel={() => setUnlinkConfirm(null)}
       />
+
+      {/* Reassign Asset to Another Plant */}
+      <Modal isOpen={!!reassignAsset} onClose={() => setReassignAsset(null)}>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Reassign Asset</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Move <strong>{reassignAsset?.asset.name}</strong> ({reassignAsset?.asset.assetNumber}) to another plant item.
+        </p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Reassign to</label>
+          <select
+            value={reassignTargetId}
+            onChange={(e) => setReassignTargetId(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">-- Select plant --</option>
+            {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
+              <option key={p.id} value={p.id}>{p.plantNumber} — {p.make} {p.model}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleReassign}
+            disabled={!reassignTargetId || reassignSaving}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {reassignSaving ? "Reassigning..." : "Reassign"}
+          </button>
+          <button type="button" onClick={() => setReassignAsset(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+        </div>
+      </Modal>
 
       {/* Restore Confirmation */}
       <ConfirmDialog
