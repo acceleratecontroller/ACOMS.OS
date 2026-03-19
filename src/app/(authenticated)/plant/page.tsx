@@ -1177,7 +1177,7 @@ function PlantContent() {
                     <option value="">-- Select action --</option>
                     <option value="RETIRED">Retire asset</option>
                     {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
-                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber}</option>
+                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber} — {p.make} {p.model}</option>
                     ))}
                   </select>
                 </div>
@@ -1223,7 +1223,7 @@ function PlantContent() {
                     <option value="">-- Select action --</option>
                     <option value="RETIRED">Retire asset</option>
                     {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
-                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber}</option>
+                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber} — {p.make} {p.model}</option>
                     ))}
                   </select>
                 </div>
