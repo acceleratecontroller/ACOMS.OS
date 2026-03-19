@@ -16,10 +16,18 @@ export async function GET(request: NextRequest) {
   const action = params.get("action") || undefined;
   const entityId = params.get("entityId") || undefined;
 
+  const keyword = params.get("keyword") || undefined;
+
   const where = {
     ...(entityType && { entityType }),
     ...(action && { action }),
     ...(entityId && { entityId }),
+    ...(keyword && {
+      OR: [
+        { entityLabel: { contains: keyword, mode: "insensitive" as const } },
+        { performedBy: { name: { contains: keyword, mode: "insensitive" as const } } },
+      ],
+    }),
   };
 
   const [logs, total] = await Promise.all([
