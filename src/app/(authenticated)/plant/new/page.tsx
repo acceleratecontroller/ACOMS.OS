@@ -57,8 +57,6 @@ export default function NewPlantPage() {
       coiExpirationDate: form.get("coiExpirationDate"),
       purchaseDate: form.get("purchaseDate"),
       purchasePrice: form.get("purchasePrice"),
-      soldDate: form.get("soldDate"),
-      soldPrice: form.get("soldPrice"),
       comments: form.get("comments"),
       lastServiceDate: form.get("lastServiceDate"),
       nextServiceDue: form.get("nextServiceDue"),
@@ -131,10 +129,6 @@ export default function NewPlantPage() {
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Purchase Date" name="purchaseDate" type="date" />
           <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Sold Date" name="soldDate" type="date" />
-          <FormField label="Sold Price" name="soldPrice" type="number" placeholder="0.00" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Last Service Date" name="lastServiceDate" type="date" />
