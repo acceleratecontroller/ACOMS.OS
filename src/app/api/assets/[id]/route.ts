@@ -72,6 +72,9 @@ export async function PUT(
 
   const before = await prisma.asset.findUnique({ where: { id } });
 
+  // Retiring an asset also archives it
+  const isRetiring = data.status === "RETIRED";
+
   const { result: asset, error } = await withPrismaError("Failed to update asset", () =>
     prisma.asset.update({
       where: { id },
@@ -88,6 +91,7 @@ export async function PUT(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.id }),
       },
     }),
   );
