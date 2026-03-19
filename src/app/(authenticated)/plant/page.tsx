@@ -479,7 +479,7 @@ function PlantContent() {
     }
   }
 
-  function PlantForm({ defaults, onSubmit, submitLabel, onSold }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onSold?: () => void }) {
+  function PlantForm({ defaults, onSubmit, submitLabel, onSold, onDelete }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onSold?: () => void; onDelete?: () => void }) {
     return (
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -530,7 +530,9 @@ function PlantContent() {
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
           <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-          {onSold && <><div className="flex-1" /><button type="button" onClick={onSold} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Sold</button></>}
+          {(onSold || onDelete) && <div className="flex-1" />}
+          {onSold && <button type="button" onClick={onSold} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Sold</button>}
+          {onDelete && <button type="button" onClick={onDelete} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Delete</button>}
         </div>
       </form>
     );
@@ -671,16 +673,13 @@ function PlantContent() {
               ) : (
                 <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
               )}
-              <div className="flex-1" />
-              <button onClick={() => setConfirmAction({ type: "delete" })} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Delete</button>
             </div>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </div>
         )}
         {selected && editing && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Edit Plant</h2>
-            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} />
+            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} onDelete={() => setConfirmAction({ type: "delete" })} />
           </div>
         )}
       </Modal>
