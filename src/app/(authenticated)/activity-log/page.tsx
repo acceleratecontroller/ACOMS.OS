@@ -65,7 +65,6 @@ const FIELD_LABELS: Record<string, string> = {
   registrationNumber: "Registration",
   stateRegistered: "State Registered",
   licenceType: "Licence Type",
-  regionAssigned: "Region Assigned",
   ampolCardNumber: "Ampol Card #",
   ampolCardExpiry: "Ampol Card Expiry",
   linktTagNumber: "Linkt Tag #",

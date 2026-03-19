@@ -59,7 +59,6 @@ interface PlantItem {
   make: string | null;
   model: string | null;
   licenceType: string | null;
-  regionAssigned: string | null;
   location: string | null;
   ampolCardNumber: string | null;
   ampolCardExpiry: string | null;
@@ -294,7 +293,6 @@ function PlantContent() {
       make: form.get("make"),
       model: form.get("model"),
       licenceType: form.get("licenceType"),
-      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
       ampolCardNumber: form.get("ampolCardNumber"),
@@ -414,33 +412,28 @@ function PlantContent() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <SelectField label="Licence Type Required" name="licenceType" defaultValue={defaults?.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
-          <SelectField label="Region Assigned" name="regionAssigned" defaultValue={defaults?.regionAssigned || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
-          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
           <FormField label="Ampol Card Number" name="ampolCardNumber" defaultValue={defaults?.ampolCardNumber || ""} />
           <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" defaultValue={formatDate(defaults?.ampolCardExpiry || null)} />
-          <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={defaults?.linktTagNumber || ""} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={defaults?.linktTagNumber || ""} />
           <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" defaultValue={defaults?.fleetDynamicsSerialNumber || ""} />
           <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" defaultValue={formatDate(defaults?.coiExpirationDate || null)} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
           <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" defaultValue={defaults?.purchasePrice?.toString() || ""} />
+          <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
           <FormField label="Sold Date" name="soldDate" type="date" defaultValue={formatDate(defaults?.soldDate || null)} />
           <FormField label="Sold Price" name="soldPrice" type="number" placeholder="0.00" defaultValue={defaults?.soldPrice?.toString() || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
-          <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
         </div>
         <TextAreaField label="Comments" name="comments" defaultValue={defaults?.comments || ""} placeholder="Optional comments..." />
         {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -519,7 +512,6 @@ function PlantContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Licence Type</dt><dd className="font-medium text-gray-900">{selected.licenceType || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Region Assigned</dt><dd className="font-medium text-gray-900">{selected.regionAssigned ? (LOCATION_LABELS[selected.regionAssigned] || selected.regionAssigned) : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{selected.condition || "—"}</dd></div>

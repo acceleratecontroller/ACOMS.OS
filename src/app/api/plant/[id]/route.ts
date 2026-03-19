@@ -87,7 +87,6 @@ export async function PUT(
         ...(data.make !== undefined && { make: data.make || null }),
         ...(data.model !== undefined && { model: data.model || null }),
         ...(data.licenceType !== undefined && { licenceType: data.licenceType || null }),
-        ...(data.regionAssigned !== undefined && { regionAssigned: data.regionAssigned || null }),
         ...(data.location !== undefined && { location: data.location || null }),
         ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId || null }),
         ...(data.ampolCardNumber !== undefined && { ampolCardNumber: data.ampolCardNumber || null }),

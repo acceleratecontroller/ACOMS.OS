@@ -27,7 +27,6 @@ interface PlantItem {
   make: string | null;
   model: string | null;
   licenceType: string | null;
-  regionAssigned: string | null;
   location: string | null;
   ampolCardNumber: string | null;
   ampolCardExpiry: string | null;
@@ -91,7 +90,6 @@ export default function PlantDetailPage() {
       make: form.get("make"),
       model: form.get("model"),
       licenceType: form.get("licenceType"),
-      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
       ampolCardNumber: form.get("ampolCardNumber"),
@@ -158,7 +156,6 @@ export default function PlantDetailPage() {
             <div><dt className="text-gray-500">Make</dt><dd className="font-medium">{plant.make || "—"}</dd></div>
             <div><dt className="text-gray-500">Model</dt><dd className="font-medium">{plant.model || "—"}</dd></div>
             <div><dt className="text-gray-500">Licence Type</dt><dd className="font-medium">{plant.licenceType || "—"}</dd></div>
-            <div><dt className="text-gray-500">Region Assigned</dt><dd className="font-medium">{plant.regionAssigned ? (LOCATION_LABELS[plant.regionAssigned] || plant.regionAssigned) : "—"}</dd></div>
             <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{plant.location ? (LOCATION_LABELS[plant.location] || plant.location) : "—"}</dd></div>
             <div><dt className="text-gray-500">Assigned To</dt><dd className="font-medium">{plant.assignedTo ? `${plant.assignedTo.firstName} ${plant.assignedTo.lastName} (${plant.assignedTo.employeeNumber})` : "—"}</dd></div>
             <div><dt className="text-gray-500">Ampol Card #</dt><dd className="font-medium">{plant.ampolCardNumber || "—"}</dd></div>
@@ -218,10 +215,9 @@ export default function PlantDetailPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Licence Type Required" name="licenceType" defaultValue={plant.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
-          <SelectField label="Region Assigned" name="regionAssigned" defaultValue={plant.regionAssigned || ""} options={LOCATION_OPTIONS} />
+          <SelectField label="Location" name="location" defaultValue={plant.location || ""} options={LOCATION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <SelectField label="Location" name="location" defaultValue={plant.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To (Employee)" name="assignedToId" defaultValue={plant.assignedToId || ""} options={employees.map((emp) => ({
             value: emp.id,
             label: `${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`,

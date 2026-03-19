@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
         make: data.make || null,
         model: data.model || null,
         licenceType: data.licenceType || null,
-        regionAssigned: data.regionAssigned || null,
         location: data.location || null,
         assignedToId: data.assignedToId || null,
         ampolCardNumber: data.ampolCardNumber || null,

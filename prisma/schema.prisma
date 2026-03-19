@@ -325,7 +325,6 @@ model Plant {
   make                      String?
   model                     String?
   licenceType               String?
-  regionAssigned            String?
   location                  String?
   assignedToId              String?
   ampolCardNumber           String?

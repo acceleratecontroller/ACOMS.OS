@@ -48,7 +48,6 @@ export default function NewPlantPage() {
       make: form.get("make"),
       model: form.get("model"),
       licenceType: form.get("licenceType"),
-      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
       ampolCardNumber: form.get("ampolCardNumber"),
@@ -105,10 +104,6 @@ export default function NewPlantPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Licence Type Required" name="licenceType" options={LICENCE_TYPE_OPTIONS} />
-          <SelectField label="Condition" name="condition" options={CONDITION_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <SelectField label="Region Assigned" name="regionAssigned" options={LOCATION_OPTIONS} />
           <SelectField label="Location" name="location" options={LOCATION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -120,6 +115,7 @@ export default function NewPlantPage() {
               label: `${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`,
             }))}
           />
+          <SelectField label="Condition" name="condition" options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Ampol Card Number" name="ampolCardNumber" />

@@ -38,7 +38,6 @@ export const createPlantSchema = z.object({
   make: optionalString,
   model: optionalString,
   licenceType: optionalString,
-  regionAssigned: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   assignedToId: optionalString,
   ampolCardNumber: optionalString,

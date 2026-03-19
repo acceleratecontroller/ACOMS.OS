@@ -10,7 +10,6 @@ ALTER TABLE "Plant" RENAME COLUMN "notes" TO "comments";
 
 ALTER TABLE "Plant" ADD COLUMN "stateRegistered" TEXT;
 ALTER TABLE "Plant" ADD COLUMN "licenceType" TEXT;
-ALTER TABLE "Plant" ADD COLUMN "regionAssigned" TEXT;
 ALTER TABLE "Plant" ADD COLUMN "ampolCardNumber" TEXT;
 ALTER TABLE "Plant" ADD COLUMN "ampolCardExpiry" TIMESTAMP(3);
 ALTER TABLE "Plant" ADD COLUMN "linktTagNumber" TEXT;
