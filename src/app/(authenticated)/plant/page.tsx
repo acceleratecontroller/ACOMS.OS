@@ -180,6 +180,10 @@ function PlantContent() {
   const [soldSaving, setSoldSaving] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [soldAssetActions, setSoldAssetActions] = useState<Record<string, string>>({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteAssetActions, setDeleteAssetActions] = useState<Record<string, string>>({});
 
   // Asset preview modal state
   const [previewAsset, setPreviewAsset] = useState<{
@@ -571,15 +575,61 @@ function PlantContent() {
     if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
   }
 
+  function openDeleteModal() {
+    setDeleteError("");
+    setDeleteSaving(false);
+    const actions: Record<string, string> = {};
+    linkedAssets.forEach((link) => { actions[link.asset.id] = ""; });
+    setDeleteAssetActions(actions);
+    setShowDeleteModal(true);
+  }
+
   async function handlePermanentDelete() {
     if (!selected) return;
-    const res = await fetch(`/api/plant/${selected.id}/purge`, { method: "POST" });
-    if (res.ok) { setConfirmAction(null); closeModal(); loadData(showArchived); }
-    else {
-      const data = await res.json();
-      setError(data.error || "Failed to delete.");
-      setConfirmAction(null);
+
+    // Check all linked assets have been resolved
+    const unresolved = linkedAssets.filter((link) => !deleteAssetActions[link.asset.id]);
+    if (unresolved.length > 0) {
+      setDeleteError("All linked assets must be reassigned or retired before deleting.");
+      return;
     }
+
+    setDeleteSaving(true);
+    setDeleteError("");
+
+    // 1. Apply asset actions (reassign or retire)
+    for (const link of linkedAssets) {
+      const action = deleteAssetActions[link.asset.id];
+      if (action === "RETIRED") {
+        await fetch(`/api/assets/${link.asset.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "RETIRED" }),
+        });
+        await fetch(`/api/plant/${selected.id}/assets/${link.id}`, { method: "DELETE" });
+      } else if (action.startsWith("REASSIGN:")) {
+        const newPlantId = action.replace("REASSIGN:", "");
+        await fetch(`/api/plant/${selected.id}/assets/${link.id}`, { method: "DELETE" });
+        await fetch(`/api/plant/${newPlantId}/assets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId: link.asset.id, notes: link.notes || undefined }),
+        });
+      }
+    }
+
+    // 2. Permanently delete the plant
+    const res = await fetch(`/api/plant/${selected.id}/purge`, { method: "POST" });
+    if (res.ok) {
+      setShowDeleteModal(false);
+      setConfirmAction(null);
+      closeModal();
+      loadData(showArchived);
+    } else {
+      const data = await res.json();
+      setDeleteError(data.error || "Failed to delete.");
+    }
+    setDeleteSaving(false);
   }
 
   function PlantForm({ defaults, onSubmit, submitLabel, onSold, onDelete }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onSold?: () => void; onDelete?: () => void }) {
@@ -782,7 +832,7 @@ function PlantContent() {
         {selected && editing && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Edit Plant</h2>
-            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} onDelete={() => setConfirmAction({ type: "delete" })} />
+            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} onDelete={openDeleteModal} />
           </div>
         )}
       </Modal>
@@ -1030,16 +1080,52 @@ function PlantContent() {
         onCancel={() => setConfirmAction(null)}
       />
 
-      {/* Permanent Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={confirmAction?.type === "delete"}
-        title="Permanently Delete Plant"
-        message={`Are you sure you want to permanently delete ${selected?.plantNumber || "this plant item"}? This action cannot be undone — all data for this plant will be permanently erased. Any linked assets will be unlinked but not deleted.`}
-        confirmLabel="Delete Permanently"
-        confirmVariant="danger"
-        onConfirm={handlePermanentDelete}
-        onCancel={() => setConfirmAction(null)}
-      />
+      {/* Permanent Delete Modal */}
+      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Permanently Delete Plant</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          This action cannot be undone — all data for <strong>{selected?.plantNumber}</strong> will be permanently erased.
+        </p>
+        {linkedAssets.length > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm font-medium text-amber-800 mb-2">
+              This plant has {linkedAssets.length} linked asset{linkedAssets.length !== 1 ? "s" : ""} that must be dealt with before it can be deleted:
+            </p>
+            <div className="space-y-2">
+              {linkedAssets.map((link) => (
+                <div key={link.id} className="flex items-center justify-between gap-3 p-2 bg-white rounded border text-sm">
+                  <div className="min-w-0">
+                    <span className="font-medium text-gray-900">{link.asset.name}</span>
+                    <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
+                  </div>
+                  <select
+                    value={deleteAssetActions[link.asset.id] || ""}
+                    onChange={(e) => setDeleteAssetActions({ ...deleteAssetActions, [link.asset.id]: e.target.value })}
+                    className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Select action --</option>
+                    <option value="RETIRED">Retire asset</option>
+                    {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
+                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {deleteError && <p className="text-red-500 text-sm mb-3">{deleteError}</p>}
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={handlePermanentDelete}
+            disabled={deleteSaving}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+          >
+            {deleteSaving ? "Deleting..." : "Delete Permanently"}
+          </button>
+          <button type="button" onClick={() => setShowDeleteModal(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+        </div>
+      </Modal>
 
       {/* Sold Modal */}
       <Modal isOpen={showSoldModal} onClose={() => setShowSoldModal(false)}>
