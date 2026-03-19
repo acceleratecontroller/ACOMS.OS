@@ -21,7 +21,12 @@ export async function GET(request: NextRequest) {
         assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
         assetLinks: {
           where: { unlinkedAt: null },
-          select: { id: true },
+          include: {
+            asset: {
+              select: { id: true, assetNumber: true, name: true, category: true, status: true },
+            },
+          },
+          orderBy: { linkedAt: "desc" },
         },
       },
       orderBy: { createdAt: "desc" },

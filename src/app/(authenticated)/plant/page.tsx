@@ -80,7 +80,8 @@ interface PlantItem {
   assetLinks?: LinkedAsset[];
 }
 
-const columns: Column<PlantItem>[] = [
+// Base columns defined outside the component (no event handlers needed)
+const baseColumns: Column<PlantItem>[] = [
   { key: "plantNumber", label: "Plant #" },
   { key: "category", label: "Category" },
   { key: "registrationNumber", label: "Rego" },
@@ -98,11 +99,6 @@ const columns: Column<PlantItem>[] = [
     key: "assignedTo",
     label: "Assigned To",
     render: (item) => item.assignedTo ? `${item.assignedTo.firstName} ${item.assignedTo.lastName}` : "—",
-  },
-  {
-    key: "status",
-    label: "Status",
-    render: (item) => <StatusBadge status={item.status} />,
   },
 ];
 
@@ -129,6 +125,16 @@ function PlantContent() {
   const [soldSaving, setSoldSaving] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [soldAssetActions, setSoldAssetActions] = useState<Record<string, string>>({});
+
+  // Asset preview modal state
+  const [previewAsset, setPreviewAsset] = useState<{
+    id: string; assetNumber: string; name: string; category: string; status: string;
+    condition?: string | null; make?: string | null; model?: string | null;
+    serialNumber?: string | null; location?: string | null; notes?: string | null;
+    purchaseDate?: string | null; purchaseCost?: string | null;
+    assignedTo?: { firstName: string; lastName: string } | null;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Linked assets state
   const [linkedAssets, setLinkedAssets] = useState<LinkedAsset[]>([]);
@@ -183,6 +189,69 @@ function PlantContent() {
   }, []);
 
   useEffect(() => { loadData(showArchived); }, [loadData, showArchived]);
+
+  function openAssetPreview(assetId: string) {
+    setPreviewLoading(true);
+    setPreviewAsset(null);
+    fetch(`/api/assets/${assetId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setPreviewAsset(data);
+        setPreviewLoading(false);
+      })
+      .catch(() => setPreviewLoading(false));
+  }
+
+  // Build columns inside the component so the assets column can call openAssetPreview
+  const columns: Column<PlantItem>[] = [
+    ...baseColumns,
+    {
+      key: "assetLinks",
+      label: "Linked Assets",
+      render: (item) => {
+        const links = item.assetLinks || [];
+        if (links.length === 0) return <span className="text-gray-400">—</span>;
+        if (links.length === 1) {
+          const link = links[0];
+          return (
+            <button
+              onClick={(e) => { e.stopPropagation(); openAssetPreview(link.asset.id); }}
+              className="text-blue-600 hover:text-blue-800 hover:underline text-left text-sm"
+            >
+              {link.asset.name} ({link.asset.assetNumber})
+            </button>
+          );
+        }
+        return (
+          <div className="relative group">
+            <button
+              onClick={(e) => { e.stopPropagation(); }}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-default"
+            >
+              {links.length} assets
+            </button>
+            <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block bg-white border rounded-lg shadow-lg py-1 min-w-[220px]">
+              {links.map((link) => (
+                <button
+                  key={link.id}
+                  onClick={(e) => { e.stopPropagation(); openAssetPreview(link.asset.id); }}
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition-colors"
+                >
+                  <span className="font-medium text-gray-900">{link.asset.name}</span>
+                  <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (item) => <StatusBadge status={item.status} />,
+    },
+  ];
 
   const employeeOptions = employees.map((e) => ({
     value: e.id,
@@ -986,6 +1055,41 @@ function PlantContent() {
             <button type="button" onClick={() => setShowSoldModal(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Asset Preview Modal */}
+      <Modal isOpen={!!previewAsset || previewLoading} onClose={() => { setPreviewAsset(null); setPreviewLoading(false); }}>
+        {previewLoading && <p className="text-sm text-gray-500">Loading asset...</p>}
+        {previewAsset && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-bold text-gray-900">{previewAsset.name}</h2>
+              <StatusBadge status={previewAsset.status} />
+              {previewAsset.condition && <StatusBadge status={previewAsset.condition} />}
+            </div>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Asset #</dt><dd className="font-medium text-gray-900">{previewAsset.assetNumber}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{previewAsset.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{previewAsset.make || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{previewAsset.model || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Serial #</dt><dd className="font-medium text-gray-900">{previewAsset.serialNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{previewAsset.condition || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{previewAsset.location ? (LOCATION_LABELS[previewAsset.location] || previewAsset.location) : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(previewAsset.purchaseDate || null) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Cost</dt><dd className="font-medium text-gray-900">{previewAsset.purchaseCost ? `$${previewAsset.purchaseCost}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{previewAsset.assignedTo ? `${previewAsset.assignedTo.firstName} ${previewAsset.assignedTo.lastName}` : "—"}</dd></div>
+            </dl>
+            {previewAsset.notes && (
+              <div className="mt-3 text-sm">
+                <p className="text-gray-400 text-xs uppercase tracking-wider">Notes</p>
+                <p className="text-gray-900 whitespace-pre-wrap">{previewAsset.notes}</p>
+              </div>
+            )}
+            <div className="flex gap-3 mt-4 pt-4 border-t">
+              <button onClick={() => setPreviewAsset(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Close</button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
