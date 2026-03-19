@@ -484,9 +484,12 @@ function PlantContent() {
             Archived
           </button>
         </div>
-        {!showArchived && (
-          <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Plant</button>
-        )}
+        <div className="flex items-center gap-3">
+          <a href="https://tracking.fleetdynamics.com.au/" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">Fleet Dynamics</a>
+          {!showArchived && (
+            <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Plant</button>
+          )}
+        </div>
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
         <DataTable columns={columns} data={plant} onRowClick={(p) => { loadPlantDetail(p.id); setEditing(false); }} emptyMessage={showArchived ? "No archived plant items." : "No plant items found. Click '+ Add Plant' to create one."} />
