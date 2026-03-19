@@ -24,7 +24,7 @@ export async function GET(
         plantLinks: {
           where: { unlinkedAt: null },
           include: {
-            plant: { select: { id: true, plantNumber: true, name: true } },
+            plant: { select: { id: true, plantNumber: true } },
           },
         },
       },
@@ -122,10 +122,10 @@ export async function DELETE(
   // Check if asset is linked to any active plant items
   const activeLinks = await prisma.plantAssetLink.findMany({
     where: { assetId: id, unlinkedAt: null },
-    include: { plant: { select: { name: true, plantNumber: true } } },
+    include: { plant: { select: { plantNumber: true } } },
   });
   if (activeLinks.length > 0) {
-    const plantNames = activeLinks.map((l) => `${l.plant.name} (${l.plant.plantNumber})`).join(", ");
+    const plantNames = activeLinks.map((l) => l.plant.plantNumber).join(", ");
     return NextResponse.json(
       { error: `Cannot archive: this asset is linked to ${plantNames}. Unlink it first.` },
       { status: 400 },

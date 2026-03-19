@@ -87,6 +87,27 @@ export const PLANT_STATUS_OPTIONS: SelectOption[] = [
   { value: "STANDBY", label: "Standby" },
 ];
 
+export const STATE_OPTIONS: SelectOption[] = [
+  { value: "QLD", label: "QLD" },
+  { value: "NSW", label: "NSW" },
+  { value: "VIC", label: "VIC" },
+  { value: "SA", label: "SA" },
+  { value: "WA", label: "WA" },
+  { value: "TAS", label: "TAS" },
+  { value: "NT", label: "NT" },
+  { value: "ACT", label: "ACT" },
+];
+
+export const LICENCE_TYPE_OPTIONS: SelectOption[] = [
+  { value: "C", label: "C — Car" },
+  { value: "C_AUTO", label: "C Auto — Car (Automatic)" },
+  { value: "LR", label: "LR — Light Rigid" },
+  { value: "MR", label: "MR — Medium Rigid" },
+  { value: "HR", label: "HR — Heavy Rigid" },
+  { value: "HC", label: "HC — Heavy Combination" },
+  { value: "MC", label: "MC — Multi Combination" },
+];
+
 // ─── Shared constants (used by assets and plant) ─────────
 
 export const CONDITION_OPTIONS: SelectOption[] = [

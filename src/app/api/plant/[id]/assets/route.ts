@@ -58,7 +58,7 @@ export async function POST(
   // Verify plant exists
   const plant = await prisma.plant.findUnique({
     where: { id: plantId },
-    select: { id: true, name: true, plantNumber: true, isArchived: true },
+    select: { id: true, plantNumber: true, isArchived: true },
   });
   if (!plant) {
     return NextResponse.json({ error: "Plant not found" }, { status: 404 });
@@ -109,7 +109,7 @@ export async function POST(
       entityType: "Plant",
       entityId: plantId,
       action: "UPDATE",
-      entityLabel: `${plant.name} (${plant.plantNumber})`,
+      entityLabel: `${plant.plantNumber}`,
       performedById: session.user.id,
       changes: { linkedAsset: { from: null, to: `${asset.name} (${asset.assetNumber})` } },
     });
@@ -185,7 +185,7 @@ export async function POST(
       entityType: "Plant",
       entityId: plantId,
       action: "UPDATE",
-      entityLabel: `${plant.name} (${plant.plantNumber})`,
+      entityLabel: `${plant.plantNumber}`,
       performedById: session.user.id,
       changes: { linkedAsset: { from: null, to: `${result.asset.name} (${result.asset.assetNumber})` } },
     });

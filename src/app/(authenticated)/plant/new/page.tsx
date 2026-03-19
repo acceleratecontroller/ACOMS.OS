@@ -4,7 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
-import { LOCATION_OPTIONS } from "@/config/constants";
+import {
+  PLANT_STATUS_OPTIONS,
+  CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  STATE_OPTIONS,
+  LICENCE_TYPE_OPTIONS,
+} from "@/config/constants";
 
 interface EmployeeOption {
   id: string;
@@ -33,22 +39,31 @@ export default function NewPlantPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      name: form.get("name"),
       category: form.get("category"),
+      stateRegistered: form.get("stateRegistered"),
+      registrationNumber: form.get("registrationNumber"),
+      vinNumber: form.get("vinNumber"),
+      year: form.get("year"),
       make: form.get("make"),
       model: form.get("model"),
-      serialNumber: form.get("serialNumber"),
-      yearOfManufacture: form.get("yearOfManufacture"),
-      registrationNumber: form.get("registrationNumber"),
-      purchaseDate: form.get("purchaseDate"),
-      purchaseCost: form.get("purchaseCost"),
+      licenceType: form.get("licenceType"),
+      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
-      status: form.get("status"),
-      condition: form.get("condition"),
+      ampolCardNumber: form.get("ampolCardNumber"),
+      ampolCardExpiry: form.get("ampolCardExpiry"),
+      linktTagNumber: form.get("linktTagNumber"),
+      fleetDynamicsSerialNumber: form.get("fleetDynamicsSerialNumber"),
+      coiExpirationDate: form.get("coiExpirationDate"),
+      purchaseDate: form.get("purchaseDate"),
+      purchasePrice: form.get("purchasePrice"),
+      soldDate: form.get("soldDate"),
+      soldPrice: form.get("soldPrice"),
+      comments: form.get("comments"),
       lastServiceDate: form.get("lastServiceDate"),
       nextServiceDue: form.get("nextServiceDue"),
-      notes: form.get("notes"),
+      status: form.get("status"),
+      condition: form.get("condition"),
     };
 
     const res = await fetch("/api/plant", {
@@ -72,40 +87,30 @@ export default function NewPlantPage() {
       <PageHeader title="Add Plant" />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={[
-            { value: "OPERATIONAL", label: "Operational" },
-            { value: "MAINTENANCE", label: "Maintenance" },
-            { value: "DECOMMISSIONED", label: "Decommissioned" },
-            { value: "STANDBY", label: "Standby" },
-          ]} />
+          <FormField label="Category" name="category" required placeholder="e.g. Excavator, Truck" />
+          <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={PLANT_STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Name" name="name" required placeholder="e.g. CAT 320 Excavator" />
-          <FormField label="Category" name="category" required placeholder="e.g. Excavator" />
+          <SelectField label="State Registered" name="stateRegistered" options={STATE_OPTIONS} />
+          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="VIN Number" name="vinNumber" />
+          <FormField label="Year" name="year" type="number" placeholder="e.g. 2020" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Make" name="make" placeholder="e.g. Caterpillar" />
           <FormField label="Model" name="model" placeholder="e.g. 320" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Serial Number" name="serialNumber" />
-          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" placeholder="e.g. 2020" />
+          <SelectField label="Licence Type Required" name="licenceType" options={LICENCE_TYPE_OPTIONS} />
+          <SelectField label="Condition" name="condition" options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" />
-          <SelectField label="Condition" name="condition" options={[
-            { value: "NEW", label: "New" },
-            { value: "GOOD", label: "Good" },
-            { value: "FAIR", label: "Fair" },
-            { value: "POOR", label: "Poor" },
-          ]} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Purchase Date" name="purchaseDate" type="date" />
-          <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+          <SelectField label="Region Assigned" name="regionAssigned" options={LOCATION_OPTIONS} />
           <SelectField label="Location" name="location" options={LOCATION_OPTIONS} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <SelectField
             label="Assigned To (Employee)"
             name="assignedToId"
@@ -116,10 +121,29 @@ export default function NewPlantPage() {
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
+          <FormField label="Ampol Card Number" name="ampolCardNumber" />
+          <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Linkt Tag Number" name="linktTagNumber" />
+          <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Purchase Date" name="purchaseDate" type="date" />
+          <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Sold Date" name="soldDate" type="date" />
+          <FormField label="Sold Price" name="soldPrice" type="number" placeholder="0.00" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <FormField label="Last Service Date" name="lastServiceDate" type="date" />
           <FormField label="Next Service Due" name="nextServiceDue" type="date" />
         </div>
-        <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
+        <TextAreaField label="Comments" name="comments" placeholder="Optional comments..." />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 

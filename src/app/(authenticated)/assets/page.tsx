@@ -24,7 +24,7 @@ interface EmployeeOption {
 
 interface PlantLink {
   id: string;
-  plant: { id: string; plantNumber: string; name: string };
+  plant: { id: string; plantNumber: string };
 }
 
 interface Asset {
@@ -290,8 +290,7 @@ function AssetsContent() {
                   {selected.plantLinks.map((link) => (
                     <div key={link.id} className="flex items-center gap-2 text-sm">
                       <span className="inline-block w-2 h-2 rounded-full bg-blue-400" />
-                      <span className="font-medium text-gray-900">{link.plant.name}</span>
-                      <span className="text-gray-500">({link.plant.plantNumber})</span>
+                      <span className="font-medium text-gray-900">{link.plant.plantNumber}</span>
                     </div>
                   ))}
                 </div>

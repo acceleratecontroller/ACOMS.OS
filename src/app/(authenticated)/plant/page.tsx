@@ -14,6 +14,8 @@ import {
   CONDITION_OPTIONS,
   LOCATION_OPTIONS,
   LOCATION_LABELS,
+  STATE_OPTIONS,
+  LICENCE_TYPE_OPTIONS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -47,21 +49,30 @@ interface AvailableAsset {
 interface PlantItem {
   id: string;
   plantNumber: string;
-  name: string;
   category: string;
+  stateRegistered: string | null;
+  registrationNumber: string | null;
+  vinNumber: string | null;
+  year: number | null;
   make: string | null;
   model: string | null;
-  serialNumber: string | null;
-  yearOfManufacture: number | null;
-  registrationNumber: string | null;
-  purchaseDate: string | null;
-  purchaseCost: string | null;
+  licenceType: string | null;
+  regionAssigned: string | null;
   location: string | null;
-  status: string;
-  condition: string | null;
+  ampolCardNumber: string | null;
+  ampolCardExpiry: string | null;
+  linktTagNumber: string | null;
+  fleetDynamicsSerialNumber: string | null;
+  coiExpirationDate: string | null;
+  purchaseDate: string | null;
+  purchasePrice: string | null;
+  soldDate: string | null;
+  soldPrice: string | null;
+  comments: string | null;
   lastServiceDate: string | null;
   nextServiceDue: string | null;
-  notes: string | null;
+  status: string;
+  condition: string | null;
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
@@ -70,10 +81,18 @@ interface PlantItem {
 
 const columns: Column<PlantItem>[] = [
   { key: "plantNumber", label: "Plant #" },
-  { key: "name", label: "Name" },
   { key: "category", label: "Category" },
   { key: "registrationNumber", label: "Rego" },
-  { key: "location", label: "Location" },
+  {
+    key: "make",
+    label: "Make / Model",
+    render: (item) => [item.make, item.model].filter(Boolean).join(" ") || "—",
+  },
+  {
+    key: "location",
+    label: "Location",
+    render: (item) => item.location ? (LOCATION_LABELS[item.location] || item.location) : "—",
+  },
   {
     key: "assignedTo",
     label: "Assigned To",
@@ -265,22 +284,31 @@ function PlantContent() {
 
   function getFormBody(form: FormData) {
     return {
-      name: form.get("name"),
       category: form.get("category"),
+      stateRegistered: form.get("stateRegistered"),
+      registrationNumber: form.get("registrationNumber"),
+      vinNumber: form.get("vinNumber"),
+      year: form.get("year"),
       make: form.get("make"),
       model: form.get("model"),
-      serialNumber: form.get("serialNumber"),
-      yearOfManufacture: form.get("yearOfManufacture"),
-      registrationNumber: form.get("registrationNumber"),
-      purchaseDate: form.get("purchaseDate"),
-      purchaseCost: form.get("purchaseCost"),
+      licenceType: form.get("licenceType"),
+      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
-      status: form.get("status"),
-      condition: form.get("condition"),
+      ampolCardNumber: form.get("ampolCardNumber"),
+      ampolCardExpiry: form.get("ampolCardExpiry"),
+      linktTagNumber: form.get("linktTagNumber"),
+      fleetDynamicsSerialNumber: form.get("fleetDynamicsSerialNumber"),
+      coiExpirationDate: form.get("coiExpirationDate"),
+      purchaseDate: form.get("purchaseDate"),
+      purchasePrice: form.get("purchasePrice"),
+      soldDate: form.get("soldDate"),
+      soldPrice: form.get("soldPrice"),
+      comments: form.get("comments"),
       lastServiceDate: form.get("lastServiceDate"),
       nextServiceDue: form.get("nextServiceDue"),
-      notes: form.get("notes"),
+      status: form.get("status"),
+      condition: form.get("condition"),
     };
   }
 
@@ -369,31 +397,50 @@ function PlantContent() {
               <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
             </div>
           )}
-          <FormField label="Name" name="name" required placeholder="e.g. CAT 320 Excavator" defaultValue={defaults?.name || ""} />
-          <FormField label="Category" name="category" required placeholder="e.g. Excavator" defaultValue={defaults?.category || ""} />
+          <FormField label="Category" name="category" required placeholder="e.g. Excavator, Truck" defaultValue={defaults?.category || ""} />
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SelectField label="State Registered" name="stateRegistered" defaultValue={defaults?.stateRegistered || ""} options={STATE_OPTIONS} />
+          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" defaultValue={defaults?.registrationNumber || ""} />
+          <FormField label="VIN Number" name="vinNumber" defaultValue={defaults?.vinNumber || ""} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Year" name="year" type="number" placeholder="e.g. 2020" defaultValue={defaults?.year?.toString() || ""} />
           <FormField label="Make" name="make" placeholder="e.g. Caterpillar" defaultValue={defaults?.make || ""} />
           <FormField label="Model" name="model" placeholder="e.g. 320" defaultValue={defaults?.model || ""} />
-          <FormField label="Serial Number" name="serialNumber" defaultValue={defaults?.serialNumber || ""} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" placeholder="e.g. 2020" defaultValue={defaults?.yearOfManufacture?.toString() || ""} />
-          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" defaultValue={defaults?.registrationNumber || ""} />
-          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
-          <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
+          <SelectField label="Licence Type Required" name="licenceType" defaultValue={defaults?.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
+          <SelectField label="Region Assigned" name="regionAssigned" defaultValue={defaults?.regionAssigned || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
+          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Ampol Card Number" name="ampolCardNumber" defaultValue={defaults?.ampolCardNumber || ""} />
+          <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" defaultValue={formatDate(defaults?.ampolCardExpiry || null)} />
+          <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={defaults?.linktTagNumber || ""} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" defaultValue={defaults?.fleetDynamicsSerialNumber || ""} />
+          <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" defaultValue={formatDate(defaults?.coiExpirationDate || null)} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
+          <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" defaultValue={defaults?.purchasePrice?.toString() || ""} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Sold Date" name="soldDate" type="date" defaultValue={formatDate(defaults?.soldDate || null)} />
+          <FormField label="Sold Price" name="soldPrice" type="number" placeholder="0.00" defaultValue={defaults?.soldPrice?.toString() || ""} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
           <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
         </div>
-        <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
+        <TextAreaField label="Comments" name="comments" defaultValue={defaults?.comments || ""} placeholder="Optional comments..." />
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
@@ -450,7 +497,7 @@ function PlantContent() {
         {selected && !editing && (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{selected.plantNumber}</h2>
               <StatusBadge status={selected.status} />
               {selected.condition && <StatusBadge status={selected.condition} />}
               {selected.isArchived && (
@@ -460,21 +507,31 @@ function PlantContent() {
             <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Plant #</dt><dd className="font-medium text-gray-900">{selected.plantNumber}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">State Registered</dt><dd className="font-medium text-gray-900">{selected.stateRegistered || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Rego</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">VIN Number</dt><dd className="font-medium text-gray-900">{selected.vinNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Year</dt><dd className="font-medium text-gray-900">{selected.year || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Serial #</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Year</dt><dd className="font-medium text-gray-900">{selected.yearOfManufacture || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Rego</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Licence Type</dt><dd className="font-medium text-gray-900">{selected.licenceType || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Region Assigned</dt><dd className="font-medium text-gray-900">{selected.regionAssigned ? (LOCATION_LABELS[selected.regionAssigned] || selected.regionAssigned) : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{selected.condition || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{selected.condition || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Ampol Card #</dt><dd className="font-medium text-gray-900">{selected.ampolCardNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Ampol Card Expiry</dt><dd className="font-medium text-gray-900">{formatDate(selected.ampolCardExpiry) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Linkt Tag #</dt><dd className="font-medium text-gray-900">{selected.linktTagNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Fleet Dynamics Serial</dt><dd className="font-medium text-gray-900">{selected.fleetDynamicsSerialNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">COI Expiration</dt><dd className="font-medium text-gray-900">{formatDate(selected.coiExpirationDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Price</dt><dd className="font-medium text-gray-900">{selected.purchasePrice ? `$${selected.purchasePrice}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Sold Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.soldDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Sold Price</dt><dd className="font-medium text-gray-900">{selected.soldPrice ? `$${selected.soldPrice}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.lastServiceDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Next Service</dt><dd className="font-medium text-gray-900">{formatDate(selected.nextServiceDue) || "—"}</dd></div>
             </dl>
-            {selected.notes && (
-              <div className="mt-3 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
+            {selected.comments && (
+              <div className="mt-3 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider">Comments</p><p className="text-gray-900 whitespace-pre-wrap">{selected.comments}</p></div>
             )}
 
             {/* Linked Assets Section */}
@@ -677,7 +734,7 @@ function PlantContent() {
       <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Link Existing Asset</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Search for an asset to link to <strong>{selected?.name}</strong>.
+          Search for an asset to link to <strong>{selected?.plantNumber}</strong>.
         </p>
         <input
           type="text"
@@ -731,7 +788,7 @@ function PlantContent() {
       <Modal isOpen={showCreateAssetModal} onClose={() => setShowCreateAssetModal(false)}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Create & Link New Asset</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Create a new asset and automatically link it to <strong>{selected?.name}</strong>.
+          Create a new asset and automatically link it to <strong>{selected?.plantNumber}</strong>.
         </p>
         <form onSubmit={handleCreateAndLink} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

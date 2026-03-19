@@ -10,26 +10,37 @@ import {
   CONDITION_OPTIONS,
   LOCATION_OPTIONS,
   LOCATION_LABELS,
+  STATE_OPTIONS,
+  LICENCE_TYPE_OPTIONS,
 } from "@/config/constants";
 
 interface PlantItem {
   id: string;
   plantNumber: string;
-  name: string;
   category: string;
+  stateRegistered: string | null;
+  registrationNumber: string | null;
+  vinNumber: string | null;
+  year: number | null;
   make: string | null;
   model: string | null;
-  serialNumber: string | null;
-  yearOfManufacture: number | null;
-  registrationNumber: string | null;
-  purchaseDate: string | null;
-  purchaseCost: string | null;
+  licenceType: string | null;
+  regionAssigned: string | null;
   location: string | null;
-  status: string;
-  condition: string | null;
+  ampolCardNumber: string | null;
+  ampolCardExpiry: string | null;
+  linktTagNumber: string | null;
+  fleetDynamicsSerialNumber: string | null;
+  coiExpirationDate: string | null;
+  purchaseDate: string | null;
+  purchasePrice: string | null;
+  soldDate: string | null;
+  soldPrice: string | null;
+  comments: string | null;
   lastServiceDate: string | null;
   nextServiceDue: string | null;
-  notes: string | null;
+  status: string;
+  condition: string | null;
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
@@ -70,22 +81,31 @@ export default function PlantDetailPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      name: form.get("name"),
       category: form.get("category"),
+      stateRegistered: form.get("stateRegistered"),
+      registrationNumber: form.get("registrationNumber"),
+      vinNumber: form.get("vinNumber"),
+      year: form.get("year"),
       make: form.get("make"),
       model: form.get("model"),
-      serialNumber: form.get("serialNumber"),
-      yearOfManufacture: form.get("yearOfManufacture"),
-      registrationNumber: form.get("registrationNumber"),
-      purchaseDate: form.get("purchaseDate"),
-      purchaseCost: form.get("purchaseCost"),
+      licenceType: form.get("licenceType"),
+      regionAssigned: form.get("regionAssigned"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
-      status: form.get("status"),
-      condition: form.get("condition"),
+      ampolCardNumber: form.get("ampolCardNumber"),
+      ampolCardExpiry: form.get("ampolCardExpiry"),
+      linktTagNumber: form.get("linktTagNumber"),
+      fleetDynamicsSerialNumber: form.get("fleetDynamicsSerialNumber"),
+      coiExpirationDate: form.get("coiExpirationDate"),
+      purchaseDate: form.get("purchaseDate"),
+      purchasePrice: form.get("purchasePrice"),
+      soldDate: form.get("soldDate"),
+      soldPrice: form.get("soldPrice"),
+      comments: form.get("comments"),
       lastServiceDate: form.get("lastServiceDate"),
       nextServiceDue: form.get("nextServiceDue"),
-      notes: form.get("notes"),
+      status: form.get("status"),
+      condition: form.get("condition"),
     };
 
     const res = await fetch(`/api/plant/${id}`, {
@@ -119,7 +139,7 @@ export default function PlantDetailPage() {
   if (!editing) {
     return (
       <div>
-        <PageHeader title={plant.name} />
+        <PageHeader title={plant.plantNumber} />
         <div className="max-w-2xl bg-white rounded border p-6">
           <div className="flex gap-2 mb-6">
             <StatusBadge status={plant.status} />
@@ -129,22 +149,32 @@ export default function PlantDetailPage() {
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div><dt className="text-gray-500">Plant #</dt><dd className="font-medium">{plant.plantNumber}</dd></div>
             <div><dt className="text-gray-500">Category</dt><dd className="font-medium">{plant.category}</dd></div>
+            <div><dt className="text-gray-500">State Registered</dt><dd className="font-medium">{plant.stateRegistered || "—"}</dd></div>
+            <div><dt className="text-gray-500">Registration</dt><dd className="font-medium">{plant.registrationNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">VIN Number</dt><dd className="font-medium">{plant.vinNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">Year</dt><dd className="font-medium">{plant.year || "—"}</dd></div>
             <div><dt className="text-gray-500">Make</dt><dd className="font-medium">{plant.make || "—"}</dd></div>
             <div><dt className="text-gray-500">Model</dt><dd className="font-medium">{plant.model || "—"}</dd></div>
-            <div><dt className="text-gray-500">Serial Number</dt><dd className="font-medium">{plant.serialNumber || "—"}</dd></div>
-            <div><dt className="text-gray-500">Year of Manufacture</dt><dd className="font-medium">{plant.yearOfManufacture || "—"}</dd></div>
-            <div><dt className="text-gray-500">Registration</dt><dd className="font-medium">{plant.registrationNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">Licence Type</dt><dd className="font-medium">{plant.licenceType || "—"}</dd></div>
+            <div><dt className="text-gray-500">Region Assigned</dt><dd className="font-medium">{plant.regionAssigned ? (LOCATION_LABELS[plant.regionAssigned] || plant.regionAssigned) : "—"}</dd></div>
             <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{plant.location ? (LOCATION_LABELS[plant.location] || plant.location) : "—"}</dd></div>
+            <div><dt className="text-gray-500">Assigned To</dt><dd className="font-medium">{plant.assignedTo ? `${plant.assignedTo.firstName} ${plant.assignedTo.lastName} (${plant.assignedTo.employeeNumber})` : "—"}</dd></div>
+            <div><dt className="text-gray-500">Ampol Card #</dt><dd className="font-medium">{plant.ampolCardNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">Ampol Card Expiry</dt><dd className="font-medium">{formatDate(plant.ampolCardExpiry) || "—"}</dd></div>
+            <div><dt className="text-gray-500">Linkt Tag #</dt><dd className="font-medium">{plant.linktTagNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">Fleet Dynamics Serial</dt><dd className="font-medium">{plant.fleetDynamicsSerialNumber || "—"}</dd></div>
+            <div><dt className="text-gray-500">COI Expiration</dt><dd className="font-medium">{formatDate(plant.coiExpirationDate) || "—"}</dd></div>
             <div><dt className="text-gray-500">Purchase Date</dt><dd className="font-medium">{formatDate(plant.purchaseDate) || "—"}</dd></div>
-            <div><dt className="text-gray-500">Purchase Cost</dt><dd className="font-medium">{plant.purchaseCost ? `$${plant.purchaseCost}` : "—"}</dd></div>
+            <div><dt className="text-gray-500">Purchase Price</dt><dd className="font-medium">{plant.purchasePrice ? `$${plant.purchasePrice}` : "—"}</dd></div>
+            <div><dt className="text-gray-500">Sold Date</dt><dd className="font-medium">{formatDate(plant.soldDate) || "—"}</dd></div>
+            <div><dt className="text-gray-500">Sold Price</dt><dd className="font-medium">{plant.soldPrice ? `$${plant.soldPrice}` : "—"}</dd></div>
             <div><dt className="text-gray-500">Last Service</dt><dd className="font-medium">{formatDate(plant.lastServiceDate) || "—"}</dd></div>
             <div><dt className="text-gray-500">Next Service Due</dt><dd className="font-medium">{formatDate(plant.nextServiceDue) || "—"}</dd></div>
-            <div><dt className="text-gray-500">Assigned To</dt><dd className="font-medium">{plant.assignedTo ? `${plant.assignedTo.firstName} ${plant.assignedTo.lastName} (${plant.assignedTo.employeeNumber})` : "—"}</dd></div>
           </dl>
-          {plant.notes && (
+          {plant.comments && (
             <div className="mt-4 text-sm">
-              <p className="text-gray-500 mb-1">Notes</p>
-              <p className="whitespace-pre-wrap">{plant.notes}</p>
+              <p className="text-gray-500 mb-1">Comments</p>
+              <p className="whitespace-pre-wrap">{plant.comments}</p>
             </div>
           )}
           <div className="flex gap-3 mt-6 pt-4 border-t">
@@ -159,7 +189,7 @@ export default function PlantDetailPage() {
 
   return (
     <div>
-      <PageHeader title={`Edit: ${plant.name}`} />
+      <PageHeader title={`Edit: ${plant.plantNumber}`} />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -169,24 +199,24 @@ export default function PlantDetailPage() {
           <SelectField label="Status" name="status" required defaultValue={plant.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Name" name="name" required defaultValue={plant.name} />
           <FormField label="Category" name="category" required defaultValue={plant.category} />
+          <SelectField label="Condition" name="condition" defaultValue={plant.condition || ""} options={CONDITION_OPTIONS} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField label="State Registered" name="stateRegistered" defaultValue={plant.stateRegistered || ""} options={STATE_OPTIONS} />
+          <FormField label="Registration Number" name="registrationNumber" defaultValue={plant.registrationNumber || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="VIN Number" name="vinNumber" defaultValue={plant.vinNumber || ""} />
+          <FormField label="Year" name="year" type="number" defaultValue={plant.year?.toString() || ""} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Make" name="make" defaultValue={plant.make || ""} />
           <FormField label="Model" name="model" defaultValue={plant.model || ""} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Serial Number" name="serialNumber" defaultValue={plant.serialNumber || ""} />
-          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" defaultValue={plant.yearOfManufacture?.toString() || ""} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Registration Number" name="registrationNumber" defaultValue={plant.registrationNumber || ""} />
-          <SelectField label="Condition" name="condition" defaultValue={plant.condition || ""} options={CONDITION_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(plant.purchaseDate)} />
-          <FormField label="Purchase Cost" name="purchaseCost" type="number" defaultValue={plant.purchaseCost?.toString() || ""} />
+          <SelectField label="Licence Type Required" name="licenceType" defaultValue={plant.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
+          <SelectField label="Region Assigned" name="regionAssigned" defaultValue={plant.regionAssigned || ""} options={LOCATION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <SelectField label="Location" name="location" defaultValue={plant.location || ""} options={LOCATION_OPTIONS} />
@@ -196,10 +226,29 @@ export default function PlantDetailPage() {
           }))} />
         </div>
         <div className="grid grid-cols-2 gap-4">
+          <FormField label="Ampol Card Number" name="ampolCardNumber" defaultValue={plant.ampolCardNumber || ""} />
+          <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" defaultValue={formatDate(plant.ampolCardExpiry)} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={plant.linktTagNumber || ""} />
+          <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" defaultValue={plant.fleetDynamicsSerialNumber || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" defaultValue={formatDate(plant.coiExpirationDate)} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(plant.purchaseDate)} />
+          <FormField label="Purchase Price" name="purchasePrice" type="number" defaultValue={plant.purchasePrice?.toString() || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Sold Date" name="soldDate" type="date" defaultValue={formatDate(plant.soldDate)} />
+          <FormField label="Sold Price" name="soldPrice" type="number" defaultValue={plant.soldPrice?.toString() || ""} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(plant.lastServiceDate)} />
           <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(plant.nextServiceDue)} />
         </div>
-        <TextAreaField label="Notes" name="notes" defaultValue={plant.notes || ""} />
+        <TextAreaField label="Comments" name="comments" defaultValue={plant.comments || ""} />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 

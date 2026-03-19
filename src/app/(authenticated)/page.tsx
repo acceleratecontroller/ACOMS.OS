@@ -63,7 +63,7 @@ export default async function DashboardPage() {
     }),
     prisma.plant.findMany({
       where: { isArchived: false, nextServiceDue: { lt: today } },
-      select: { id: true, plantNumber: true, name: true, nextServiceDue: true },
+      select: { id: true, plantNumber: true, make: true, model: true, nextServiceDue: true },
       orderBy: { nextServiceDue: "asc" },
       take: 5,
     }),
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
         isArchived: false,
         nextServiceDue: { gte: today, lte: sevenDaysFromNow },
       },
-      select: { id: true, plantNumber: true, name: true, nextServiceDue: true },
+      select: { id: true, plantNumber: true, make: true, model: true, nextServiceDue: true },
       orderBy: { nextServiceDue: "asc" },
       take: 5,
     }),
@@ -279,7 +279,7 @@ export default async function DashboardPage() {
               <div className="space-y-1">
                 {plantServiceOverdue.map((p) => (
                   <div key={p.id} className="flex justify-between text-sm">
-                    <span className="text-red-600">{p.plantNumber} — {p.name}</span>
+                    <span className="text-red-600">{p.plantNumber}{p.make || p.model ? ` — ${[p.make, p.model].filter(Boolean).join(" ")}` : ""}</span>
                     <span className="text-xs text-red-500">
                       Overdue {formatDate(p.nextServiceDue)}
                     </span>
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
                 ))}
                 {plantServiceSoon.map((p) => (
                   <div key={p.id} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{p.plantNumber} — {p.name}</span>
+                    <span className="text-gray-600">{p.plantNumber}{p.make || p.model ? ` — ${[p.make, p.model].filter(Boolean).join(" ")}` : ""}</span>
                     <span className="text-xs text-amber-600">
                       Due {formatDate(p.nextServiceDue)}
                     </span>

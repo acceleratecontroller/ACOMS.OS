@@ -20,7 +20,7 @@ export async function DELETE(
     where: { id: linkId, plantId, unlinkedAt: null },
     include: {
       asset: { select: { name: true, assetNumber: true } },
-      plant: { select: { name: true, plantNumber: true } },
+      plant: { select: { plantNumber: true } },
     },
   });
 
@@ -40,7 +40,7 @@ export async function DELETE(
     entityType: "Plant",
     entityId: plantId,
     action: "UPDATE",
-    entityLabel: `${link.plant.name} (${link.plant.plantNumber})`,
+    entityLabel: `${link.plant.plantNumber}`,
     performedById: session.user.id,
     changes: { unlinkedAsset: { from: `${link.asset.name} (${link.asset.assetNumber})`, to: null } },
   });

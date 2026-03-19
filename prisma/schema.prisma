@@ -315,23 +315,33 @@ model Asset {
 // Examples: cars, trucks, excavators, generators
 
 model Plant {
-  id                 String         @id @default(uuid())
-  plantNumber        String         @unique
-  name               String
-  category           String
-  make               String?
-  model              String?
-  serialNumber       String?
-  yearOfManufacture  Int?
-  registrationNumber String?
-  purchaseDate       DateTime?
-  purchaseCost       Decimal?
-  location           String?
-  status             PlantStatus    @default(OPERATIONAL)
-  condition          ItemCondition?
-  lastServiceDate    DateTime?
-  nextServiceDue     DateTime?
-  notes              String?
+  id                        String         @id @default(uuid())
+  plantNumber               String         @unique
+  category                  String
+  stateRegistered           String?
+  registrationNumber        String?
+  vinNumber                 String?
+  year                      Int?
+  make                      String?
+  model                     String?
+  licenceType               String?
+  regionAssigned            String?
+  location                  String?
+  assignedToId              String?
+  ampolCardNumber           String?
+  ampolCardExpiry           DateTime?
+  linktTagNumber            String?
+  fleetDynamicsSerialNumber String?
+  coiExpirationDate         DateTime?
+  purchaseDate              DateTime?
+  purchasePrice             Decimal?
+  soldDate                  DateTime?
+  soldPrice                 Decimal?
+  comments                  String?
+  lastServiceDate           DateTime?
+  nextServiceDue            DateTime?
+  status                    PlantStatus    @default(OPERATIONAL)
+  condition                 ItemCondition?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -340,7 +350,6 @@ model Plant {
 
   // Optional assignment to an Employee
   assignedTo   Employee? @relation("PlantAssignedToEmployee", fields: [assignedToId], references: [id])
-  assignedToId String?
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?

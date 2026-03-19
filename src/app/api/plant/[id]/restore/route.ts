@@ -32,7 +32,7 @@ export async function POST(
     entityType: "Plant",
     entityId: plant.id,
     action: "RESTORE",
-    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    entityLabel: `${plant.plantNumber}`,
     performedById: session.user.id,
   });
 

@@ -50,16 +50,16 @@ export async function GET(request: NextRequest) {
       where: {
         isArchived: false,
         OR: [
-          { name: { contains: term, mode: "insensitive" } },
           { plantNumber: { contains: term, mode: "insensitive" } },
           { category: { contains: term, mode: "insensitive" } },
           { make: { contains: term, mode: "insensitive" } },
           { model: { contains: term, mode: "insensitive" } },
           { registrationNumber: { contains: term, mode: "insensitive" } },
+          { vinNumber: { contains: term, mode: "insensitive" } },
         ],
       },
       take: 5,
-      orderBy: { name: "asc" },
+      orderBy: { plantNumber: "asc" },
     }),
     prisma.task.findMany({
       where: {
@@ -93,8 +93,8 @@ export async function GET(request: NextRequest) {
     ...plant.map((p) => ({
       id: p.id,
       type: "plant" as const,
-      title: p.name,
-      subtitle: p.plantNumber,
+      title: p.plantNumber,
+      subtitle: [p.make, p.model].filter(Boolean).join(" ") || p.category,
       href: `/plant?open=${p.id}`,
     })),
     ...tasks.map((t) => ({
