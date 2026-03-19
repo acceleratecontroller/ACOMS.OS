@@ -256,6 +256,11 @@ function PlantContent() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteAssetActions, setDeleteAssetActions] = useState<Record<string, string>>({});
 
+  // Reassign picker modal (shared by sold/delete flows)
+  const [reassignPickerAssetId, setReassignPickerAssetId] = useState<string | null>(null);
+  const [reassignPickerSource, setReassignPickerSource] = useState<"sold" | "delete" | null>(null);
+  const [reassignPickerSearch, setReassignPickerSearch] = useState("");
+
   // Asset preview modal state
   const [previewAsset, setPreviewAsset] = useState<{
     id: string; assetNumber: string; name: string; category: string; status: string;
@@ -1169,17 +1174,32 @@ function PlantContent() {
                     <span className="font-medium text-gray-900">{link.asset.name}</span>
                     <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
                   </div>
-                  <select
-                    value={deleteAssetActions[link.asset.id] || ""}
-                    onChange={(e) => setDeleteAssetActions({ ...deleteAssetActions, [link.asset.id]: e.target.value })}
-                    className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Select action --</option>
-                    <option value="RETIRED">Retire asset</option>
-                    {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
-                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber} — {p.make} {p.model}</option>
-                    ))}
-                  </select>
+                  {deleteAssetActions[link.asset.id]?.startsWith("REASSIGN:") ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-blue-700 font-medium">
+                        → {plant.find((p) => p.id === deleteAssetActions[link.asset.id].replace("REASSIGN:", ""))?.plantNumber || "Plant"}
+                      </span>
+                      <button type="button" onClick={() => setDeleteAssetActions({ ...deleteAssetActions, [link.asset.id]: "" })} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                  ) : (
+                    <select
+                      value={deleteAssetActions[link.asset.id] || ""}
+                      onChange={(e) => {
+                        if (e.target.value === "REASSIGN_PICK") {
+                          setReassignPickerAssetId(link.asset.id);
+                          setReassignPickerSource("delete");
+                          setReassignPickerSearch("");
+                        } else {
+                          setDeleteAssetActions({ ...deleteAssetActions, [link.asset.id]: e.target.value });
+                        }
+                      }}
+                      className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select action --</option>
+                      <option value="RETIRED">Retire asset</option>
+                      <option value="REASSIGN_PICK">Reassign to plant…</option>
+                    </select>
+                  )}
                 </div>
               ))}
             </div>
@@ -1215,17 +1235,32 @@ function PlantContent() {
                     <span className="font-medium text-gray-900">{link.asset.name}</span>
                     <span className="text-gray-500 ml-1">({link.asset.assetNumber})</span>
                   </div>
-                  <select
-                    value={soldAssetActions[link.asset.id] || ""}
-                    onChange={(e) => setSoldAssetActions({ ...soldAssetActions, [link.asset.id]: e.target.value })}
-                    className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Select action --</option>
-                    <option value="RETIRED">Retire asset</option>
-                    {plant.filter((p) => p.id !== selected?.id && !p.isArchived).map((p) => (
-                      <option key={p.id} value={`REASSIGN:${p.id}`}>Reassign to {p.plantNumber} — {p.make} {p.model}</option>
-                    ))}
-                  </select>
+                  {soldAssetActions[link.asset.id]?.startsWith("REASSIGN:") ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-blue-700 font-medium">
+                        → {plant.find((p) => p.id === soldAssetActions[link.asset.id].replace("REASSIGN:", ""))?.plantNumber || "Plant"}
+                      </span>
+                      <button type="button" onClick={() => setSoldAssetActions({ ...soldAssetActions, [link.asset.id]: "" })} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                  ) : (
+                    <select
+                      value={soldAssetActions[link.asset.id] || ""}
+                      onChange={(e) => {
+                        if (e.target.value === "REASSIGN_PICK") {
+                          setReassignPickerAssetId(link.asset.id);
+                          setReassignPickerSource("sold");
+                          setReassignPickerSearch("");
+                        } else {
+                          setSoldAssetActions({ ...soldAssetActions, [link.asset.id]: e.target.value });
+                        }
+                      }}
+                      className="text-sm border border-gray-300 rounded px-2 py-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select action --</option>
+                      <option value="RETIRED">Retire asset</option>
+                      <option value="REASSIGN_PICK">Reassign to plant…</option>
+                    </select>
+                  )}
                 </div>
               ))}
             </div>
@@ -1246,6 +1281,69 @@ function PlantContent() {
             <button type="button" onClick={() => setShowSoldModal(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Reassign Plant Picker Modal (shared by sold/delete) */}
+      <Modal isOpen={!!reassignPickerAssetId} onClose={() => { setReassignPickerAssetId(null); setReassignPickerSource(null); }}>
+        <h2 className="text-xl font-bold text-gray-900 mb-3">Select Plant to Reassign To</h2>
+        <input
+          type="text"
+          value={reassignPickerSearch}
+          onChange={(e) => setReassignPickerSearch(e.target.value)}
+          placeholder="Search by plant number, make, model..."
+          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          autoFocus
+        />
+        {(() => {
+          const filteredPlant = plant
+            .filter((p) => p.id !== selected?.id && !p.isArchived)
+            .filter((p) => {
+              if (!reassignPickerSearch) return true;
+              const q = reassignPickerSearch.toLowerCase();
+              return (
+                (p.plantNumber || "").toLowerCase().includes(q) ||
+                (p.make || "").toLowerCase().includes(q) ||
+                (p.model || "").toLowerCase().includes(q) ||
+                (p.registrationNumber || "").toLowerCase().includes(q) ||
+                (p.category || "").toLowerCase().includes(q)
+              );
+            });
+          return filteredPlant.length === 0 ? (
+            <p className="text-sm text-gray-400 p-3 text-center border border-gray-200 rounded-lg">No matching plant items found.</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg divide-y">
+              {filteredPlant.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    const value = `REASSIGN:${p.id}`;
+                    if (reassignPickerSource === "sold") {
+                      setSoldAssetActions((prev) => ({ ...prev, [reassignPickerAssetId!]: value }));
+                    } else if (reassignPickerSource === "delete") {
+                      setDeleteAssetActions((prev) => ({ ...prev, [reassignPickerAssetId!]: value }));
+                    }
+                    setReassignPickerAssetId(null);
+                    setReassignPickerSource(null);
+                  }}
+                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <span className="font-medium text-gray-900">{p.plantNumber}</span>
+                    <span className="text-gray-500 ml-2">{p.make} {p.model}</span>
+                  </div>
+                  <div className="text-xs text-gray-400 shrink-0 ml-2">
+                    {p.registrationNumber && <span className="mr-2">{p.registrationNumber}</span>}
+                    <span>{p.category?.replace(/_/g, " ")}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+        <div className="flex justify-end mt-3">
+          <button type="button" onClick={() => { setReassignPickerAssetId(null); setReassignPickerSource(null); }} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+        </div>
       </Modal>
 
       {/* Asset Preview Modal */}
