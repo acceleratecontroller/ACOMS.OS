@@ -163,6 +163,77 @@ function AssetHoverList({ links, onClickAsset }: { links: LinkedAsset[]; onClick
   );
 }
 
+interface PlantFormProps {
+  defaults?: PlantItem;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  submitLabel: string;
+  onSold?: () => void;
+  onDelete?: () => void;
+  employeeOptions: { value: string; label: string }[];
+  error: string;
+  saving: boolean;
+  onCancel: () => void;
+}
+
+function PlantForm({ defaults, onSubmit, submitLabel, onSold, onDelete, employeeOptions, error, saving, onCancel }: PlantFormProps) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {defaults?.plantNumber && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
+            <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
+          </div>
+        )}
+        <SelectField label="Category" name="category" required defaultValue={defaults?.category || ""} options={PLANT_CATEGORY_OPTIONS} />
+        <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <SelectField label="State Registered" name="stateRegistered" defaultValue={defaults?.stateRegistered || ""} options={STATE_OPTIONS} />
+        <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" defaultValue={defaults?.registrationNumber || ""} />
+        <FormField label="VIN Number" name="vinNumber" defaultValue={defaults?.vinNumber || ""} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <FormField label="Year" name="year" type="number" placeholder="e.g. 2020" defaultValue={defaults?.year?.toString() || ""} />
+        <FormField label="Make" name="make" placeholder="e.g. Caterpillar" defaultValue={defaults?.make || ""} />
+        <FormField label="Model" name="model" placeholder="e.g. 320" defaultValue={defaults?.model || ""} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <SelectField label="Licence Type Required" name="licenceType" defaultValue={defaults?.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
+        <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
+        <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
+        <FormField label="Ampol Card Number" name="ampolCardNumber" defaultValue={defaults?.ampolCardNumber || ""} />
+        <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" defaultValue={formatDate(defaults?.ampolCardExpiry || null)} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={defaults?.linktTagNumber || ""} />
+        <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" defaultValue={defaults?.fleetDynamicsSerialNumber || ""} />
+        <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" defaultValue={formatDate(defaults?.coiExpirationDate || null)} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
+        <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" defaultValue={defaults?.purchasePrice?.toString() || ""} />
+        <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
+      </div>
+      <TextAreaField label="Comments" name="comments" defaultValue={defaults?.comments || ""} placeholder="Optional comments..." />
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      <div className="flex gap-3 pt-2">
+        <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
+        <button type="button" onClick={onCancel} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+        {(onSold || onDelete) && <div className="flex-1" />}
+        {onSold && <button type="button" onClick={onSold} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Sold</button>}
+        {onDelete && <button type="button" onClick={onDelete} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Delete</button>}
+      </div>
+    </form>
+  );
+}
+
 function PlantContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -632,65 +703,6 @@ function PlantContent() {
     setDeleteSaving(false);
   }
 
-  function PlantForm({ defaults, onSubmit, submitLabel, onSold, onDelete }: { defaults?: PlantItem; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onSold?: () => void; onDelete?: () => void }) {
-    return (
-      <form onSubmit={onSubmit} className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {defaults?.plantNumber && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Plant Number</label>
-              <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
-            </div>
-          )}
-          <SelectField label="Category" name="category" required defaultValue={defaults?.category || ""} options={PLANT_CATEGORY_OPTIONS} />
-          <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SelectField label="State Registered" name="stateRegistered" defaultValue={defaults?.stateRegistered || ""} options={STATE_OPTIONS} />
-          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" defaultValue={defaults?.registrationNumber || ""} />
-          <FormField label="VIN Number" name="vinNumber" defaultValue={defaults?.vinNumber || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Year" name="year" type="number" placeholder="e.g. 2020" defaultValue={defaults?.year?.toString() || ""} />
-          <FormField label="Make" name="make" placeholder="e.g. Caterpillar" defaultValue={defaults?.make || ""} />
-          <FormField label="Model" name="model" placeholder="e.g. 320" defaultValue={defaults?.model || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SelectField label="Licence Type Required" name="licenceType" defaultValue={defaults?.licenceType || ""} options={LICENCE_TYPE_OPTIONS} />
-          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
-          <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
-          <FormField label="Ampol Card Number" name="ampolCardNumber" defaultValue={defaults?.ampolCardNumber || ""} />
-          <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" defaultValue={formatDate(defaults?.ampolCardExpiry || null)} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Linkt Tag Number" name="linktTagNumber" defaultValue={defaults?.linktTagNumber || ""} />
-          <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" defaultValue={defaults?.fleetDynamicsSerialNumber || ""} />
-          <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" defaultValue={formatDate(defaults?.coiExpirationDate || null)} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
-          <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" defaultValue={defaults?.purchasePrice?.toString() || ""} />
-          <FormField label="Last Service Date" name="lastServiceDate" type="date" defaultValue={formatDate(defaults?.lastServiceDate || null)} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <FormField label="Next Service Due" name="nextServiceDue" type="date" defaultValue={formatDate(defaults?.nextServiceDue || null)} />
-        </div>
-        <TextAreaField label="Comments" name="comments" defaultValue={defaults?.comments || ""} placeholder="Optional comments..." />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
-          <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-          {(onSold || onDelete) && <div className="flex-1" />}
-          {onSold && <button type="button" onClick={onSold} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Sold</button>}
-          {onDelete && <button type="button" onClick={onDelete} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Delete</button>}
-        </div>
-      </form>
-    );
-  }
-
   // Filtered assets for link search
   const filteredAvailable = availableAssets.filter((a) => {
     if (!linkSearch) return true;
@@ -832,7 +844,7 @@ function PlantContent() {
         {selected && editing && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-3">Edit Plant</h2>
-            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} onDelete={openDeleteModal} />
+            <PlantForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onSold={openSoldModal} onDelete={openDeleteModal} employeeOptions={employeeOptions} error={error} saving={saving} onCancel={closeModal} />
           </div>
         )}
       </Modal>
@@ -840,7 +852,7 @@ function PlantContent() {
       {/* Create Plant Modal — stays mounted when sub-modals open so form data is preserved */}
       <Modal isOpen={creating} onClose={() => { closeModal(); setQueuedAssets([]); }}>
         <h2 className="text-xl font-bold text-gray-900 mb-3">Add Plant</h2>
-        <PlantForm onSubmit={handleCreate} submitLabel="Create Plant Item" />
+        <PlantForm onSubmit={handleCreate} submitLabel="Create Plant Item" employeeOptions={employeeOptions} error={error} saving={saving} onCancel={closeModal} />
 
         {/* Queued assets section */}
         <div className="mt-4 pt-4 border-t">
