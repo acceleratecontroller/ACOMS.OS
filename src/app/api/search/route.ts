@@ -15,11 +15,12 @@ export async function GET(request: NextRequest) {
   }
 
   const term = q.toLowerCase();
+  const archived = request.nextUrl.searchParams.get("archived") === "true";
 
   const [employees, assets, plant, tasks] = await Promise.all([
     prisma.employee.findMany({
       where: {
-        isArchived: false,
+        isArchived: archived,
         OR: [
           { firstName: { contains: term, mode: "insensitive" } },
           { lastName: { contains: term, mode: "insensitive" } },
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.asset.findMany({
       where: {
-        isArchived: false,
+        isArchived: archived,
         OR: [
           { name: { contains: term, mode: "insensitive" } },
           { assetNumber: { contains: term, mode: "insensitive" } },
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.plant.findMany({
       where: {
-        isArchived: false,
+        isArchived: archived,
         OR: [
           { plantNumber: { contains: term, mode: "insensitive" } },
           { category: { contains: term, mode: "insensitive" } },
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.task.findMany({
       where: {
-        isArchived: false,
+        isArchived: archived,
         OR: [
           { title: { contains: term, mode: "insensitive" } },
           { projectId: { contains: term, mode: "insensitive" } },

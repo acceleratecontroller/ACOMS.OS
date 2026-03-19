@@ -28,19 +28,22 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [archived, setArchived] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const router = useRouter();
 
-  const search = useCallback((term: string) => {
+  const search = useCallback((term: string, showArchived: boolean) => {
     if (term.length < 2) {
       setResults([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    fetch(`/api/search?q=${encodeURIComponent(term)}`)
+    const params = new URLSearchParams({ q: term });
+    if (showArchived) params.set("archived", "true");
+    fetch(`/api/search?${params}`)
       .then((r) => r.json())
       .then((data) => {
         setResults(data);
@@ -53,7 +56,15 @@ export function GlobalSearch() {
     setQuery(value);
     setOpen(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(value), 250);
+    debounceRef.current = setTimeout(() => search(value, archived), 250);
+  }
+
+  function toggleArchived() {
+    const next = !archived;
+    setArchived(next);
+    if (query.length >= 2) {
+      search(query, next);
+    }
   }
 
   function handleSelect(result: SearchResult) {
@@ -79,24 +90,37 @@ export function GlobalSearch() {
 
   return (
     <div ref={wrapperRef} className="relative w-full max-w-md">
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => handleChange(e.target.value)}
+            onFocus={() => { if (query.length >= 2) setOpen(true); }}
+            placeholder={archived ? "Search archived records..." : "Search employees, assets, plant..."}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={toggleArchived}
+          className={`shrink-0 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+            archived
+              ? "bg-gray-700 text-white border-gray-700"
+              : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+          }`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => { if (query.length >= 2) setOpen(true); }}
-          placeholder="Search employees, assets, plant..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
+          {archived ? "Archived" : "Active"}
+        </button>
       </div>
 
       {showDropdown && (
