@@ -73,6 +73,32 @@ export async function PUT(
     if (refError) return refError;
   }
 
+  // Check for duplicate registration number (if being changed)
+  if (data.registrationNumber) {
+    const existingRego = await prisma.plant.findFirst({
+      where: { registrationNumber: data.registrationNumber, id: { not: id } },
+    });
+    if (existingRego) {
+      return NextResponse.json(
+        { error: `A plant with registration number "${data.registrationNumber}" already exists (${existingRego.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Check for duplicate VIN number (if being changed)
+  if (data.vinNumber) {
+    const existingVin = await prisma.plant.findFirst({
+      where: { vinNumber: data.vinNumber, id: { not: id } },
+    });
+    if (existingVin) {
+      return NextResponse.json(
+        { error: `A plant with VIN "${data.vinNumber}" already exists (${existingVin.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
   const before = await prisma.plant.findUnique({ where: { id } });
 
   const { result: plant, error } = await withPrismaError("Failed to update plant", () =>

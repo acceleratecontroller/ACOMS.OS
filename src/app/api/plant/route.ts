@@ -57,16 +57,44 @@ export async function POST(request: NextRequest) {
   const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
   if (refError) return refError;
 
+  // Check for duplicate registration number (if provided)
+  if (data.registrationNumber) {
+    const existingRego = await prisma.plant.findFirst({
+      where: { registrationNumber: data.registrationNumber },
+    });
+    if (existingRego) {
+      return NextResponse.json(
+        { error: `A plant with registration number "${data.registrationNumber}" already exists (${existingRego.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Check for duplicate VIN number (if provided)
+  if (data.vinNumber) {
+    const existingVin = await prisma.plant.findFirst({
+      where: { vinNumber: data.vinNumber },
+    });
+    if (existingVin) {
+      return NextResponse.json(
+        { error: `A plant with VIN "${data.vinNumber}" already exists (${existingVin.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
   // Auto-generate plant number: PLT-0001, PLT-0002, etc.
-  const lastPlant = await prisma.plant.findFirst({
-    orderBy: { plantNumber: "desc" },
+  // Use raw query to find max numeric value to avoid string-sort issues
+  const allPlants = await prisma.plant.findMany({
+    select: { plantNumber: true },
   });
 
   let nextNumber = 1;
-  if (lastPlant) {
-    const match = lastPlant.plantNumber.match(/PLT-(\d+)/);
+  for (const p of allPlants) {
+    const match = p.plantNumber.match(/PLT-(\d+)/);
     if (match) {
-      nextNumber = parseInt(match[1], 10) + 1;
+      const num = parseInt(match[1], 10);
+      if (num >= nextNumber) nextNumber = num + 1;
     }
   }
   const plantNumber = `PLT-${String(nextNumber).padStart(4, "0")}`;
