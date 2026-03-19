@@ -53,6 +53,13 @@ const columns: Column<Asset>[] = [
   { key: "category", label: "Category" },
   { key: "location", label: "Location" },
   {
+    key: "plantLinks",
+    label: "Linked Plant",
+    render: (item) => item.plantLinks && item.plantLinks.length > 0
+      ? item.plantLinks.map((l) => l.plant.plantNumber).join(", ")
+      : "—",
+  },
+  {
     key: "assignedTo",
     label: "Assigned To",
     render: (item) => item.assignedTo ? `${item.assignedTo.firstName} ${item.assignedTo.lastName}` : "—",
