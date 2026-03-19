@@ -47,18 +47,14 @@ interface Asset {
   plantLinks?: PlantLink[];
 }
 
-const columns: Column<Asset>[] = [
+const STATIC_COLUMNS: Column<Asset>[] = [
   { key: "assetNumber", label: "Asset #" },
   { key: "name", label: "Name" },
   { key: "category", label: "Category" },
   { key: "location", label: "Location" },
-  {
-    key: "plantLinks",
-    label: "Linked Plant",
-    render: (item) => item.plantLinks && item.plantLinks.length > 0
-      ? item.plantLinks.map((l) => l.plant.plantNumber).join(", ")
-      : "—",
-  },
+];
+
+const TAIL_COLUMNS: Column<Asset>[] = [
   {
     key: "assignedTo",
     label: "Assigned To",
@@ -90,6 +86,18 @@ function AssetsContent() {
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
+  // Plant preview modal state
+  const [previewPlant, setPreviewPlant] = useState<{
+    plantNumber: string; category: string; status: string; condition?: string | null;
+    make?: string | null; model?: string | null; year?: number | null;
+    registrationNumber?: string | null; vinNumber?: string | null;
+    stateRegistered?: string | null; licenceType?: string | null;
+    location?: string | null; comments?: string | null;
+    purchaseDate?: string | null; purchasePrice?: string | null;
+    lastServiceDate?: string | null; nextServiceDue?: string | null;
+    assignedTo?: { firstName: string; lastName: string } | null;
+  } | null>(null);
+  const [previewPlantLoading, setPreviewPlantLoading] = useState(false);
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -128,6 +136,44 @@ function AssetsContent() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setSelected(data); });
   }
+
+  function openPlantPreview(plantId: string) {
+    setPreviewPlantLoading(true);
+    setPreviewPlant(null);
+    fetch(`/api/plant/${plantId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setPreviewPlant(data);
+        setPreviewPlantLoading(false);
+      })
+      .catch(() => setPreviewPlantLoading(false));
+  }
+
+  const columns: Column<Asset>[] = [
+    ...STATIC_COLUMNS,
+    {
+      key: "plantLinks",
+      label: "Linked Plant",
+      render: (item) => {
+        const links = item.plantLinks || [];
+        if (links.length === 0) return <span className="text-gray-400">—</span>;
+        return (
+          <span className="flex flex-wrap gap-1">
+            {links.map((l) => (
+              <button
+                key={l.id}
+                onClick={(e) => { e.stopPropagation(); openPlantPreview(l.plant.id); }}
+                className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
+              >
+                {l.plant.plantNumber}
+              </button>
+            ))}
+          </span>
+        );
+      },
+    },
+    ...TAIL_COLUMNS,
+  ];
 
   function closeModal() {
     setSelected(null);
@@ -297,7 +343,12 @@ function AssetsContent() {
                   {selected.plantLinks.map((link) => (
                     <div key={link.id} className="flex items-center gap-2 text-sm">
                       <span className="inline-block w-2 h-2 rounded-full bg-blue-400" />
-                      <span className="font-medium text-gray-900">{link.plant.plantNumber}</span>
+                      <button
+                        onClick={() => openPlantPreview(link.plant.id)}
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {link.plant.plantNumber}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -323,6 +374,45 @@ function AssetsContent() {
       <Modal isOpen={creating} onClose={closeModal}>
         <h2 className="text-xl font-bold text-gray-900 mb-3">Add Asset</h2>
         <AssetForm onSubmit={handleCreate} submitLabel="Create Asset" />
+      </Modal>
+
+      {/* Plant Preview Modal */}
+      <Modal isOpen={!!previewPlant || previewPlantLoading} onClose={() => { setPreviewPlant(null); setPreviewPlantLoading(false); }}>
+        {previewPlantLoading && <p className="text-sm text-gray-500">Loading plant...</p>}
+        {previewPlant && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-bold text-gray-900">{previewPlant.plantNumber}</h2>
+              <StatusBadge status={previewPlant.status} />
+              {previewPlant.condition && <StatusBadge status={previewPlant.condition} />}
+            </div>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{previewPlant.category?.replace(/_/g, " ") || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{previewPlant.make || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{previewPlant.model || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Year</dt><dd className="font-medium text-gray-900">{previewPlant.year || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Registration</dt><dd className="font-medium text-gray-900">{previewPlant.registrationNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">VIN</dt><dd className="font-medium text-gray-900">{previewPlant.vinNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">State</dt><dd className="font-medium text-gray-900">{previewPlant.stateRegistered || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Licence Type</dt><dd className="font-medium text-gray-900">{previewPlant.licenceType || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{previewPlant.location ? (LOCATION_LABELS[previewPlant.location] || previewPlant.location) : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.purchaseDate || null) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Price</dt><dd className="font-medium text-gray-900">{previewPlant.purchasePrice ? `$${previewPlant.purchasePrice}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{previewPlant.assignedTo ? `${previewPlant.assignedTo.firstName} ${previewPlant.assignedTo.lastName}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.lastServiceDate || null) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Next Service Due</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.nextServiceDue || null) || "—"}</dd></div>
+            </dl>
+            {previewPlant.comments && (
+              <div className="mt-3 text-sm">
+                <p className="text-gray-400 text-xs uppercase tracking-wider">Comments</p>
+                <p className="text-gray-900 whitespace-pre-wrap">{previewPlant.comments}</p>
+              </div>
+            )}
+            <div className="flex gap-3 mt-4 pt-4 border-t">
+              <button onClick={() => setPreviewPlant(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Close</button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog
