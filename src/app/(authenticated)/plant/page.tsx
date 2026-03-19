@@ -288,29 +288,31 @@ function PlantContent() {
   }
 
   function getFormBody(form: FormData) {
+    // Convert empty strings to undefined so optional enum/numeric fields don't fail validation
+    const val = (key: string) => { const v = form.get(key); return v === "" || v === null ? undefined : v; };
     return {
-      category: form.get("category"),
-      stateRegistered: form.get("stateRegistered"),
-      registrationNumber: form.get("registrationNumber"),
-      vinNumber: form.get("vinNumber"),
-      year: form.get("year"),
-      make: form.get("make"),
-      model: form.get("model"),
-      licenceType: form.get("licenceType"),
-      location: form.get("location"),
-      assignedToId: form.get("assignedToId"),
-      ampolCardNumber: form.get("ampolCardNumber"),
-      ampolCardExpiry: form.get("ampolCardExpiry"),
-      linktTagNumber: form.get("linktTagNumber"),
-      fleetDynamicsSerialNumber: form.get("fleetDynamicsSerialNumber"),
-      coiExpirationDate: form.get("coiExpirationDate"),
-      purchaseDate: form.get("purchaseDate"),
-      purchasePrice: form.get("purchasePrice"),
-      comments: form.get("comments"),
-      lastServiceDate: form.get("lastServiceDate"),
-      nextServiceDue: form.get("nextServiceDue"),
-      status: form.get("status"),
-      condition: form.get("condition"),
+      category: val("category"),
+      stateRegistered: val("stateRegistered"),
+      registrationNumber: val("registrationNumber"),
+      vinNumber: val("vinNumber"),
+      year: val("year"),
+      make: val("make"),
+      model: val("model"),
+      licenceType: val("licenceType"),
+      location: val("location"),
+      assignedToId: val("assignedToId"),
+      ampolCardNumber: val("ampolCardNumber"),
+      ampolCardExpiry: val("ampolCardExpiry"),
+      linktTagNumber: val("linktTagNumber"),
+      fleetDynamicsSerialNumber: val("fleetDynamicsSerialNumber"),
+      coiExpirationDate: val("coiExpirationDate"),
+      purchaseDate: val("purchaseDate"),
+      purchasePrice: val("purchasePrice"),
+      comments: val("comments"),
+      lastServiceDate: val("lastServiceDate"),
+      nextServiceDue: val("nextServiceDue"),
+      status: val("status"),
+      condition: val("condition"),
     };
   }
 
@@ -669,8 +671,8 @@ function PlantContent() {
         )}
       </Modal>
 
-      {/* Create Plant Modal */}
-      <Modal isOpen={creating && !showQueueLinkModal && !showQueueCreateModal} onClose={() => { closeModal(); setQueuedAssets([]); }}>
+      {/* Create Plant Modal — stays mounted when sub-modals open so form data is preserved */}
+      <Modal isOpen={creating} onClose={() => { closeModal(); setQueuedAssets([]); }}>
         <h2 className="text-xl font-bold text-gray-900 mb-3">Add Plant</h2>
         <PlantForm onSubmit={handleCreate} submitLabel="Create Plant Item" />
 
