@@ -353,7 +353,14 @@ function PlantContent() {
       loadData(showArchived);
       loadPlantDetail(created.id);
     }
-    else { const data = await res.json(); setError(data.error || "Failed to create."); }
+    else {
+      const data = await res.json();
+      if (data.details && Array.isArray(data.details)) {
+        setError(data.details.map((d: { path?: string[]; message?: string }) => `${(d.path || []).join(".")}: ${d.message}`).join(", "));
+      } else {
+        setError(data.error || "Failed to create.");
+      }
+    }
     setSaving(false);
   }
 
@@ -368,7 +375,14 @@ function PlantContent() {
       body: JSON.stringify(getFormBody(new FormData(e.currentTarget))),
     });
     if (res.ok) { closeModal(); loadData(showArchived); }
-    else { const data = await res.json(); setError(data.error || "Failed to update."); }
+    else {
+      const data = await res.json();
+      if (data.details && Array.isArray(data.details)) {
+        setError(data.details.map((d: { path?: string[]; message?: string }) => `${(d.path || []).join(".")}: ${d.message}`).join(", "));
+      } else {
+        setError(data.error || "Failed to update.");
+      }
+    }
     setSaving(false);
   }
 

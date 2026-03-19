@@ -75,7 +75,11 @@ export default function NewPlantPage() {
       router.push(`/plant?open=${created.id}`);
     } else {
       const data = await res.json();
-      setError(data.error || "Failed to create plant item.");
+      if (data.details && Array.isArray(data.details)) {
+        setError(data.details.map((d: { path?: string[]; message?: string }) => `${(d.path || []).join(".")}: ${d.message}`).join(", "));
+      } else {
+        setError(data.error || "Failed to create plant item.");
+      }
       setSaving(false);
     }
   }
