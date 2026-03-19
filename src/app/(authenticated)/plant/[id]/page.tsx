@@ -12,6 +12,8 @@ import {
   LOCATION_LABELS,
   STATE_OPTIONS,
   LICENCE_TYPE_OPTIONS,
+  PLANT_CATEGORY_OPTIONS,
+  PLANT_CATEGORY_LABELS,
 } from "@/config/constants";
 
 interface PlantItem {
@@ -148,7 +150,7 @@ export default function PlantDetailPage() {
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div><dt className="text-gray-500">Plant #</dt><dd className="font-medium">{plant.plantNumber}</dd></div>
-            <div><dt className="text-gray-500">Category</dt><dd className="font-medium">{plant.category}</dd></div>
+            <div><dt className="text-gray-500">Category</dt><dd className="font-medium">{PLANT_CATEGORY_LABELS[plant.category] || plant.category}</dd></div>
             <div><dt className="text-gray-500">State Registered</dt><dd className="font-medium">{plant.stateRegistered || "—"}</dd></div>
             <div><dt className="text-gray-500">Registration</dt><dd className="font-medium">{plant.registrationNumber || "—"}</dd></div>
             <div><dt className="text-gray-500">VIN Number</dt><dd className="font-medium">{plant.vinNumber || "—"}</dd></div>
@@ -199,7 +201,7 @@ export default function PlantDetailPage() {
           <SelectField label="Status" name="status" required defaultValue={plant.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Category" name="category" required defaultValue={plant.category} />
+          <SelectField label="Category" name="category" required defaultValue={plant.category} options={PLANT_CATEGORY_OPTIONS} />
           <SelectField label="Condition" name="condition" defaultValue={plant.condition || ""} options={CONDITION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">

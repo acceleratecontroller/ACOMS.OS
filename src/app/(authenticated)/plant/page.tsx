@@ -16,6 +16,8 @@ import {
   LOCATION_LABELS,
   STATE_OPTIONS,
   LICENCE_TYPE_OPTIONS,
+  PLANT_CATEGORY_OPTIONS,
+  PLANT_CATEGORY_LABELS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -397,7 +399,7 @@ function PlantContent() {
               <p className="text-sm font-medium text-gray-900 py-2">{defaults.plantNumber}</p>
             </div>
           )}
-          <FormField label="Category" name="category" required placeholder="e.g. Excavator, Truck" defaultValue={defaults?.category || ""} />
+          <SelectField label="Category" name="category" required defaultValue={defaults?.category || ""} options={PLANT_CATEGORY_OPTIONS} />
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "OPERATIONAL"} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -509,7 +511,7 @@ function PlantContent() {
             </div>
             <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Plant #</dt><dd className="font-medium text-gray-900">{selected.plantNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{PLANT_CATEGORY_LABELS[selected.category] || selected.category}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">State Registered</dt><dd className="font-medium text-gray-900">{selected.stateRegistered || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Rego</dt><dd className="font-medium text-gray-900">{selected.registrationNumber || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">VIN Number</dt><dd className="font-medium text-gray-900">{selected.vinNumber || "—"}</dd></div>

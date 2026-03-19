@@ -10,6 +10,7 @@ import {
   LOCATION_OPTIONS,
   STATE_OPTIONS,
   LICENCE_TYPE_OPTIONS,
+  PLANT_CATEGORY_OPTIONS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -87,7 +88,7 @@ export default function NewPlantPage() {
       <PageHeader title="Add Plant" />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Category" name="category" required placeholder="e.g. Excavator, Truck" />
+          <SelectField label="Category" name="category" required options={PLANT_CATEGORY_OPTIONS} />
           <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={PLANT_STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">

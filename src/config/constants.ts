@@ -80,6 +80,17 @@ export const ASSET_STATUS_OPTIONS: SelectOption[] = [
 
 // ─── Plant constants ─────────────────────────────────────
 
+export const PLANT_CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "LIGHT_VEHICLE", label: "Light Vehicle" },
+  { value: "HEAVY_VEHICLE", label: "Heavy Vehicle" },
+  { value: "TRAILER", label: "Trailer" },
+  { value: "PLANT", label: "Plant" },
+];
+
+export const PLANT_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  PLANT_CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 export const PLANT_STATUS_OPTIONS: SelectOption[] = [
   { value: "OPERATIONAL", label: "Operational" },
   { value: "MAINTENANCE", label: "Maintenance" },
