@@ -80,7 +80,7 @@ const columns: Column<Employee>[] = [
   {
     key: "phone",
     label: "Phone",
-    render: (item) => item.phone || "—",
+    render: (item) => formatPhone(item.phone) || "—",
     mobileIcon: (
       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
@@ -119,6 +119,15 @@ function resolveStatus(endDate: string | null, currentStatus: string): string {
 }
 
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
+
+function formatPhone(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("04") && digits.length === 10) {
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+  }
+  return phone;
+}
 
 export default function EmployeesPage() {
   return <Suspense><EmployeesContent /></Suspense>;
@@ -398,7 +407,7 @@ function EmployeesContent() {
               {/* Contact */}
               <DetailSection title="Contact">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
-                  <DetailField label="Phone" value={selected.phone} />
+                  <DetailField label="Phone" value={formatPhone(selected.phone)} />
                   <DetailField label="Work Email" value={selected.email} />
                   <DetailField label="Personal Email" value={selected.personalEmail} />
                   <DetailField label="Address" value={selected.address} className="col-span-2 md:col-span-3" />
@@ -428,8 +437,8 @@ function EmployeesContent() {
                         label="Relationship"
                         value={selected.emergencyRelation ? (EMERGENCY_RELATION_LABELS[selected.emergencyRelation] || selected.emergencyRelation) : null}
                       />
-                      <DetailField label="Contact Number" value={selected.emergencyPhone} />
-                      <DetailField label="Alt. Number" value={selected.emergencyPhoneAlt} />
+                      <DetailField label="Contact Number" value={formatPhone(selected.emergencyPhone)} />
+                      <DetailField label="Alt. Number" value={formatPhone(selected.emergencyPhoneAlt)} />
                     </div>
                   ) : (
                     <p className="text-sm text-gray-400">Not provided</p>
