@@ -388,10 +388,10 @@ function EmployeesContent() {
               {/* Employment */}
               <DetailSection title="Employment">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
-                  <DetailField label="Start Date" value={formatDate(selected.startDate)} />
-                  <DetailField label="End Date" value={formatDate(selected.endDate)} />
-                  <DetailField label="Probation Review" value={formatDate(selected.probationDate)} />
                   <DetailField label="Location" value={LOCATION_LABELS[selected.location]} />
+                  <DetailField label="Start Date" value={formatDate(selected.startDate)} />
+                  <DetailField label="Probation Review" value={formatDate(selected.probationDate)} />
+                  <DetailField label="End Date" value={formatDate(selected.endDate)} />
                 </div>
               </DetailSection>
 
@@ -417,7 +417,7 @@ function EmployeesContent() {
                 </DetailSection>
 
                 {/* Emergency Contact */}
-                <DetailSection title="Emergency Contact">
+                <DetailSection title="Emergency Contact" titleColor="text-red-600">
                   {selected.emergencyFirstName || selected.emergencyLastName || selected.emergencyPhone ? (
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                       <DetailField
@@ -687,11 +687,11 @@ function EmployeesContent() {
 
 /* ─── View modal helper components ──────────────────── */
 
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+function DetailSection({ title, titleColor, children }: { title: string; titleColor?: string; children: React.ReactNode }) {
   return (
     <div className="border border-gray-200 rounded-lg bg-white">
       <div className="px-4 py-2 border-b border-gray-100">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</h3>
+        <h3 className={`text-xs font-semibold uppercase tracking-wider ${titleColor || "text-gray-500"}`}>{title}</h3>
       </div>
       <div className="px-4 py-3">
         {children}
