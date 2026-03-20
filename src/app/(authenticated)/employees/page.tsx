@@ -17,6 +17,8 @@ import {
   EMPLOYEE_STATUS_OPTIONS as STATUS_OPTIONS,
   SHIRT_SIZE_OPTIONS,
   PANTS_SIZE_OPTIONS,
+  EMERGENCY_RELATION_OPTIONS,
+  EMERGENCY_RELATION_LABELS,
 } from "@/config/constants";
 
 interface TrainingRoleRef {
@@ -44,6 +46,11 @@ interface Employee {
   probationDate: string | null;
   status: string;
   notes: string | null;
+  emergencyFirstName: string | null;
+  emergencyLastName: string | null;
+  emergencyRelation: string | null;
+  emergencyPhone: string | null;
+  emergencyPhoneAlt: string | null;
   isArchived: boolean;
   trainingRoles: { role: TrainingRoleRef }[];
 }
@@ -198,6 +205,11 @@ function EmployeesContent() {
       probationDate: probationDate || null,
       status,
       notes: (form.get("notes") as string) || "",
+      emergencyFirstName: (form.get("emergencyFirstName") as string) || "",
+      emergencyLastName: (form.get("emergencyLastName") as string) || "",
+      emergencyRelation: (form.get("emergencyRelation") as string) || "",
+      emergencyPhone: (form.get("emergencyPhone") as string) || "",
+      emergencyPhoneAlt: (form.get("emergencyPhoneAlt") as string) || "",
     };
 
     const res = await fetch("/api/employees", {
@@ -246,6 +258,11 @@ function EmployeesContent() {
       probationDate: probationDate || null,
       status,
       notes: (form.get("notes") as string) || "",
+      emergencyFirstName: (form.get("emergencyFirstName") as string) || "",
+      emergencyLastName: (form.get("emergencyLastName") as string) || "",
+      emergencyRelation: (form.get("emergencyRelation") as string) || "",
+      emergencyPhone: (form.get("emergencyPhone") as string) || "",
+      emergencyPhoneAlt: (form.get("emergencyPhoneAlt") as string) || "",
     };
 
     const res = await fetch(`/api/employees/${selected.id}`, {
@@ -383,6 +400,31 @@ function EmployeesContent() {
                 <p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p>
               </div>
             )}
+            {(selected.emergencyFirstName || selected.emergencyLastName || selected.emergencyPhone) && (
+              <div className="mt-5 bg-gray-50 rounded-lg border border-gray-200 px-4 py-3">
+                <p className="text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Emergency Contact</p>
+                <dl className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
+                  <div>
+                    <dt className="text-gray-400 text-xs mb-0.5">Name</dt>
+                    <dd className="font-medium text-gray-900">{[selected.emergencyFirstName, selected.emergencyLastName].filter(Boolean).join(" ") || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-400 text-xs mb-0.5">Relationship</dt>
+                    <dd className="font-medium text-gray-900">{selected.emergencyRelation ? (EMERGENCY_RELATION_LABELS[selected.emergencyRelation] || selected.emergencyRelation) : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-400 text-xs mb-0.5">Contact Number</dt>
+                    <dd className="font-medium text-gray-900">{selected.emergencyPhone || "—"}</dd>
+                  </div>
+                  {selected.emergencyPhoneAlt && (
+                    <div>
+                      <dt className="text-gray-400 text-xs mb-0.5">Alternative Number</dt>
+                      <dd className="font-medium text-gray-900">{selected.emergencyPhoneAlt}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
             <div className="flex gap-3 mt-6 pt-5 border-t">
               {selected.isArchived ? (
                 <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
@@ -474,6 +516,21 @@ function EmployeesContent() {
                 </div>
               </div>
               <TextAreaField label="Notes" name="notes" defaultValue={selected.notes || ""} rows={2} />
+
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Contact</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormField label="First Name" name="emergencyFirstName" defaultValue={selected.emergencyFirstName || ""} />
+                  <FormField label="Last Name" name="emergencyLastName" defaultValue={selected.emergencyLastName || ""} />
+                  <SelectField label="Relationship" name="emergencyRelation" defaultValue={selected.emergencyRelation || ""} options={EMERGENCY_RELATION_OPTIONS} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                  <FormField label="Contact Number" name="emergencyPhone" defaultValue={selected.emergencyPhone || ""} />
+                  <FormField label="Alternative Number" name="emergencyPhoneAlt" defaultValue={selected.emergencyPhoneAlt || ""} />
+                </div>
+              </div>
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
 
@@ -572,6 +629,21 @@ function EmployeesContent() {
             </div>
           </div>
           <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." rows={2} />
+
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Contact</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <FormField label="First Name" name="emergencyFirstName" />
+              <FormField label="Last Name" name="emergencyLastName" />
+              <SelectField label="Relationship" name="emergencyRelation" options={EMERGENCY_RELATION_OPTIONS} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <FormField label="Contact Number" name="emergencyPhone" />
+              <FormField label="Alternative Number" name="emergencyPhoneAlt" />
+            </div>
+          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

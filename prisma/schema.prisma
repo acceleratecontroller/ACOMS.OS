@@ -170,6 +170,13 @@ model Employee {
   status         EmployeeStatus   @default(ACTIVE)
   notes          String?
 
+  // Emergency contact
+  emergencyFirstName  String?
+  emergencyLastName   String?
+  emergencyRelation   String?               // WIFE, HUSBAND, PARTNER, MUM, DAD, SISTER, BROTHER, FAMILY, FRIEND, OTHER
+  emergencyPhone      String?
+  emergencyPhoneAlt   String?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   createdBy    User     @relation("EmployeeCreatedBy", fields: [createdById], references: [id])

@@ -69,6 +69,23 @@ export const PANTS_SIZE_OPTIONS: SelectOption[] = [
   { value: "44", label: "44" },
 ];
 
+export const EMERGENCY_RELATION_OPTIONS: SelectOption[] = [
+  { value: "WIFE", label: "Wife" },
+  { value: "HUSBAND", label: "Husband" },
+  { value: "PARTNER", label: "Partner" },
+  { value: "MUM", label: "Mum" },
+  { value: "DAD", label: "Dad" },
+  { value: "SISTER", label: "Sister" },
+  { value: "BROTHER", label: "Brother" },
+  { value: "FAMILY", label: "Family Member" },
+  { value: "FRIEND", label: "Friend" },
+  { value: "OTHER", label: "Other" },
+];
+
+export const EMERGENCY_RELATION_LABELS: Record<string, string> = Object.fromEntries(
+  EMERGENCY_RELATION_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 // ─── Asset constants ─────────────────────────────────────
 
 export const ASSET_STATUS_OPTIONS: SelectOption[] = [

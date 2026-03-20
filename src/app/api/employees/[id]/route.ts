@@ -96,6 +96,12 @@ export async function PUT(
         ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
         ...(status !== undefined && { status }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        // Emergency contact
+        ...(data.emergencyFirstName !== undefined && { emergencyFirstName: data.emergencyFirstName || null }),
+        ...(data.emergencyLastName !== undefined && { emergencyLastName: data.emergencyLastName || null }),
+        ...(data.emergencyRelation !== undefined && { emergencyRelation: data.emergencyRelation || null }),
+        ...(data.emergencyPhone !== undefined && { emergencyPhone: data.emergencyPhone || null }),
+        ...(data.emergencyPhoneAlt !== undefined && { emergencyPhoneAlt: data.emergencyPhoneAlt || null }),
         // Sync training roles if provided
         ...(data.roleIds !== undefined && {
           trainingRoles: {

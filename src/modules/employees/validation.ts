@@ -22,6 +22,12 @@ export const createEmployeeSchema = z.object({
   probationDate: optionalString,
   status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).default("ACTIVE"),
   notes: optionalString,
+  // Emergency contact
+  emergencyFirstName: optionalString,
+  emergencyLastName: optionalString,
+  emergencyRelation: optionalString,
+  emergencyPhone: optionalString,
+  emergencyPhoneAlt: optionalString,
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

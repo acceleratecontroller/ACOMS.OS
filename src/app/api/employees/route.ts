@@ -94,6 +94,11 @@ export async function POST(request: NextRequest) {
         probationDate: data.probationDate ? new Date(data.probationDate) : null,
         status,
         notes: data.notes || null,
+        emergencyFirstName: data.emergencyFirstName || null,
+        emergencyLastName: data.emergencyLastName || null,
+        emergencyRelation: data.emergencyRelation || null,
+        emergencyPhone: data.emergencyPhone || null,
+        emergencyPhoneAlt: data.emergencyPhoneAlt || null,
         createdById: session.user.id,
         trainingRoles: data.roleIds.length > 0
           ? { create: data.roleIds.map((roleId: string) => ({ roleId })) }
