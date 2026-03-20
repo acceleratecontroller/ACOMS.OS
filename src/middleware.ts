@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Always allow access to login page, auth API, and static files
   if (
     pathname === "/login" ||
+    pathname === "/login/verify" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
@@ -14,14 +16,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for the NextAuth session token cookie
-  const token =
-    request.cookies.get("authjs.session-token") ||
-    request.cookies.get("__Secure-authjs.session-token");
+  // Decode the JWT to check auth and 2FA state
+  const token = await getToken({ req: request });
 
-  // No session token = not logged in, redirect to login
+  // No session = not logged in
   if (!token) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // If 2FA is enabled but not yet verified, redirect to verification page
+  if (token.twoFactorEnabled && !token.twoFactorVerified) {
+    return NextResponse.redirect(new URL("/login/verify", request.url));
   }
 
   return NextResponse.next();

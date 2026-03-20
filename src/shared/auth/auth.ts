@@ -38,15 +38,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          twoFactorEnabled: user.twoFactorEnabled,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = (user as { role: string }).role;
         token.id = user.id;
+        token.twoFactorEnabled = (user as { twoFactorEnabled?: boolean }).twoFactorEnabled ?? false;
+        // If 2FA is enabled, they haven't verified yet at login time
+        token.twoFactorVerified = !token.twoFactorEnabled;
+      }
+      // Allow the verify endpoint to mark 2FA as verified via session update
+      if (trigger === "update" && token.twoFactorEnabled) {
+        token.twoFactorVerified = true;
       }
       return token;
     },
@@ -54,6 +62,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.twoFactorEnabled = token.twoFactorEnabled ?? false;
+        session.user.twoFactorVerified = token.twoFactorVerified ?? true;
       }
       return session;
     },

@@ -14,6 +14,7 @@ export const navigationItems: NavItem[] = [
   { label: "Plant", href: "/plant", icon: "P" },
   { label: "Task Manager", href: "/tasks", icon: "T" },
   { label: "Activity Log", href: "/activity-log", icon: "L" },
+  { label: "Settings", href: "/settings/security", icon: "S" },
 ];
 
 // Future modules will be added here:
