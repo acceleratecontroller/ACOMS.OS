@@ -10,6 +10,7 @@ export default function TwoFactorVerifyPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,10 +51,11 @@ export default function TwoFactorVerifyPage() {
         return;
       }
 
-      // Update the session JWT to mark 2FA as verified
+      // Show success state, then update session and do a full navigation
+      // to ensure the server reads the fresh JWT cookie
+      setVerified(true);
       await update();
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -95,13 +97,14 @@ export default function TwoFactorVerifyPage() {
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
+          {verified && <p className="text-green-600 text-sm font-medium">Verified! Redirecting...</p>}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || verified}
             className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Verifying..." : "Verify"}
+            {verified ? "Verified!" : loading ? "Verifying..." : "Verify"}
           </button>
         </form>
 

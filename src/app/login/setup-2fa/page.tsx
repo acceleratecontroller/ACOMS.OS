@@ -27,7 +27,9 @@ export default function SetupTwoFactorPage() {
       return;
     }
     if (status === "authenticated") {
-      if (session?.user?.twoFactorEnabled) {
+      // Only redirect if 2FA was already enabled BEFORE this setup flow started
+      // (don't redirect while showing backup codes after just enabling it)
+      if (session?.user?.twoFactorEnabled && step !== "backup-codes") {
         router.push("/");
         return;
       }
