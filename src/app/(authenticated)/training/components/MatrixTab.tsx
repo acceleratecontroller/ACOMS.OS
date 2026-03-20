@@ -326,16 +326,17 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 
   // Aggregate stats
   const stats = useMemo(() => {
-    let expired = 0, missingPending = 0, expiringSoon = 0, compliant = 0, totalPct = 0;
+    let expired = 0, missingPending = 0, expiringSoon = 0, compliant = 0, needsAttention = 0, totalPct = 0;
     for (const e of enriched) {
       if (e.expiredCount > 0) expired++;
       if (e.missingCount > 0 || e.pendingCount > 0) missingPending++;
       if (e.expiringSoonCount > 0) expiringSoon++;
       if (e.pct === 100) compliant++;
+      if (e.expiredCount > 0 || e.missingCount > 0 || e.pendingCount > 0) needsAttention++;
       totalPct += e.pct;
     }
     const overallPct = enriched.length > 0 ? Math.round(totalPct / enriched.length) : 100;
-    return { total: enriched.length, expired, missingPending, expiringSoon, compliant, overallPct };
+    return { total: enriched.length, expired, missingPending, expiringSoon, compliant, needsAttention, overallPct };
   }, [enriched]);
 
   // Filter + sort (worst compliance first)
@@ -356,7 +357,7 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
     return <div className="text-center py-12 text-gray-400 text-sm">No active employees found.</div>;
   }
 
-  const issueCount = stats.expired + stats.missingPending;
+  const issueCount = stats.needsAttention;
   const complianceAccent: "green" | "amber" | "red" = stats.overallPct >= 90 ? "green" : stats.overallPct >= 50 ? "amber" : "red";
 
   return (
