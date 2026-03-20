@@ -12,6 +12,18 @@ export async function GET(request: NextRequest) {
 
   const view = request.nextUrl.searchParams.get("view"); // "tree" or "employees"
 
+  // Auto-expire: flip VERIFIED → EXPIRED where expiryDate has passed
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  await prisma.employeeAccreditation.updateMany({
+    where: {
+      status: "VERIFIED",
+      expiryDate: { lt: today },
+      accreditation: { expires: true, isArchived: false },
+    },
+    data: { status: "EXPIRED" },
+  });
+
   if (view === "employees") {
     // Employee view: all active employees with their roles + accreditations
     const { result: employees, error } = await withPrismaError("Failed to load employee training data", () =>

@@ -38,6 +38,8 @@ export default async function DashboardPage() {
     // Training compliance
     expiredAccredEmployees,
     expiringSoonAccredEmployees,
+    pendingAccredEmployees,
+    employeesWithTrainingRoles,
   ] = await Promise.all([
     // Employees
     prisma.employee.count({ where: { isArchived: false, status: "ACTIVE" } }),
@@ -119,17 +121,25 @@ export default async function DashboardPage() {
       orderBy: { performedAt: "desc" },
       take: 8,
     }),
-    // Training: employees with expired accreditations
-    prisma.employeeAccreditation.findMany({
+    // Training: auto-expire then count expired
+    prisma.employeeAccreditation.updateMany({
       where: {
+        status: "VERIFIED",
         expiryDate: { lt: today },
         accreditation: { expires: true, isArchived: false },
-        employee: { isArchived: false },
-        status: { not: "EXEMPT" },
       },
-      select: { employeeId: true },
-      distinct: ["employeeId"],
-    }),
+      data: { status: "EXPIRED" },
+    }).then(() =>
+      prisma.employeeAccreditation.findMany({
+        where: {
+          accreditation: { expires: true, isArchived: false },
+          employee: { isArchived: false },
+          status: "EXPIRED",
+        },
+        select: { employeeId: true },
+        distinct: ["employeeId"],
+      }),
+    ),
     // Training: employees with accreditations expiring within 30 days
     prisma.employeeAccreditation.findMany({
       where: {
@@ -141,9 +151,70 @@ export default async function DashboardPage() {
       select: { employeeId: true },
       distinct: ["employeeId"],
     }),
+    // Training: employees with pending accreditations
+    prisma.employeeAccreditation.findMany({
+      where: {
+        status: "PENDING",
+        accreditation: { isArchived: false },
+        employee: { isArchived: false },
+      },
+      select: { employeeId: true },
+      distinct: ["employeeId"],
+    }),
+    // Training: employees missing required accreditations
+    prisma.employee.findMany({
+      where: { isArchived: false, trainingRoles: { some: {} } },
+      select: {
+        id: true,
+        trainingRoles: {
+          select: {
+            role: {
+              select: {
+                skillLinks: {
+                  select: {
+                    skill: {
+                      select: {
+                        accreditationLinks: {
+                          where: { accreditation: { isArchived: false } },
+                          select: { accreditationId: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        accreditations: {
+          select: { accreditationId: true },
+        },
+      },
+    }),
   ]);
 
   const totalOverdue = overdueTasks + overdueRecurring;
+
+  // Count employees missing at least one required accreditation
+  let missingAccredCount = 0;
+  for (const emp of employeesWithTrainingRoles) {
+    const requiredIds = new Set<string>();
+    for (const tr of emp.trainingRoles) {
+      for (const sl of tr.role.skillLinks) {
+        for (const al of sl.skill.accreditationLinks) {
+          requiredIds.add(al.accreditationId);
+        }
+      }
+    }
+    const heldIds = new Set(emp.accreditations.map((a: { accreditationId: string }) => a.accreditationId));
+    for (const reqId of requiredIds) {
+      if (!heldIds.has(reqId)) {
+        missingAccredCount++;
+        break;
+      }
+    }
+  }
+  const totalAccredIssues = expiredAccredEmployees.length + pendingAccredEmployees.length + missingAccredCount;
 
   // Build status maps for easy lookup
   const assetStatusMap: Record<string, number> = {};
@@ -166,7 +237,7 @@ export default async function DashboardPage() {
       </p>
 
       {/* Alerts Banner */}
-      {(totalOverdue > 0 || plantServiceOverdue.length > 0 || expiredAccredEmployees.length > 0) && (
+      {(totalOverdue > 0 || plantServiceOverdue.length > 0 || totalAccredIssues > 0) && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
           <h2 className="text-sm font-semibold text-red-800 mb-2">Attention Required</h2>
           <div className="flex flex-wrap gap-4 text-sm text-red-700">
@@ -185,23 +256,36 @@ export default async function DashboardPage() {
                 {plantServiceOverdue.length} plant item{plantServiceOverdue.length !== 1 ? "s" : ""} overdue for service
               </Link>
             )}
-            {expiredAccredEmployees.length > 0 && (
+            {totalAccredIssues > 0 && (
               <Link href="/training" className="underline hover:text-red-900">
-                {expiredAccredEmployees.length} employee{expiredAccredEmployees.length !== 1 ? "s" : ""} with expired accreditations
+                {totalAccredIssues} accreditation issue{totalAccredIssues !== 1 ? "s" : ""} to resolve
               </Link>
             )}
           </div>
         </div>
       )}
 
-      {/* Expiring soon warning (separate amber banner) */}
-      {expiringSoonAccredEmployees.length > 0 && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded">
-          <div className="flex flex-wrap gap-4 text-sm text-amber-700">
-            <Link href="/training" className="underline hover:text-amber-900">
-              {expiringSoonAccredEmployees.length} employee{expiringSoonAccredEmployees.length !== 1 ? "s" : ""} with accreditations expiring within 30 days
+      {/* Accreditation issues breakdown */}
+      {(expiredAccredEmployees.length > 0 || expiringSoonAccredEmployees.length > 0 || pendingAccredEmployees.length > 0 || missingAccredCount > 0) && (
+        <div className="mb-6 flex flex-wrap gap-3">
+          {expiredAccredEmployees.length > 0 && (
+            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+              <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+              {expiredAccredEmployees.length} expired
             </Link>
-          </div>
+          )}
+          {expiringSoonAccredEmployees.length > 0 && (
+            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+              {expiringSoonAccredEmployees.length} expiring soon
+            </Link>
+          )}
+          {(missingAccredCount > 0 || pendingAccredEmployees.length > 0) && (
+            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-500" />
+              {missingAccredCount + pendingAccredEmployees.length} missing or pending
+            </Link>
+          )}
         </div>
       )}
 
