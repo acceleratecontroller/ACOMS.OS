@@ -516,11 +516,10 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 }
 
 function getIssueLabel(expired: number, missing: number, pending: number, expiringSoon: number): { text: string; color: string } | null {
-  if (expired > 0) return { text: `${expired} expired`, color: "text-red-600 font-medium" };
-  if (missing > 0) return { text: `${missing} missing`, color: "text-amber-600 font-medium" };
-  if (pending > 0) return { text: `${pending} pending`, color: "text-amber-600 font-medium" };
-  if (expiringSoon > 0) return { text: `${expiringSoon} expiring`, color: "text-amber-500" };
-  return null;
+  const total = expired + missing + pending + expiringSoon;
+  if (total === 0) return null;
+  const color = expired > 0 ? "text-red-600 font-medium" : "text-amber-600 font-medium";
+  return { text: `${total} issue${total !== 1 ? "s" : ""}`, color };
 }
 
 // ─── Tree View ─────────────────────────────────────────
