@@ -55,25 +55,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.twoFactorVerified = !token.twoFactorEnabled;
         token.employeeId = (user as { employeeId?: string }).employeeId;
       }
-      // Allow the verify endpoint to mark 2FA as verified via session update
-      if (trigger === "update" && token.twoFactorEnabled) {
-        token.twoFactorVerified = true;
-      }
-
-      // Re-validate that the user is still active on every request
+      // Re-validate user state on every request
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { isActive: true, role: true },
+          select: { isActive: true, role: true, twoFactorEnabled: true },
         });
         if (!dbUser || !dbUser.isActive) {
           // Mark token as revoked — session callback will reject it
           token.isRevoked = true;
         } else {
-          // Keep role in sync (in case admin changed it)
+          // Keep role and 2FA status in sync with database
           token.role = dbUser.role;
+          token.twoFactorEnabled = dbUser.twoFactorEnabled;
           token.isRevoked = false;
         }
+      }
+
+      // Allow the verify endpoint to mark 2FA as verified via session update
+      if (trigger === "update" && token.twoFactorEnabled) {
+        token.twoFactorVerified = true;
       }
 
       return token;

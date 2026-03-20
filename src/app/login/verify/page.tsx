@@ -89,7 +89,7 @@ export default function TwoFactorVerifyPage() {
               maxLength={useBackupCode ? 9 : 6}
               placeholder={useBackupCode ? "XXXX-XXXX" : "000000"}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(useBackupCode ? e.target.value : e.target.value.replace(/\D/g, ""))}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center text-lg tracking-widest"
             />
           </div>
