@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
@@ -56,8 +55,6 @@ interface AccessInfo {
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,25 +64,14 @@ export default function EmployeeDetailPage() {
   const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
-  // Login access state
+  // Login access state — isAdmin is detected by whether the access API returns 403
+  const [isAdmin, setIsAdmin] = useState(false);
   const [access, setAccess] = useState<AccessInfo | null>(null);
-  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessLoaded, setAccessLoaded] = useState(false);
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [accessError, setAccessError] = useState("");
   const [accessSaving, setAccessSaving] = useState(false);
-
-  const loadAccess = useCallback(() => {
-    if (sessionStatus !== "authenticated" || !isAdmin) return;
-    setAccessLoading(true);
-    fetch(`/api/employees/${id}/access`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        setAccess(data?.access ?? null);
-        setAccessLoading(false);
-      })
-      .catch(() => setAccessLoading(false));
-  }, [id, isAdmin, sessionStatus]);
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
@@ -98,8 +84,29 @@ export default function EmployeeDetailPage() {
     fetch("/api/training/roles")
       .then((r) => r.ok ? r.json() : [])
       .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
-    loadAccess();
-  }, [id, loadAccess]);
+    // Try to load access info — if 403, user is not admin
+    fetch(`/api/employees/${id}/access`)
+      .then((r) => {
+        if (r.status === 403) {
+          setIsAdmin(false);
+          setAccessLoaded(true);
+          return null;
+        }
+        if (r.ok) {
+          setIsAdmin(true);
+          return r.json();
+        }
+        setAccessLoaded(true);
+        return null;
+      })
+      .then((data) => {
+        if (data) {
+          setAccess(data.access ?? null);
+        }
+        setAccessLoaded(true);
+      })
+      .catch(() => setAccessLoaded(true));
+  }, [id]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -274,28 +281,23 @@ export default function EmployeeDetailPage() {
               <p className="whitespace-pre-wrap">{employee.notes}</p>
             </div>
           )}
-          {isAdmin && (
-            <div className="flex gap-3 mt-6 pt-4 border-t">
-              <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
-              <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
-              <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
-            </div>
-          )}
-          {!isAdmin && (
-            <div className="flex gap-3 mt-6 pt-4 border-t">
-              <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
-            </div>
-          )}
+          <div className="flex gap-3 mt-6 pt-4 border-t">
+            {isAdmin && (
+              <>
+                <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
+                <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
+              </>
+            )}
+            <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
+          </div>
         </div>
 
         {/* Login Access Section — Admin only */}
-        {isAdmin && (
+        {isAdmin && accessLoaded && (
           <div className="max-w-2xl mt-6 bg-white rounded border p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Login Access</h2>
 
-            {accessLoading && <p className="text-sm text-gray-400">Loading...</p>}
-
-            {!accessLoading && !access && !showGrantForm && (
+            {!access && !showGrantForm && (
               <div>
                 <p className="text-sm text-gray-500 mb-3">This employee does not have login access.</p>
                 <button
@@ -355,7 +357,7 @@ export default function EmployeeDetailPage() {
               </form>
             )}
 
-            {!accessLoading && access && (
+            {access && (
               <div>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
                   <div>
