@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Modal } from "@/shared/components/Modal";
 import { ACCREDITATION_STATUS_LABELS } from "@/config/constants";
 
@@ -100,6 +100,18 @@ interface AccredEditRow {
   dirty: boolean;
 }
 
+// ─── Enriched employee for list rendering ──────────────
+interface EnrichedEmployee {
+  emp: EmployeeRow;
+  pct: number;
+  total: number;
+  compliant: number;
+  expiredCount: number;
+  expiringSoonCount: number;
+  missingCount: number;
+  pendingCount: number;
+}
+
 // ─── Date helpers ──────────────────────────────────────
 const EXPIRY_SOON_DAYS = 30;
 
@@ -128,11 +140,6 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-/**
- * Determine the effective compliance status for a held accreditation.
- * VERIFIED but with a past expiryDate → effectively expired (not compliant).
- * EXEMPT → always compliant regardless of dates.
- */
 function getEffectiveStatus(held: EmployeeAccred): string {
   if (held.status === "EXEMPT") return "EXEMPT";
   if (held.status === "VERIFIED" && held.accreditation.expires && isDateExpired(held.expiryDate)) {
@@ -178,6 +185,18 @@ function computeCompliance(emp: EmployeeRow) {
   return { requiredAccredIds, heldMap, pct, total, compliant, expiredCount, expiringSoonCount };
 }
 
+function enrichEmployee(emp: EmployeeRow): EnrichedEmployee {
+  const c = computeCompliance(emp);
+  let missingCount = 0;
+  let pendingCount = 0;
+  c.requiredAccredIds.forEach((id) => {
+    const held = c.heldMap.get(id);
+    if (!held) missingCount++;
+    else if (held.status === "PENDING") pendingCount++;
+  });
+  return { emp, pct: c.pct, total: c.total, compliant: c.compliant, expiredCount: c.expiredCount, expiringSoonCount: c.expiringSoonCount, missingCount, pendingCount };
+}
+
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
 
 // ═══════════════════════════════════════════════════════
@@ -203,38 +222,55 @@ export function MatrixTab() {
 
   useEffect(() => { loadData(view); }, [view, loadData]);
 
-  function handleEmployeeClick(emp: EmployeeRow) {
-    setSelectedEmployee(emp);
-  }
-
   function handleModalClose() {
     setSelectedEmployee(null);
     if (view === "employees") loadData("employees");
   }
 
+  function toggleFilter(f: ComplianceFilter) {
+    setComplianceFilter((prev) => (prev === f ? "all" : f));
+  }
+
   return (
     <>
-      <div className="flex items-center gap-3 mb-4">
-        <button
-          onClick={() => setView("employees")}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "employees" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
-        >
-          Employee Compliance
-        </button>
-        <button
-          onClick={() => setView("tree")}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "tree" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
-        >
-          Role / Skill / Accreditation Tree
-        </button>
+      {/* Segmented control */}
+      <div className="flex items-center justify-between mb-4">
+        <div />
+        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            onClick={() => setView("employees")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              view === "employees"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Employee Compliance
+          </button>
+          <button
+            onClick={() => setView("tree")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              view === "tree"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Structure
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading...</div>
+        <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>
       ) : view === "tree" ? (
         <TreeView data={treeData} />
       ) : (
-        <EmployeeComplianceView employees={employees} onEmployeeClick={handleEmployeeClick} filter={complianceFilter} onFilterChange={setComplianceFilter} />
+        <EmployeeComplianceView
+          employees={employees}
+          onEmployeeClick={setSelectedEmployee}
+          filter={complianceFilter}
+          onFilterToggle={toggleFilter}
+        />
       )}
 
       {selectedEmployee && (
@@ -244,38 +280,280 @@ export function MatrixTab() {
   );
 }
 
+// ─── Metric Card ────────────────────────────────────────
+function MetricCard({ label, value, accent, active, onClick }: {
+  label: string;
+  value: string | number;
+  accent?: "red" | "amber" | "green" | "neutral";
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const accentStyles = {
+    red: "border-red-200 bg-red-50/50",
+    amber: "border-amber-200 bg-amber-50/50",
+    green: "border-green-200 bg-green-50/50",
+    neutral: "border-gray-200 bg-white",
+  };
+  const valueStyles = {
+    red: "text-red-600",
+    amber: "text-amber-600",
+    green: "text-green-600",
+    neutral: "text-gray-900",
+  };
+  const a = accent || "neutral";
+
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left px-4 py-3 rounded-lg border transition-all ${accentStyles[a]} ${
+        active ? "ring-2 ring-blue-500 ring-offset-1" : "hover:shadow-sm"
+      }`}
+    >
+      <div className={`text-xl font-semibold tabular-nums ${valueStyles[a]}`}>{value}</div>
+      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+    </button>
+  );
+}
+
+// ─── Employee Compliance View ──────────────────────────
+function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterToggle }: {
+  employees: EmployeeRow[];
+  onEmployeeClick: (emp: EmployeeRow) => void;
+  filter: ComplianceFilter;
+  onFilterToggle: (f: ComplianceFilter) => void;
+}) {
+  const enriched = useMemo(() => employees.map(enrichEmployee), [employees]);
+
+  // Aggregate stats
+  const stats = useMemo(() => {
+    let expired = 0, missingPending = 0, expiringSoon = 0, compliant = 0, totalPct = 0;
+    for (const e of enriched) {
+      if (e.expiredCount > 0) expired++;
+      if (e.missingCount > 0 || e.pendingCount > 0) missingPending++;
+      if (e.expiringSoonCount > 0) expiringSoon++;
+      if (e.pct === 100) compliant++;
+      totalPct += e.pct;
+    }
+    const overallPct = enriched.length > 0 ? Math.round(totalPct / enriched.length) : 100;
+    return { total: enriched.length, expired, missingPending, expiringSoon, compliant, overallPct };
+  }, [enriched]);
+
+  // Filter + sort (worst compliance first)
+  const filtered = useMemo(() => {
+    const list = enriched.filter((e) => {
+      switch (filter) {
+        case "expired": return e.expiredCount > 0;
+        case "missing_pending": return e.missingCount > 0 || e.pendingCount > 0;
+        case "expiring_soon": return e.expiringSoonCount > 0;
+        case "compliant": return e.pct === 100;
+        default: return true;
+      }
+    });
+    return list.sort((a, b) => a.pct - b.pct);
+  }, [enriched, filter]);
+
+  if (employees.length === 0) {
+    return <div className="text-center py-12 text-gray-400 text-sm">No active employees found.</div>;
+  }
+
+  const issueCount = stats.expired + stats.missingPending;
+  const complianceAccent: "green" | "amber" | "red" = stats.overallPct >= 90 ? "green" : stats.overallPct >= 50 ? "amber" : "red";
+
+  return (
+    <div className="space-y-4">
+      {/* Metrics strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <MetricCard
+          label="Total Employees"
+          value={stats.total}
+          active={filter === "all"}
+          onClick={() => onFilterToggle("all")}
+        />
+        <MetricCard
+          label="Expired"
+          value={stats.expired}
+          accent={stats.expired > 0 ? "red" : "neutral"}
+          active={filter === "expired"}
+          onClick={() => onFilterToggle("expired")}
+        />
+        <MetricCard
+          label="Missing / Pending"
+          value={stats.missingPending}
+          accent={stats.missingPending > 0 ? "amber" : "neutral"}
+          active={filter === "missing_pending"}
+          onClick={() => onFilterToggle("missing_pending")}
+        />
+        <MetricCard
+          label="Expiring Soon"
+          value={stats.expiringSoon}
+          accent={stats.expiringSoon > 0 ? "amber" : "neutral"}
+          active={filter === "expiring_soon"}
+          onClick={() => onFilterToggle("expiring_soon")}
+        />
+        <MetricCard
+          label="Overall Compliance"
+          value={`${stats.overallPct}%`}
+          accent={complianceAccent}
+          active={filter === "compliant"}
+          onClick={() => onFilterToggle("compliant")}
+        />
+      </div>
+
+      {/* Inline notice */}
+      {issueCount > 0 && filter === "all" && (
+        <p className="text-sm text-gray-500">
+          <span className="text-red-600 font-medium">{issueCount} employee{issueCount !== 1 ? "s" : ""}</span> require attention
+        </p>
+      )}
+
+      {/* Employee table */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        {/* Desktop table header */}
+        <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_140px_120px] gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <span>Employee</span>
+          <span>Roles</span>
+          <span>Compliance</span>
+          <span>Issues</span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">No employees match this filter.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filtered.map(({ emp, pct, total, compliant, expiredCount, expiringSoonCount, missingCount, pendingCount }) => {
+              const barColor = pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-400" : "bg-red-500";
+              const issueLabel = getIssueLabel(expiredCount, missingCount, pendingCount, expiringSoonCount);
+
+              return (
+                <div
+                  key={emp.id}
+                  className="group cursor-pointer hover:bg-gray-50/80 transition-colors"
+                  onClick={() => onEmployeeClick(emp)}
+                >
+                  {/* Desktop row */}
+                  <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_140px_120px] gap-4 px-4 py-3 items-center">
+                    {/* Employee */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-gray-400 shrink-0">{emp.employeeNumber}</span>
+                        <span className="text-sm font-medium text-gray-900 truncate">{emp.firstName} {emp.lastName}</span>
+                      </div>
+                    </div>
+
+                    {/* Roles */}
+                    <div className="text-sm text-gray-500 truncate">
+                      {emp.trainingRoles.length > 0
+                        ? emp.trainingRoles.map((tr) => tr.role.name).join(", ")
+                        : <span className="text-gray-300">No roles</span>
+                      }
+                    </div>
+
+                    {/* Compliance bar + percentage */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div className={`${barColor} h-full rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`text-xs font-medium tabular-nums w-9 text-right ${
+                        pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
+                      }`}>
+                        {pct}%
+                      </span>
+                    </div>
+
+                    {/* Issues */}
+                    <div className="text-xs">
+                      {issueLabel ? (
+                        <span className={issueLabel.color}>{issueLabel.text}</span>
+                      ) : (
+                        <span className="text-green-600">{compliant}/{total} passed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mobile row */}
+                  <div className="sm:hidden px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <span className="text-xs font-mono text-gray-400 mr-1.5">{emp.employeeNumber}</span>
+                        <span className="text-sm font-medium text-gray-900">{emp.firstName} {emp.lastName}</span>
+                      </div>
+                      <span className={`text-xs font-medium tabular-nums ${
+                        pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
+                      }`}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div className={`${barColor} h-full rounded-full`} style={{ width: `${pct}%` }} />
+                      </div>
+                      {issueLabel && (
+                        <span className={`text-xs shrink-0 ${issueLabel.color}`}>{issueLabel.text}</span>
+                      )}
+                    </div>
+                    {emp.trainingRoles.length > 0 && (
+                      <div className="text-xs text-gray-400 truncate">
+                        {emp.trainingRoles.map((tr) => tr.role.name).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer count */}
+      {filtered.length > 0 && (
+        <p className="text-xs text-gray-400 text-right">
+          Showing {filtered.length} of {enriched.length} employee{enriched.length !== 1 ? "s" : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function getIssueLabel(expired: number, missing: number, pending: number, expiringSoon: number): { text: string; color: string } | null {
+  if (expired > 0) return { text: `${expired} expired`, color: "text-red-600 font-medium" };
+  if (missing > 0) return { text: `${missing} missing`, color: "text-amber-600 font-medium" };
+  if (pending > 0) return { text: `${pending} pending`, color: "text-amber-600 font-medium" };
+  if (expiringSoon > 0) return { text: `${expiringSoon} expiring`, color: "text-amber-500" };
+  return null;
+}
+
 // ─── Tree View ─────────────────────────────────────────
 function TreeView({ data }: { data: TreeData | null }) {
   if (!data) return null;
 
   const hasContent = data.roles.length > 0 || data.unlinkedSkills.length > 0 || data.unlinkedAccreditations.length > 0;
   if (!hasContent) {
-    return <div className="text-center py-12 text-gray-500">No training data configured yet. Start by creating roles, skills, and accreditations.</div>;
+    return <div className="text-center py-12 text-gray-400 text-sm">No training data configured yet. Start by creating roles, skills, and accreditations.</div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {data.roles.map((role) => (
-        <div key={role.id} className="bg-white border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
+        <div key={role.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
             <span className="text-xs font-mono text-gray-400">{role.roleNumber}</span>
-            <h3 className="font-semibold text-gray-900">{role.name}</h3>
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{role.category === "OFFICE" ? "Office" : "Field"}</span>
+            <h3 className="text-sm font-semibold text-gray-900">{role.name}</h3>
+            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{role.category === "OFFICE" ? "Office" : "Field"}</span>
           </div>
           {role.skillLinks.length === 0 ? (
-            <p className="text-sm text-gray-400 ml-4">No skills linked</p>
+            <p className="text-xs text-gray-400 px-4 py-3">No skills linked</p>
           ) : (
-            <div className="ml-4 space-y-2">
+            <div className="px-4 py-3 space-y-2">
               {role.skillLinks.map((sl) => (
-                <div key={sl.skill.id} className="border-l-2 border-blue-200 pl-3">
+                <div key={sl.skill.id} className="border-l-2 border-gray-200 pl-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-gray-400">{sl.skill.skillNumber}</span>
-                    <span className="text-sm font-medium">{sl.skill.name}</span>
+                    <span className="text-sm text-gray-700">{sl.skill.name}</span>
                   </div>
                   {sl.skill.accreditationLinks.length > 0 && (
                     <div className="ml-4 mt-1 space-y-0.5">
                       {sl.skill.accreditationLinks.map((al) => (
-                        <div key={al.accreditation.id} className="flex items-center gap-2 text-xs text-gray-600">
+                        <div key={al.accreditation.id} className="flex items-center gap-2 text-xs text-gray-500">
                           <span className="font-mono text-gray-400">{al.accreditation.accreditationNumber}</span>
                           <span>{al.accreditation.name}</span>
                         </div>
@@ -290,175 +568,24 @@ function TreeView({ data }: { data: TreeData | null }) {
       ))}
 
       {data.unlinkedSkills.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">Unlinked Skills</h3>
+        <div className="bg-white border border-amber-200 rounded-lg shadow-sm p-4">
+          <h3 className="text-sm font-medium text-amber-700 mb-2">Unlinked Skills</h3>
           <ul className="space-y-1">
             {data.unlinkedSkills.map((s) => (
-              <li key={s.id} className="text-sm text-yellow-700">{s.skillNumber} — {s.name}</li>
+              <li key={s.id} className="text-xs text-gray-600">{s.skillNumber} — {s.name}</li>
             ))}
           </ul>
         </div>
       )}
 
       {data.unlinkedAccreditations.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">Unlinked Accreditations</h3>
+        <div className="bg-white border border-amber-200 rounded-lg shadow-sm p-4">
+          <h3 className="text-sm font-medium text-amber-700 mb-2">Unlinked Accreditations</h3>
           <ul className="space-y-1">
             {data.unlinkedAccreditations.map((a) => (
-              <li key={a.id} className="text-sm text-yellow-700">{a.accreditationNumber} — {a.name}</li>
+              <li key={a.id} className="text-xs text-gray-600">{a.accreditationNumber} — {a.name}</li>
             ))}
           </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Employee Compliance View ──────────────────────────
-function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterChange }: {
-  employees: EmployeeRow[];
-  onEmployeeClick: (emp: EmployeeRow) => void;
-  filter: ComplianceFilter;
-  onFilterChange: (f: ComplianceFilter) => void;
-}) {
-  if (employees.length === 0) {
-    return <div className="text-center py-12 text-gray-500">No active employees found.</div>;
-  }
-
-  // Compute compliance for each employee and categorise
-  const enriched = employees.map((emp) => {
-    const c = computeCompliance(emp);
-    // Count missing: required but not held at all
-    let missingCount = 0;
-    let pendingCount = 0;
-    c.requiredAccredIds.forEach((id) => {
-      const held = c.heldMap.get(id);
-      if (!held) missingCount++;
-      else if (held.status === "PENDING") pendingCount++;
-    });
-    return { emp, ...c, missingCount, pendingCount };
-  });
-
-  // Count per category
-  const counts = { all: enriched.length, expired: 0, missing_pending: 0, expiring_soon: 0, compliant: 0 };
-  for (const e of enriched) {
-    if (e.expiredCount > 0) counts.expired++;
-    if (e.missingCount > 0 || e.pendingCount > 0) counts.missing_pending++;
-    if (e.expiringSoonCount > 0) counts.expiring_soon++;
-    if (e.pct === 100) counts.compliant++;
-  }
-
-  // Apply filter
-  const filtered = enriched.filter((e) => {
-    switch (filter) {
-      case "expired": return e.expiredCount > 0;
-      case "missing_pending": return e.missingCount > 0 || e.pendingCount > 0;
-      case "expiring_soon": return e.expiringSoonCount > 0;
-      case "compliant": return e.pct === 100;
-      default: return true;
-    }
-  });
-
-  const filterButtons: { key: ComplianceFilter; label: string; count: number; color: string; activeColor: string }[] = [
-    { key: "all", label: "All", count: counts.all, color: "text-gray-600 hover:bg-gray-100", activeColor: "bg-gray-200 text-gray-800" },
-    { key: "expired", label: "Expired", count: counts.expired, color: "text-red-600 hover:bg-red-50", activeColor: "bg-red-100 text-red-800" },
-    { key: "missing_pending", label: "Missing / Pending", count: counts.missing_pending, color: "text-yellow-600 hover:bg-yellow-50", activeColor: "bg-yellow-100 text-yellow-800" },
-    { key: "expiring_soon", label: "Expiring Soon", count: counts.expiring_soon, color: "text-amber-600 hover:bg-amber-50", activeColor: "bg-amber-100 text-amber-800" },
-    { key: "compliant", label: "Compliant", count: counts.compliant, color: "text-green-600 hover:bg-green-50", activeColor: "bg-green-100 text-green-800" },
-  ];
-
-  return (
-    <div>
-      {/* Filter bar */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {filterButtons.map((fb) => (
-          <button
-            key={fb.key}
-            onClick={() => onFilterChange(fb.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === fb.key ? fb.activeColor : fb.color}`}
-          >
-            {fb.label} <span className="ml-1 opacity-70">({fb.count})</span>
-          </button>
-        ))}
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-8 text-gray-400 text-sm">No employees match this filter.</div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(({ emp }) => {
-        const { requiredAccredIds, heldMap, pct, expiredCount, expiringSoonCount } = computeCompliance(emp);
-        const barColor = pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-500";
-
-        return (
-          <div
-            key={emp.id}
-            className="bg-white border rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
-            onClick={() => onEmployeeClick(emp)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-xs font-mono text-gray-400">{emp.employeeNumber}</span>
-                <span className="ml-2 font-medium">{emp.firstName} {emp.lastName}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {expiredCount > 0 && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-100 text-red-700">
-                    {expiredCount} expired
-                  </span>
-                )}
-                {expiringSoonCount > 0 && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700">
-                    {expiringSoonCount} expiring soon
-                  </span>
-                )}
-                <span className={`text-xs font-medium px-2 py-0.5 rounded ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                  {pct}% compliant
-                </span>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
-              <div className={`${barColor} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
-            </div>
-
-            {/* Roles */}
-            {emp.trainingRoles.length > 0 && (
-              <div className="text-xs text-gray-500 mb-1">
-                Roles: {emp.trainingRoles.map((tr) => tr.role.name).join(", ")}
-              </div>
-            )}
-
-            {/* Required accreditations status */}
-            {requiredAccredIds.size > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {Array.from(requiredAccredIds).map((accredId) => {
-                  const held = heldMap.get(accredId);
-                  const accredDef = held?.accreditation || emp.trainingRoles
-                    .flatMap((tr) => tr.role.skillLinks)
-                    .flatMap((sl) => sl.skill.accreditationLinks)
-                    .map((al) => al.accreditation)
-                    .find((a) => a.id === accredId);
-                  const label = accredDef?.name || accredId;
-
-                  // Use effective status (date-aware)
-                  const effectiveStatus = held ? getEffectiveStatus(held) : "MISSING";
-                  const displayLabel = effectiveStatus === "EXPIRY_PASSED"
-                    ? "Expired (date)"
-                    : (ACCREDITATION_STATUS_LABELS[effectiveStatus] || effectiveStatus);
-
-                  return (
-                    <span key={accredId} className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[effectiveStatus] || STATUS_COLORS.MISSING}`}>
-                      {label}: {displayLabel}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
         </div>
       )}
     </div>
@@ -502,7 +629,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
       });
     });
 
-    // Sort: non-compliant first (including date-expired), then alphabetical
     editRows.sort((a, b) => {
       const aOk = (a.status === "VERIFIED" && !isDateExpired(a.expiryDate)) || a.status === "EXEMPT" ? 1 : 0;
       const bOk = (b.status === "VERIFIED" && !isDateExpired(b.expiryDate)) || b.status === "EXEMPT" ? 1 : 0;
@@ -585,42 +711,36 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <div>
-            <p className="text-xs text-gray-500">{employee.employeeNumber}</p>
+            <p className="text-xs text-gray-400 font-mono">{employee.employeeNumber}</p>
             <h2 className="text-lg font-semibold text-gray-900">
               {employee.firstName} {employee.lastName}
             </h2>
           </div>
           <div className="flex items-center gap-2">
             {expiredCount > 0 && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-100 text-red-700">
-                {expiredCount} expired
-              </span>
+              <span className="text-xs font-medium text-red-600">{expiredCount} expired</span>
             )}
             {expiringSoonCount > 0 && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700">
-                {expiringSoonCount} soon
-              </span>
+              <span className="text-xs font-medium text-amber-600">{expiringSoonCount} expiring</span>
             )}
-            <span className={`text-sm font-medium px-3 py-1 rounded-full ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-              {compliant}/{total} — {pct}%
+            <span className={`text-sm font-semibold tabular-nums px-2.5 py-1 rounded-md ${
+              pct === 100 ? "bg-green-50 text-green-700" : pct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"
+            }`}>
+              {compliant}/{total}
             </span>
           </div>
         </div>
 
         {employee.trainingRoles.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
-            {employee.trainingRoles.map((tr) => (
-              <span key={tr.role.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                {tr.role.name}
-              </span>
-            ))}
+          <div className="text-xs text-gray-500 mb-4">
+            {employee.trainingRoles.map((tr) => tr.role.name).join(", ")}
           </div>
         )}
 
         {/* Accreditation rows */}
         <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-3">
           {rows.length === 0 && (
-            <p className="text-sm text-gray-500 py-4 text-center">No accreditations required for assigned roles.</p>
+            <p className="text-sm text-gray-400 py-4 text-center">No accreditations required for assigned roles.</p>
           )}
           {rows.map((row, idx) => {
             const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
@@ -633,41 +753,35 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                 key={row.accreditationId}
                 className={`border rounded-lg p-3 space-y-2 ${
                   row.dirty ? "border-blue-300 bg-blue-50/30" :
-                  showExpiryWarning ? "border-red-300 bg-red-50/30" :
-                  showExpiringSoonWarning ? "border-amber-300 bg-amber-50/30" :
+                  showExpiryWarning ? "border-red-200 bg-red-50/30" :
+                  showExpiringSoonWarning ? "border-amber-200 bg-amber-50/30" :
                   "border-gray-200"
                 }`}
               >
-                {/* Accreditation header */}
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-mono text-gray-400 mr-2">{row.accreditationNumber}</span>
                     <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {row.expires && row.renewalMonths && (
-                      <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
-                        Typical: {row.renewalMonths}mo renewal
-                      </span>
-                    )}
-                  </div>
+                  {row.expires && row.renewalMonths && (
+                    <span className="text-xs text-gray-400">
+                      {row.renewalMonths}mo renewal
+                    </span>
+                  )}
                 </div>
 
-                {/* Expiry warnings */}
                 {showExpiryWarning && (
-                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
-                    Expired on {row.expiryDate} — status shows Verified but expiry date has passed. Not compliant until renewed.
+                  <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                    Expired {row.expiryDate} — not compliant until renewed.
                   </div>
                 )}
                 {showExpiringSoonWarning && row.expiryDate && (
-                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                    Expires in {daysUntil(row.expiryDate)} days ({row.expiryDate}). Plan renewal soon.
+                  <div className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1">
+                    Expires in {daysUntil(row.expiryDate)} days ({row.expiryDate}).
                   </div>
                 )}
 
-                {/* Editable fields */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {/* Status */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-0.5">Status</label>
                     <select
@@ -688,7 +802,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                     </select>
                   </div>
 
-                  {/* Expiry Date — only if accreditation expires */}
                   {row.expires && (
                     <div>
                       <label className="block text-xs text-gray-500 mb-0.5">Expiry Date</label>
@@ -705,7 +818,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                     </div>
                   )}
 
-                  {/* Certificate Number */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
                     <input
@@ -717,7 +829,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                     />
                   </div>
 
-                  {/* Notes */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
                     <input
@@ -735,11 +846,11 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         </div>
 
         {/* Footer */}
-        <div className="pt-4 mt-3 border-t">
+        <div className="pt-4 mt-3 border-t border-gray-200">
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
           {successMsg && <p className="text-green-600 text-sm mb-2">{successMsg}</p>}
           <div className="flex items-center justify-between">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
               Cancel
             </button>
             <button

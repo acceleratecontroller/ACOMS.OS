@@ -16,7 +16,7 @@ const tabs: { key: TrainingTab; label: string }[] = [
 
 export function TrainingTabs({ active, onChange }: TrainingTabsProps) {
   return (
-    <div className="border-b border-gray-200 mb-6">
+    <div className="border-b border-gray-200 mb-4">
       <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
         {tabs.map((tab) => (
           <button
