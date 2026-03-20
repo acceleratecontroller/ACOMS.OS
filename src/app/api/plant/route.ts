@@ -17,7 +17,18 @@ export async function GET(request: NextRequest) {
   const { result: plant, error } = await withPrismaError("Failed to list plant", () =>
     prisma.plant.findMany({
       where: { isArchived: showArchived },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        assetLinks: {
+          where: { unlinkedAt: null },
+          include: {
+            asset: {
+              select: { id: true, assetNumber: true, name: true, category: true, status: true },
+            },
+          },
+          orderBy: { linkedAt: "desc" },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
   );
@@ -51,26 +62,76 @@ export async function POST(request: NextRequest) {
   const refError = await validateEmployeeRef(data.assignedToId || null, "assignedToId");
   if (refError) return refError;
 
+  // Check for duplicate registration number (if provided)
+  if (data.registrationNumber) {
+    const existingRego = await prisma.plant.findFirst({
+      where: { registrationNumber: data.registrationNumber },
+    });
+    if (existingRego) {
+      return NextResponse.json(
+        { error: `A plant with registration number "${data.registrationNumber}" already exists (${existingRego.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Check for duplicate VIN number (if provided)
+  if (data.vinNumber) {
+    const existingVin = await prisma.plant.findFirst({
+      where: { vinNumber: data.vinNumber },
+    });
+    if (existingVin) {
+      return NextResponse.json(
+        { error: `A plant with VIN "${data.vinNumber}" already exists (${existingVin.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Auto-generate plant number: PLT-0001, PLT-0002, etc.
+  // Use raw query to find max numeric value to avoid string-sort issues
+  const allPlants = await prisma.plant.findMany({
+    select: { plantNumber: true },
+  });
+
+  let nextNumber = 1;
+  for (const p of allPlants) {
+    const match = p.plantNumber.match(/PLT-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num >= nextNumber) nextNumber = num + 1;
+    }
+  }
+  const plantNumber = `PLT-${String(nextNumber).padStart(4, "0")}`;
+
   const { result: plant, error } = await withPrismaError("Failed to create plant", () =>
     prisma.plant.create({
       data: {
-        plantNumber: data.plantNumber,
-        name: data.name,
+        plantNumber,
         category: data.category,
+        stateRegistered: data.stateRegistered || null,
+        registrationNumber: data.registrationNumber || null,
+        vinNumber: data.vinNumber || null,
+        year: data.year ?? null,
         make: data.make || null,
         model: data.model || null,
-        serialNumber: data.serialNumber || null,
-        yearOfManufacture: data.yearOfManufacture ?? null,
-        registrationNumber: data.registrationNumber || null,
-        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-        purchaseCost: data.purchaseCost ?? null,
+        licenceType: data.licenceType || null,
         location: data.location || null,
         assignedToId: data.assignedToId || null,
-        status: data.status,
-        condition: data.condition || null,
+        ampolCardNumber: data.ampolCardNumber || null,
+        ampolCardExpiry: data.ampolCardExpiry ? new Date(data.ampolCardExpiry) : null,
+        linktTagNumber: data.linktTagNumber || null,
+        fleetDynamicsSerialNumber: data.fleetDynamicsSerialNumber || null,
+        coiExpirationDate: data.coiExpirationDate ? new Date(data.coiExpirationDate) : null,
+        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+        purchasePrice: data.purchasePrice ?? null,
+        soldDate: data.soldDate ? new Date(data.soldDate) : null,
+        soldPrice: data.soldPrice ?? null,
+        comments: data.comments || null,
         lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : null,
         nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null,
-        notes: data.notes || null,
+        status: data.status,
+        condition: data.condition || null,
         createdById: session.user.id,
       },
     }),
@@ -81,7 +142,7 @@ export async function POST(request: NextRequest) {
     entityType: "Plant",
     entityId: plant.id,
     action: "CREATE",
-    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    entityLabel: `${plant.plantNumber}`,
     performedById: session.user.id,
   });
 

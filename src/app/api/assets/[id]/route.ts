@@ -19,7 +19,15 @@ export async function GET(
   const { result: asset, error } = await withPrismaError("Failed to get asset", () =>
     prisma.asset.findUnique({
       where: { id },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        plantLinks: {
+          where: { unlinkedAt: null },
+          include: {
+            plant: { select: { id: true, plantNumber: true } },
+          },
+        },
+      },
     }),
   );
   if (error) return error;
@@ -64,11 +72,13 @@ export async function PUT(
 
   const before = await prisma.asset.findUnique({ where: { id } });
 
+  // Retiring an asset also archives it
+  const isRetiring = data.status === "RETIRED";
+
   const { result: asset, error } = await withPrismaError("Failed to update asset", () =>
     prisma.asset.update({
       where: { id },
       data: {
-        ...(data.assetNumber !== undefined && { assetNumber: data.assetNumber }),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.category !== undefined && { category: data.category }),
         ...(data.make !== undefined && { make: data.make || null }),
@@ -81,6 +91,7 @@ export async function PUT(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.id }),
       },
     }),
   );
@@ -111,6 +122,19 @@ export async function DELETE(
   }
 
   const { id } = await params;
+
+  // Check if asset is linked to any active plant items
+  const activeLinks = await prisma.plantAssetLink.findMany({
+    where: { assetId: id, unlinkedAt: null },
+    include: { plant: { select: { plantNumber: true } } },
+  });
+  if (activeLinks.length > 0) {
+    const plantNames = activeLinks.map((l) => l.plant.plantNumber).join(", ");
+    return NextResponse.json(
+      { error: `Cannot archive: this asset is linked to ${plantNames}. Unlink it first.` },
+      { status: 400 },
+    );
+  }
 
   const { result: asset, error } = await withPrismaError("Failed to archive asset", () =>
     prisma.asset.update({

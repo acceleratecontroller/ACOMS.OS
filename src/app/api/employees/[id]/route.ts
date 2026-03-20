@@ -6,6 +6,7 @@ import { audit, diff } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees/[id] — Get a single employee
+// STAFF users can only view their own linked employee record
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,8 +17,21 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  // STAFF can only view their own record
+  if (session.user.role !== "ADMIN" && id !== session.user.employeeId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
-    prisma.employee.findUnique({ where: { id } }),
+    prisma.employee.findUnique({
+      where: { id },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
+      },
+    }),
   );
   if (error) return error;
 
@@ -82,7 +96,6 @@ export async function PUT(
         ...(data.dateOfBirth !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
         ...(data.shirtSize !== undefined && { shirtSize: data.shirtSize || null }),
         ...(data.pantsSize !== undefined && { pantsSize: data.pantsSize || null }),
-        ...(data.roleType !== undefined && { roleType: data.roleType }),
         ...(data.employmentType !== undefined && { employmentType: data.employmentType }),
         ...(data.location !== undefined && { location: data.location }),
         ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
@@ -90,6 +103,24 @@ export async function PUT(
         ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
         ...(status !== undefined && { status }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        // Emergency contact
+        ...(data.emergencyFirstName !== undefined && { emergencyFirstName: data.emergencyFirstName || null }),
+        ...(data.emergencyLastName !== undefined && { emergencyLastName: data.emergencyLastName || null }),
+        ...(data.emergencyRelation !== undefined && { emergencyRelation: data.emergencyRelation || null }),
+        ...(data.emergencyPhone !== undefined && { emergencyPhone: data.emergencyPhone || null }),
+        ...(data.emergencyPhoneAlt !== undefined && { emergencyPhoneAlt: data.emergencyPhoneAlt || null }),
+        // Sync training roles if provided
+        ...(data.roleIds !== undefined && {
+          trainingRoles: {
+            deleteMany: {},
+            create: data.roleIds.map((roleId: string) => ({ roleId })),
+          },
+        }),
+      },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
       },
     }),
   );

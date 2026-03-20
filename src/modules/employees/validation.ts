@@ -14,7 +14,7 @@ export const createEmployeeSchema = z.object({
   dateOfBirth: optionalString,
   shirtSize: optionalString,
   pantsSize: optionalString,
-  roleType: z.enum(["OFFICE", "FIELD"]),
+  roleIds: z.array(z.string().min(1)).optional().default([]),
   employmentType: z.enum(["FULL_TIME", "TRAINEE", "CASUAL", "ABN"]),
   location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]),
   startDate: z.string().min(1, "Start date is required"),
@@ -22,6 +22,12 @@ export const createEmployeeSchema = z.object({
   probationDate: optionalString,
   status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).default("ACTIVE"),
   notes: optionalString,
+  // Emergency contact
+  emergencyFirstName: optionalString,
+  emergencyLastName: optionalString,
+  emergencyRelation: optionalString,
+  emergencyPhone: optionalString,
+  emergencyPhoneAlt: optionalString,
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

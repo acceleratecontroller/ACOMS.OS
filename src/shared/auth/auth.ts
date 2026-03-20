@@ -21,6 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
+          include: { employee: { select: { id: true } } },
         });
 
         if (!user || !user.isActive) {
@@ -38,22 +39,56 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          twoFactorEnabled: user.twoFactorEnabled,
+          employeeId: user.employee?.id,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = (user as { role: string }).role;
         token.id = user.id;
+        token.twoFactorEnabled = (user as { twoFactorEnabled?: boolean }).twoFactorEnabled ?? false;
+        // If 2FA is enabled, they haven't verified yet at login time
+        token.twoFactorVerified = !token.twoFactorEnabled;
+        token.employeeId = (user as { employeeId?: string }).employeeId;
       }
+      // Allow the verify endpoint to mark 2FA as verified via session update
+      if (trigger === "update" && token.twoFactorEnabled) {
+        token.twoFactorVerified = true;
+      }
+
+      // Re-validate that the user is still active on every request
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { isActive: true, role: true },
+        });
+        if (!dbUser || !dbUser.isActive) {
+          // Mark token as revoked — session callback will reject it
+          token.isRevoked = true;
+        } else {
+          // Keep role in sync (in case admin changed it)
+          token.role = dbUser.role;
+          token.isRevoked = false;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
+      // If user has been revoked, return empty session to force logout
+      if (token.isRevoked) {
+        return { ...session, user: undefined as unknown as typeof session.user };
+      }
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.twoFactorEnabled = token.twoFactorEnabled ?? false;
+        session.user.twoFactorVerified = token.twoFactorVerified ?? true;
+        session.user.employeeId = token.employeeId as string | undefined;
       }
       return session;
     },

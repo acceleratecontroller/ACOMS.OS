@@ -8,6 +8,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import {
   ASSET_STATUS_OPTIONS as STATUS_OPTIONS,
   CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
 } from "@/config/constants";
 
 interface Asset {
@@ -64,7 +66,6 @@ export default function AssetDetailPage() {
 
     const form = new FormData(e.currentTarget);
     const body = {
-      assetNumber: form.get("assetNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -123,7 +124,7 @@ export default function AssetDetailPage() {
             <div><dt className="text-gray-500">Make</dt><dd className="font-medium">{asset.make || "—"}</dd></div>
             <div><dt className="text-gray-500">Model</dt><dd className="font-medium">{asset.model || "—"}</dd></div>
             <div><dt className="text-gray-500">Serial Number</dt><dd className="font-medium">{asset.serialNumber || "—"}</dd></div>
-            <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{asset.location || "—"}</dd></div>
+            <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{asset.location ? (LOCATION_LABELS[asset.location] || asset.location) : "—"}</dd></div>
             <div><dt className="text-gray-500">Purchase Date</dt><dd className="font-medium">{formatDate(asset.purchaseDate) || "—"}</dd></div>
             <div><dt className="text-gray-500">Purchase Cost</dt><dd className="font-medium">{asset.purchaseCost ? `$${asset.purchaseCost}` : "—"}</dd></div>
             <div><dt className="text-gray-500">Assigned To</dt><dd className="font-medium">{asset.assignedTo ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName} (${asset.assignedTo.employeeNumber})` : "—"}</dd></div>
@@ -149,7 +150,10 @@ export default function AssetDetailPage() {
       <PageHeader title={`Edit: ${asset.name}`} />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Asset Number" name="assetNumber" required defaultValue={asset.assetNumber} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
+            <p className="text-sm font-medium text-gray-900 py-2">{asset.assetNumber}</p>
+          </div>
           <SelectField label="Status" name="status" required defaultValue={asset.status} options={STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -169,7 +173,7 @@ export default function AssetDetailPage() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" defaultValue={asset.purchaseCost?.toString() || ""} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Location" name="location" defaultValue={asset.location || ""} />
+          <SelectField label="Location" name="location" defaultValue={asset.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To (Employee)" name="assignedToId" defaultValue={asset.assignedToId || ""} options={employees.map((emp) => ({
             value: emp.id,
             label: `${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`,

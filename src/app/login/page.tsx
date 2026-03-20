@@ -28,7 +28,15 @@ export default function LoginPage() {
       setError("Invalid email or password.");
       setLoading(false);
     } else {
-      router.push("/");
+      // Check if the user needs 2FA verification by fetching the session
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+
+      if (session?.user?.twoFactorEnabled && !session?.user?.twoFactorVerified) {
+        router.push("/login/verify");
+      } else {
+        router.push("/");
+      }
       router.refresh();
     }
   }

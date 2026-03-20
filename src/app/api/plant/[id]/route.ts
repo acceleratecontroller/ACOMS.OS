@@ -19,7 +19,18 @@ export async function GET(
   const { result: plant, error } = await withPrismaError("Failed to get plant", () =>
     prisma.plant.findUnique({
       where: { id },
-      include: { assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } } },
+      include: {
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        assetLinks: {
+          where: { unlinkedAt: null },
+          include: {
+            asset: {
+              select: { id: true, assetNumber: true, name: true, category: true, status: true, condition: true },
+            },
+          },
+          orderBy: { linkedAt: "desc" },
+        },
+      },
     }),
   );
   if (error) return error;
@@ -62,29 +73,62 @@ export async function PUT(
     if (refError) return refError;
   }
 
+  // Check for duplicate registration number (if being changed)
+  if (data.registrationNumber) {
+    const existingRego = await prisma.plant.findFirst({
+      where: { registrationNumber: data.registrationNumber, id: { not: id } },
+    });
+    if (existingRego) {
+      return NextResponse.json(
+        { error: `A plant with registration number "${data.registrationNumber}" already exists (${existingRego.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Check for duplicate VIN number (if being changed)
+  if (data.vinNumber) {
+    const existingVin = await prisma.plant.findFirst({
+      where: { vinNumber: data.vinNumber, id: { not: id } },
+    });
+    if (existingVin) {
+      return NextResponse.json(
+        { error: `A plant with VIN "${data.vinNumber}" already exists (${existingVin.plantNumber}).` },
+        { status: 409 },
+      );
+    }
+  }
+
   const before = await prisma.plant.findUnique({ where: { id } });
 
   const { result: plant, error } = await withPrismaError("Failed to update plant", () =>
     prisma.plant.update({
       where: { id },
       data: {
-        ...(data.plantNumber !== undefined && { plantNumber: data.plantNumber }),
-        ...(data.name !== undefined && { name: data.name }),
         ...(data.category !== undefined && { category: data.category }),
+        ...(data.stateRegistered !== undefined && { stateRegistered: data.stateRegistered || null }),
+        ...(data.registrationNumber !== undefined && { registrationNumber: data.registrationNumber || null }),
+        ...(data.vinNumber !== undefined && { vinNumber: data.vinNumber || null }),
+        ...(data.year !== undefined && { year: data.year ?? null }),
         ...(data.make !== undefined && { make: data.make || null }),
         ...(data.model !== undefined && { model: data.model || null }),
-        ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber || null }),
-        ...(data.yearOfManufacture !== undefined && { yearOfManufacture: data.yearOfManufacture ?? null }),
-        ...(data.registrationNumber !== undefined && { registrationNumber: data.registrationNumber || null }),
-        ...(data.purchaseDate !== undefined && { purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null }),
-        ...(data.purchaseCost !== undefined && { purchaseCost: data.purchaseCost ?? null }),
+        ...(data.licenceType !== undefined && { licenceType: data.licenceType || null }),
         ...(data.location !== undefined && { location: data.location || null }),
         ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId || null }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.condition !== undefined && { condition: data.condition || null }),
+        ...(data.ampolCardNumber !== undefined && { ampolCardNumber: data.ampolCardNumber || null }),
+        ...(data.ampolCardExpiry !== undefined && { ampolCardExpiry: data.ampolCardExpiry ? new Date(data.ampolCardExpiry) : null }),
+        ...(data.linktTagNumber !== undefined && { linktTagNumber: data.linktTagNumber || null }),
+        ...(data.fleetDynamicsSerialNumber !== undefined && { fleetDynamicsSerialNumber: data.fleetDynamicsSerialNumber || null }),
+        ...(data.coiExpirationDate !== undefined && { coiExpirationDate: data.coiExpirationDate ? new Date(data.coiExpirationDate) : null }),
+        ...(data.purchaseDate !== undefined && { purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null }),
+        ...(data.purchasePrice !== undefined && { purchasePrice: data.purchasePrice ?? null }),
+        ...(data.soldDate !== undefined && { soldDate: data.soldDate ? new Date(data.soldDate) : null }),
+        ...(data.soldPrice !== undefined && { soldPrice: data.soldPrice ?? null }),
+        ...(data.comments !== undefined && { comments: data.comments || null }),
         ...(data.lastServiceDate !== undefined && { lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : null }),
         ...(data.nextServiceDue !== undefined && { nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null }),
-        ...(data.notes !== undefined && { notes: data.notes || null }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.condition !== undefined && { condition: data.condition || null }),
       },
     }),
   );
@@ -96,7 +140,7 @@ export async function PUT(
     entityType: "Plant",
     entityId: plant.id,
     action: "UPDATE",
-    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    entityLabel: `${plant.plantNumber}`,
     performedById: session.user.id,
     changes,
   });
@@ -132,7 +176,7 @@ export async function DELETE(
     entityType: "Plant",
     entityId: plant.id,
     action: "ARCHIVE",
-    entityLabel: `${plant.name} (${plant.plantNumber})`,
+    entityLabel: `${plant.plantNumber}`,
     performedById: session.user.id,
   });
 
