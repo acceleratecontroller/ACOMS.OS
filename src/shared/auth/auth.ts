@@ -34,6 +34,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Clear 2FA verification so this new session requires fresh verification
+        if (user.twoFactorEnabled) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { twoFactorVerifiedAt: null },
+          });
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -55,23 +63,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.twoFactorVerified = !token.twoFactorEnabled;
         token.employeeId = (user as { employeeId?: string }).employeeId;
       }
-      // Allow the verify endpoint to mark 2FA as verified via session update
-      if (trigger === "update" && token.twoFactorEnabled) {
-        token.twoFactorVerified = true;
-      }
-
-      // Re-validate that the user is still active on every request
+      // Re-validate user state on every request
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { isActive: true, role: true },
+          select: { isActive: true, role: true, twoFactorEnabled: true, twoFactorVerifiedAt: true },
         });
         if (!dbUser || !dbUser.isActive) {
           // Mark token as revoked — session callback will reject it
           token.isRevoked = true;
         } else {
-          // Keep role in sync (in case admin changed it)
+          // Keep role and 2FA status in sync with database
           token.role = dbUser.role;
+          token.twoFactorEnabled = dbUser.twoFactorEnabled;
+          // 2FA verified if: not required, or verified in DB since this token was issued
+          if (!dbUser.twoFactorEnabled) {
+            token.twoFactorVerified = true;
+          } else if (dbUser.twoFactorVerifiedAt) {
+            const tokenIssuedAt = (token.iat ?? 0) * 1000; // JWT iat is in seconds
+            token.twoFactorVerified = dbUser.twoFactorVerifiedAt.getTime() >= tokenIssuedAt;
+          } else {
+            token.twoFactorVerified = false;
+          }
           token.isRevoked = false;
         }
       }

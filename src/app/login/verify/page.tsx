@@ -1,15 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 
 export default function TwoFactorVerifyPage() {
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,10 +51,9 @@ export default function TwoFactorVerifyPage() {
         return;
       }
 
-      // Update the session JWT to mark 2FA as verified
-      await update();
-      router.push("/");
-      router.refresh();
+      // Verification persisted in DB — full page load picks up the new state
+      setVerified(true);
+      window.location.href = "/";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -89,23 +89,31 @@ export default function TwoFactorVerifyPage() {
               maxLength={useBackupCode ? 9 : 6}
               placeholder={useBackupCode ? "XXXX-XXXX" : "000000"}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(useBackupCode ? e.target.value : e.target.value.replace(/\D/g, ""))}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center text-lg tracking-widest"
             />
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
+          {verified && <p className="text-green-600 text-sm font-medium">Verified! Redirecting...</p>}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || verified}
             className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Verifying..." : "Verify"}
+            {verified ? "Verified!" : loading ? "Verifying..." : "Verify"}
           </button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="text-sm text-gray-500 hover:underline"
+          >
+            Sign out
+          </button>
           <button
             type="button"
             onClick={() => {
