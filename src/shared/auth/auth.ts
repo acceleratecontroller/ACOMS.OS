@@ -76,15 +76,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // Keep role and 2FA status in sync with database
           token.role = dbUser.role;
           token.twoFactorEnabled = dbUser.twoFactorEnabled;
-          // 2FA verified if: not required, or verified in DB since this token was issued
-          if (!dbUser.twoFactorEnabled) {
-            token.twoFactorVerified = true;
-          } else if (dbUser.twoFactorVerifiedAt) {
-            const tokenIssuedAt = (token.iat ?? 0) * 1000; // JWT iat is in seconds
-            token.twoFactorVerified = dbUser.twoFactorVerifiedAt.getTime() >= tokenIssuedAt;
-          } else {
-            token.twoFactorVerified = false;
-          }
+          // 2FA verified if: not required, or verified in DB (login clears the field, verify sets it)
+          token.twoFactorVerified = !dbUser.twoFactorEnabled || !!dbUser.twoFactorVerifiedAt;
           token.isRevoked = false;
         }
       }
