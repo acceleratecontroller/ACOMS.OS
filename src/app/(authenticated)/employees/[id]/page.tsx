@@ -10,12 +10,17 @@ import {
   LOCATION_LABELS,
   LOCATION_OPTIONS,
   EMPLOYMENT_LABELS,
-  ROLE_TYPE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   EMPLOYEE_STATUS_OPTIONS as STATUS_OPTIONS,
   SHIRT_SIZE_OPTIONS,
   PANTS_SIZE_OPTIONS,
 } from "@/config/constants";
+
+interface TrainingRoleRef {
+  id: string;
+  name: string;
+  roleNumber: string;
+}
 
 interface Employee {
   id: string;
@@ -29,7 +34,6 @@ interface Employee {
   dateOfBirth: string | null;
   shirtSize: string | null;
   pantsSize: string | null;
-  roleType: string;
   employmentType: string;
   location: string;
   startDate: string;
@@ -38,6 +42,7 @@ interface Employee {
   status: string;
   notes: string | null;
   isArchived: boolean;
+  trainingRoles: { role: TrainingRoleRef }[];
 }
 
 export default function EmployeeDetailPage() {
@@ -48,6 +53,8 @@ export default function EmployeeDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
@@ -57,6 +64,9 @@ export default function EmployeeDetailPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    fetch("/api/training/roles")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
   }, [id]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -75,7 +85,7 @@ export default function EmployeeDetailPage() {
       dateOfBirth: form.get("dateOfBirth") || null,
       shirtSize: form.get("shirtSize"),
       pantsSize: form.get("pantsSize"),
-      roleType: form.get("roleType"),
+      roleIds: selectedRoleIds,
       employmentType: form.get("employmentType"),
       location: form.get("location"),
       startDate: form.get("startDate"),
@@ -127,7 +137,7 @@ export default function EmployeeDetailPage() {
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div><dt className="text-gray-500">Employee #</dt><dd className="font-medium">{employee.employeeNumber}</dd></div>
-            <div><dt className="text-gray-500">Role Type</dt><dd className="font-medium">{employee.roleType === "OFFICE" ? "Office" : "Field"}</dd></div>
+            <div><dt className="text-gray-500">Roles</dt><dd className="font-medium">{employee.trainingRoles.length > 0 ? employee.trainingRoles.map((r) => r.role.name).join(", ") : "—"}</dd></div>
             <div><dt className="text-gray-500">Employment Type</dt><dd className="font-medium">{EMPLOYMENT_LABELS[employee.employmentType] || employee.employmentType}</dd></div>
             <div><dt className="text-gray-500">Location</dt><dd className="font-medium">{LOCATION_LABELS[employee.location] || employee.location}</dd></div>
             <div><dt className="text-gray-500">Work Email</dt><dd className="font-medium">{employee.email || "—"}</dd></div>
@@ -148,7 +158,7 @@ export default function EmployeeDetailPage() {
             </div>
           )}
           <div className="flex gap-3 mt-6 pt-4 border-t">
-            <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
+            <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
             <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
             <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
           </div>
@@ -174,8 +184,28 @@ export default function EmployeeDetailPage() {
           <FormField label="Date of Birth" name="dateOfBirth" type="date" defaultValue={formatDate(employee.dateOfBirth)} />
         </div>
         <AddressAutocomplete label="Address" name="address" defaultValue={employee.address || ""} />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+          <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
+            {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
+            {trainingRoles.map((role) => (
+              <label key={role.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedRoleIds.includes(role.id)}
+                  onChange={(e) => {
+                    setSelectedRoleIds((prev) =>
+                      e.target.checked ? [...prev, role.id] : prev.filter((rid) => rid !== role.id)
+                    );
+                  }}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-900">{role.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <SelectField label="Role Type" name="roleType" required defaultValue={employee.roleType} options={ROLE_TYPE_OPTIONS} />
           <SelectField label="Employment Type" name="employmentType" required defaultValue={employee.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">

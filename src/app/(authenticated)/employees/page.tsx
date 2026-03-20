@@ -12,13 +12,18 @@ import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
 import {
   LOCATION_OPTIONS,
   LOCATION_LABELS,
-  ROLE_TYPE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   EMPLOYMENT_LABELS,
   EMPLOYEE_STATUS_OPTIONS as STATUS_OPTIONS,
   SHIRT_SIZE_OPTIONS,
   PANTS_SIZE_OPTIONS,
 } from "@/config/constants";
+
+interface TrainingRoleRef {
+  id: string;
+  name: string;
+  roleNumber: string;
+}
 
 interface Employee {
   id: string;
@@ -32,7 +37,6 @@ interface Employee {
   dateOfBirth: string | null;
   shirtSize: string | null;
   pantsSize: string | null;
-  roleType: string;
   employmentType: string;
   location: string;
   startDate: string;
@@ -41,6 +45,7 @@ interface Employee {
   status: string;
   notes: string | null;
   isArchived: boolean;
+  trainingRoles: { role: TrainingRoleRef }[];
 }
 
 const columns: Column<Employee>[] = [
@@ -51,9 +56,12 @@ const columns: Column<Employee>[] = [
     render: (item) => `${item.firstName} ${item.lastName}`,
   },
   {
-    key: "roleType",
-    label: "Role Type",
-    render: (item) => (item.roleType === "OFFICE" ? "Office" : "Field"),
+    key: "roles",
+    label: "Roles",
+    render: (item) =>
+      item.trainingRoles.length > 0
+        ? item.trainingRoles.map((r) => r.role.name).join(", ")
+        : "—",
     hideOnMobile: true,
   },
   {
@@ -121,6 +129,8 @@ function EmployeesContent() {
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
+  const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -132,6 +142,13 @@ function EmployeesContent() {
         .then((data) => { if (data) setSelected(data); });
     }
   }, [searchParams, router]);
+
+  // Load training roles for the multi-select
+  useEffect(() => {
+    fetch("/api/training/roles")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
+  }, []);
 
   const loadEmployees = useCallback((archived: boolean) => {
     setLoading(true);
@@ -173,7 +190,7 @@ function EmployeesContent() {
       dateOfBirth: (form.get("dateOfBirth") as string) || null,
       shirtSize: (form.get("shirtSize") as string) || "",
       pantsSize: (form.get("pantsSize") as string) || "",
-      roleType: (form.get("roleType") as string) || "",
+      roleIds: selectedRoleIds,
       employmentType: (form.get("employmentType") as string) || "",
       location: (form.get("location") as string) || "",
       startDate: (form.get("startDate") as string) || "",
@@ -190,6 +207,7 @@ function EmployeesContent() {
     });
 
     if (res.ok) {
+      setSelectedRoleIds([]);
       closeModal();
       loadEmployees(showArchived);
     } else {
@@ -220,7 +238,7 @@ function EmployeesContent() {
       dateOfBirth: (form.get("dateOfBirth") as string) || null,
       shirtSize: (form.get("shirtSize") as string) || "",
       pantsSize: (form.get("pantsSize") as string) || "",
-      roleType: (form.get("roleType") as string) || "",
+      roleIds: selectedRoleIds,
       employmentType: (form.get("employmentType") as string) || "",
       location: (form.get("location") as string) || "",
       startDate: (form.get("startDate") as string) || "",
@@ -297,7 +315,7 @@ function EmployeesContent() {
         </div>
         {!showArchived && (
           <button
-            onClick={() => setCreating(true)}
+            onClick={() => { setSelectedRoleIds([]); setCreating(true); }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             + Add Employee
@@ -331,7 +349,7 @@ function EmployeesContent() {
             </div>
             <dl className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employee #</dt><dd className="font-medium text-gray-900">{selected.employeeNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Role Type</dt><dd className="font-medium text-gray-900">{selected.roleType === "OFFICE" ? "Office" : "Field"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Roles</dt><dd className="font-medium text-gray-900">{selected.trainingRoles.length > 0 ? selected.trainingRoles.map((r) => r.role.name).join(", ") : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employment Type</dt><dd className="font-medium text-gray-900">{EMPLOYMENT_LABELS[selected.employmentType]}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{LOCATION_LABELS[selected.location]}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Work Email</dt><dd className="font-medium text-gray-900">{selected.email || "—"}</dd></div>
@@ -369,7 +387,7 @@ function EmployeesContent() {
               {selected.isArchived ? (
                 <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
               ) : (
-                <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
+                <button onClick={() => { setSelectedRoleIds(selected.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
               )}
             </div>
           </div>
@@ -395,8 +413,28 @@ function EmployeesContent() {
                   <AddressAutocomplete label="Address" name="address" defaultValue={selected.address || ""} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <SelectField label="Role Type" name="roleType" required defaultValue={selected.roleType} options={ROLE_TYPE_OPTIONS} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
+                  {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
+                  {trainingRoles.map((role) => (
+                    <label key={role.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedRoleIds.includes(role.id)}
+                        onChange={(e) => {
+                          setSelectedRoleIds((prev) =>
+                            e.target.checked ? [...prev, role.id] : prev.filter((id) => id !== role.id)
+                          );
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-900">{role.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <SelectField label="Employment Type" name="employmentType" required defaultValue={selected.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
                 <SelectField label="Location" name="location" required defaultValue={selected.location} options={LOCATION_OPTIONS} />
               </div>
@@ -476,8 +514,28 @@ function EmployeesContent() {
               <AddressAutocomplete label="Address" name="address" />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <SelectField label="Role Type" name="roleType" required options={ROLE_TYPE_OPTIONS} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+            <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
+              {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
+              {trainingRoles.map((role) => (
+                <label key={role.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedRoleIds.includes(role.id)}
+                    onChange={(e) => {
+                      setSelectedRoleIds((prev) =>
+                        e.target.checked ? [...prev, role.id] : prev.filter((id) => id !== role.id)
+                      );
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-900">{role.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <SelectField label="Employment Type" name="employmentType" required options={EMPLOYMENT_TYPE_OPTIONS} />
             <SelectField label="Location" name="location" required options={LOCATION_OPTIONS} />
           </div>

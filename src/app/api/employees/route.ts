@@ -17,6 +17,11 @@ export async function GET(request: NextRequest) {
   const { result, error } = await withPrismaError("Failed to list employees", () =>
     prisma.employee.findMany({
       where: { isArchived: showArchived },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
   );
@@ -82,7 +87,6 @@ export async function POST(request: NextRequest) {
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
         shirtSize: data.shirtSize || null,
         pantsSize: data.pantsSize || null,
-        roleType: data.roleType,
         employmentType: data.employmentType,
         location: data.location,
         startDate: new Date(data.startDate),
@@ -91,6 +95,14 @@ export async function POST(request: NextRequest) {
         status,
         notes: data.notes || null,
         createdById: session.user.id,
+        trainingRoles: data.roleIds.length > 0
+          ? { create: data.roleIds.map((roleId: string) => ({ roleId })) }
+          : undefined,
+      },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
       },
     }),
   );

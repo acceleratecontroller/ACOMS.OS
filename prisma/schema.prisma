@@ -161,7 +161,7 @@ model Employee {
   dateOfBirth    DateTime?
   shirtSize      String?                   // Uniform shirt size
   pantsSize      String?                   // Uniform pants size
-  roleType       RoleType                  // Office or Field
+  roleType       RoleType?                 // Legacy — replaced by EmployeeRole assignments
   employmentType EmploymentType            // Full-Time, Trainee, Casual, ABN
   location       EmployeeLocation          // Brisbane, Bundaberg, Hervey Bay, Mackay, Other
   startDate      DateTime

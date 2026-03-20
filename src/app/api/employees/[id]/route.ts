@@ -17,7 +17,14 @@ export async function GET(
 
   const { id } = await params;
   const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
-    prisma.employee.findUnique({ where: { id } }),
+    prisma.employee.findUnique({
+      where: { id },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
+      },
+    }),
   );
   if (error) return error;
 
@@ -82,7 +89,6 @@ export async function PUT(
         ...(data.dateOfBirth !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
         ...(data.shirtSize !== undefined && { shirtSize: data.shirtSize || null }),
         ...(data.pantsSize !== undefined && { pantsSize: data.pantsSize || null }),
-        ...(data.roleType !== undefined && { roleType: data.roleType }),
         ...(data.employmentType !== undefined && { employmentType: data.employmentType }),
         ...(data.location !== undefined && { location: data.location }),
         ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
@@ -90,6 +96,18 @@ export async function PUT(
         ...(data.probationDate !== undefined && { probationDate: data.probationDate ? new Date(data.probationDate) : null }),
         ...(status !== undefined && { status }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        // Sync training roles if provided
+        ...(data.roleIds !== undefined && {
+          trainingRoles: {
+            deleteMany: {},
+            create: data.roleIds.map((roleId: string) => ({ roleId })),
+          },
+        }),
+      },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
       },
     }),
   );
