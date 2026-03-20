@@ -28,22 +28,29 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [archived, setArchived] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const router = useRouter();
 
-  const search = useCallback((term: string) => {
+  const showDropdown = open && query.length >= 2;
+
+  const search = useCallback((term: string, showArchived: boolean) => {
     if (term.length < 2) {
       setResults([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    fetch(`/api/search?q=${encodeURIComponent(term)}`)
+    const params = new URLSearchParams({ q: term });
+    if (showArchived) params.set("archived", "true");
+    fetch(`/api/search?${params}`)
       .then((r) => r.json())
       .then((data) => {
         setResults(data);
+        setHighlightIndex(-1);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -52,8 +59,33 @@ export function GlobalSearch() {
   function handleChange(value: string) {
     setQuery(value);
     setOpen(true);
+    setHighlightIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(value), 250);
+    debounceRef.current = setTimeout(() => search(value, archived), 250);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!showDropdown || loading) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIndex((i) => (i < results.length - 1 ? i + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIndex((i) => (i > 0 ? i - 1 : results.length - 1));
+    } else if (e.key === "Enter" && highlightIndex >= 0 && results[highlightIndex]) {
+      e.preventDefault();
+      handleSelect(results[highlightIndex]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  function toggleArchived() {
+    const next = !archived;
+    setArchived(next);
+    if (query.length >= 2) {
+      search(query, next);
+    }
   }
 
   function handleSelect(result: SearchResult) {
@@ -75,28 +107,40 @@ export function GlobalSearch() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const showDropdown = open && query.length >= 2;
-
   return (
     <div ref={wrapperRef} className="relative w-full max-w-md">
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => { if (query.length >= 2) setOpen(true); }}
+            placeholder={archived ? "Search archived records..." : "Search employees, assets, plant..."}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={toggleArchived}
+          className={`shrink-0 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+            archived
+              ? "bg-gray-700 text-white border-gray-700"
+              : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+          }`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => { if (query.length >= 2) setOpen(true); }}
-          placeholder="Search employees, assets, plant..."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
+          {archived ? "Archived" : "Active"}
+        </button>
       </div>
 
       {showDropdown && (
@@ -107,11 +151,12 @@ export function GlobalSearch() {
           {!loading && results.length === 0 && (
             <div className="px-4 py-3 text-sm text-gray-400">No results found.</div>
           )}
-          {!loading && results.map((r) => (
+          {!loading && results.map((r, i) => (
             <button
               key={`${r.type}-${r.id}`}
               onClick={() => handleSelect(r)}
-              className="w-full text-left px-4 py-3 hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center gap-3 border-b last:border-b-0"
+              onMouseEnter={() => setHighlightIndex(i)}
+              className={`w-full text-left px-4 py-3 active:bg-blue-100 transition-colors flex items-center gap-3 border-b last:border-b-0 ${i === highlightIndex ? "bg-blue-50" : "hover:bg-blue-50"}`}
             >
               <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${TYPE_COLORS[r.type]}`}>
                 {TYPE_LABELS[r.type]}

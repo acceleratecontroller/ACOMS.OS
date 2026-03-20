@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
 import {
-  ROLE_TYPE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   LOCATION_OPTIONS,
   EMPLOYEE_STATUS_OPTIONS as STATUS_OPTIONS,
@@ -14,10 +13,24 @@ import {
   PANTS_SIZE_OPTIONS,
 } from "@/config/constants";
 
+interface TrainingRoleRef {
+  id: string;
+  name: string;
+  roleNumber: string;
+}
+
 export default function NewEmployeePage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/training/roles")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,7 +48,7 @@ export default function NewEmployeePage() {
       dateOfBirth: form.get("dateOfBirth") || null,
       shirtSize: form.get("shirtSize"),
       pantsSize: form.get("pantsSize"),
-      roleType: form.get("roleType"),
+      roleIds: selectedRoleIds,
       employmentType: form.get("employmentType"),
       location: form.get("location"),
       startDate: form.get("startDate"),
@@ -76,8 +89,28 @@ export default function NewEmployeePage() {
           <FormField label="Date of Birth" name="dateOfBirth" type="date" />
         </div>
         <AddressAutocomplete label="Address" name="address" />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+          <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
+            {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
+            {trainingRoles.map((role) => (
+              <label key={role.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedRoleIds.includes(role.id)}
+                  onChange={(e) => {
+                    setSelectedRoleIds((prev) =>
+                      e.target.checked ? [...prev, role.id] : prev.filter((rid) => rid !== role.id)
+                    );
+                  }}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-900">{role.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <SelectField label="Role Type" name="roleType" required options={ROLE_TYPE_OPTIONS} />
           <SelectField label="Employment Type" name="employmentType" required options={EMPLOYMENT_TYPE_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">

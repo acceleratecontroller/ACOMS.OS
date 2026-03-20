@@ -18,7 +18,6 @@ const optionalNumericString = z
 
 /**
  * Transform a string to an integer, returning null for empty/invalid values.
- * Used for yearOfManufacture.
  */
 const optionalIntString = z
   .union([z.string(), z.number(), z.null()])
@@ -31,23 +30,30 @@ const optionalIntString = z
   });
 
 export const createPlantSchema = z.object({
-  plantNumber: z.string().min(1, "Plant number is required"),
-  name: z.string().min(1, "Name is required"),
   category: z.string().min(1, "Category is required"),
+  stateRegistered: optionalString,
+  registrationNumber: optionalString,
+  vinNumber: optionalString,
+  year: optionalIntString,
   make: optionalString,
   model: optionalString,
-  serialNumber: optionalString,
-  yearOfManufacture: optionalIntString,
-  registrationNumber: optionalString,
-  purchaseDate: optionalString,
-  purchaseCost: optionalNumericString,
-  location: optionalString,
+  licenceType: optionalString,
+  location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   assignedToId: optionalString,
-  status: z.enum(["OPERATIONAL", "MAINTENANCE", "DECOMMISSIONED", "STANDBY"]).default("OPERATIONAL"),
-  condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
+  ampolCardNumber: optionalString,
+  ampolCardExpiry: optionalString,
+  linktTagNumber: optionalString,
+  fleetDynamicsSerialNumber: optionalString,
+  coiExpirationDate: optionalString,
+  purchaseDate: optionalString,
+  purchasePrice: optionalNumericString,
+  soldDate: optionalString,
+  soldPrice: optionalNumericString,
+  comments: optionalString,
   lastServiceDate: optionalString,
   nextServiceDue: optionalString,
-  notes: optionalString,
+  status: z.enum(["OPERATIONAL", "MAINTENANCE", "DECOMMISSIONED", "STANDBY"]).default("OPERATIONAL"),
+  condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
 });
 
 export const updatePlantSchema = createPlantSchema.partial();

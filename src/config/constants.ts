@@ -69,6 +69,23 @@ export const PANTS_SIZE_OPTIONS: SelectOption[] = [
   { value: "44", label: "44" },
 ];
 
+export const EMERGENCY_RELATION_OPTIONS: SelectOption[] = [
+  { value: "WIFE", label: "Wife" },
+  { value: "HUSBAND", label: "Husband" },
+  { value: "PARTNER", label: "Partner" },
+  { value: "MUM", label: "Mum" },
+  { value: "DAD", label: "Dad" },
+  { value: "SISTER", label: "Sister" },
+  { value: "BROTHER", label: "Brother" },
+  { value: "FAMILY", label: "Family Member" },
+  { value: "FRIEND", label: "Friend" },
+  { value: "OTHER", label: "Other" },
+];
+
+export const EMERGENCY_RELATION_LABELS: Record<string, string> = Object.fromEntries(
+  EMERGENCY_RELATION_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 // ─── Asset constants ─────────────────────────────────────
 
 export const ASSET_STATUS_OPTIONS: SelectOption[] = [
@@ -80,11 +97,43 @@ export const ASSET_STATUS_OPTIONS: SelectOption[] = [
 
 // ─── Plant constants ─────────────────────────────────────
 
+export const PLANT_CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "LIGHT_VEHICLE", label: "Light Vehicle" },
+  { value: "HEAVY_VEHICLE", label: "Heavy Vehicle" },
+  { value: "TRAILER", label: "Trailer" },
+  { value: "PLANT", label: "Plant" },
+];
+
+export const PLANT_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  PLANT_CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 export const PLANT_STATUS_OPTIONS: SelectOption[] = [
   { value: "OPERATIONAL", label: "Operational" },
   { value: "MAINTENANCE", label: "Maintenance" },
   { value: "DECOMMISSIONED", label: "Decommissioned" },
   { value: "STANDBY", label: "Standby" },
+];
+
+export const STATE_OPTIONS: SelectOption[] = [
+  { value: "QLD", label: "QLD" },
+  { value: "NSW", label: "NSW" },
+  { value: "VIC", label: "VIC" },
+  { value: "SA", label: "SA" },
+  { value: "WA", label: "WA" },
+  { value: "TAS", label: "TAS" },
+  { value: "NT", label: "NT" },
+  { value: "ACT", label: "ACT" },
+];
+
+export const LICENCE_TYPE_OPTIONS: SelectOption[] = [
+  { value: "C", label: "C — Car" },
+  { value: "C_AUTO", label: "C Auto — Car (Automatic)" },
+  { value: "LR", label: "LR — Light Rigid" },
+  { value: "MR", label: "MR — Medium Rigid" },
+  { value: "HR", label: "HR — Heavy Rigid" },
+  { value: "HC", label: "HC — Heavy Combination" },
+  { value: "MC", label: "MC — Multi Combination" },
 ];
 
 // ─── Shared constants (used by assets and plant) ─────────
@@ -95,6 +144,24 @@ export const CONDITION_OPTIONS: SelectOption[] = [
   { value: "FAIR", label: "Fair" },
   { value: "POOR", label: "Poor" },
 ];
+
+// ─── Training constants ─────────────────────────────────
+
+export const TRAINING_ROLE_CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "OFFICE", label: "Office" },
+  { value: "FIELD", label: "Field" },
+];
+
+export const ACCREDITATION_STATUS_OPTIONS: SelectOption[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "VERIFIED", label: "Verified" },
+  { value: "EXPIRED", label: "Expired" },
+  { value: "EXEMPT", label: "Exempt" },
+];
+
+export const ACCREDITATION_STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  ACCREDITATION_STATUS_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 // ─── Task constants ──────────────────────────────────────
 

@@ -4,6 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import {
+  PLANT_STATUS_OPTIONS,
+  CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  STATE_OPTIONS,
+  LICENCE_TYPE_OPTIONS,
+  PLANT_CATEGORY_OPTIONS,
+} from "@/config/constants";
 
 interface EmployeeOption {
   id: string;
@@ -31,24 +39,31 @@ export default function NewPlantPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
+    // Convert empty strings to undefined so optional enum/numeric fields don't fail validation
+    const val = (key: string) => { const v = form.get(key); return v === "" || v === null ? undefined : v; };
     const body = {
-      plantNumber: form.get("plantNumber"),
-      name: form.get("name"),
-      category: form.get("category"),
-      make: form.get("make"),
-      model: form.get("model"),
-      serialNumber: form.get("serialNumber"),
-      yearOfManufacture: form.get("yearOfManufacture"),
-      registrationNumber: form.get("registrationNumber"),
-      purchaseDate: form.get("purchaseDate"),
-      purchaseCost: form.get("purchaseCost"),
-      location: form.get("location"),
-      assignedToId: form.get("assignedToId"),
-      status: form.get("status"),
-      condition: form.get("condition"),
-      lastServiceDate: form.get("lastServiceDate"),
-      nextServiceDue: form.get("nextServiceDue"),
-      notes: form.get("notes"),
+      category: val("category"),
+      stateRegistered: val("stateRegistered"),
+      registrationNumber: val("registrationNumber"),
+      vinNumber: val("vinNumber"),
+      year: val("year"),
+      make: val("make"),
+      model: val("model"),
+      licenceType: val("licenceType"),
+      location: val("location"),
+      assignedToId: val("assignedToId"),
+      ampolCardNumber: val("ampolCardNumber"),
+      ampolCardExpiry: val("ampolCardExpiry"),
+      linktTagNumber: val("linktTagNumber"),
+      fleetDynamicsSerialNumber: val("fleetDynamicsSerialNumber"),
+      coiExpirationDate: val("coiExpirationDate"),
+      purchaseDate: val("purchaseDate"),
+      purchasePrice: val("purchasePrice"),
+      comments: val("comments"),
+      lastServiceDate: val("lastServiceDate"),
+      nextServiceDue: val("nextServiceDue"),
+      status: val("status"),
+      condition: val("condition"),
     };
 
     const res = await fetch("/api/plant", {
@@ -58,10 +73,15 @@ export default function NewPlantPage() {
     });
 
     if (res.ok) {
-      router.push("/plant");
+      const created = await res.json();
+      router.push(`/plant?open=${created.id}`);
     } else {
       const data = await res.json();
-      setError(data.error || "Failed to create plant item.");
+      if (data.details && Array.isArray(data.details)) {
+        setError(data.details.map((d: { path?: string[]; message?: string }) => `${(d.path || []).join(".")}: ${d.message}`).join(", "));
+      } else {
+        setError(data.error || "Failed to create plant item.");
+      }
       setSaving(false);
     }
   }
@@ -71,41 +91,26 @@ export default function NewPlantPage() {
       <PageHeader title="Add Plant" />
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Plant Number" name="plantNumber" required placeholder="e.g. PLT-001" />
-          <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={[
-            { value: "OPERATIONAL", label: "Operational" },
-            { value: "MAINTENANCE", label: "Maintenance" },
-            { value: "DECOMMISSIONED", label: "Decommissioned" },
-            { value: "STANDBY", label: "Standby" },
-          ]} />
+          <SelectField label="Category" name="category" required options={PLANT_CATEGORY_OPTIONS} />
+          <SelectField label="Status" name="status" required defaultValue="OPERATIONAL" options={PLANT_STATUS_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Name" name="name" required placeholder="e.g. CAT 320 Excavator" />
-          <FormField label="Category" name="category" required placeholder="e.g. Excavator" />
+          <SelectField label="State Registered" name="stateRegistered" options={STATE_OPTIONS} />
+          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="VIN Number" name="vinNumber" />
+          <FormField label="Year" name="year" type="number" placeholder="e.g. 2020" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Make" name="make" placeholder="e.g. Caterpillar" />
           <FormField label="Model" name="model" placeholder="e.g. 320" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Serial Number" name="serialNumber" />
-          <FormField label="Year of Manufacture" name="yearOfManufacture" type="number" placeholder="e.g. 2020" />
+          <SelectField label="Licence Type Required" name="licenceType" options={LICENCE_TYPE_OPTIONS} />
+          <SelectField label="Location" name="location" options={LOCATION_OPTIONS} />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Registration Number" name="registrationNumber" placeholder="e.g. ABC-123" />
-          <SelectField label="Condition" name="condition" options={[
-            { value: "NEW", label: "New" },
-            { value: "GOOD", label: "Good" },
-            { value: "FAIR", label: "Fair" },
-            { value: "POOR", label: "Poor" },
-          ]} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Purchase Date" name="purchaseDate" type="date" />
-          <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Site B" />
           <SelectField
             label="Assigned To (Employee)"
             name="assignedToId"
@@ -114,12 +119,28 @@ export default function NewPlantPage() {
               label: `${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`,
             }))}
           />
+          <SelectField label="Condition" name="condition" options={CONDITION_OPTIONS} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Ampol Card Number" name="ampolCardNumber" />
+          <FormField label="Ampol Card Expiry" name="ampolCardExpiry" type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Linkt Tag Number" name="linktTagNumber" />
+          <FormField label="Fleet Dynamics Serial Number" name="fleetDynamicsSerialNumber" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="COI Expiration Date" name="coiExpirationDate" type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Purchase Date" name="purchaseDate" type="date" />
+          <FormField label="Purchase Price" name="purchasePrice" type="number" placeholder="0.00" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Last Service Date" name="lastServiceDate" type="date" />
           <FormField label="Next Service Due" name="nextServiceDue" type="date" />
         </div>
-        <TextAreaField label="Notes" name="notes" placeholder="Optional notes..." />
+        <TextAreaField label="Comments" name="comments" placeholder="Optional comments..." />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 

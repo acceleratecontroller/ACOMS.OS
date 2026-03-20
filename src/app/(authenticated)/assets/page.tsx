@@ -11,6 +11,8 @@ import { FormField, SelectField, TextAreaField } from "@/shared/components/FormF
 import {
   ASSET_STATUS_OPTIONS as STATUS_OPTIONS,
   CONDITION_OPTIONS,
+  LOCATION_OPTIONS,
+  LOCATION_LABELS,
 } from "@/config/constants";
 
 interface EmployeeOption {
@@ -18,6 +20,11 @@ interface EmployeeOption {
   employeeNumber: string;
   firstName: string;
   lastName: string;
+}
+
+interface PlantLink {
+  id: string;
+  plant: { id: string; plantNumber: string };
 }
 
 interface Asset {
@@ -37,13 +44,17 @@ interface Asset {
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
+  plantLinks?: PlantLink[];
 }
 
-const columns: Column<Asset>[] = [
+const STATIC_COLUMNS: Column<Asset>[] = [
   { key: "assetNumber", label: "Asset #" },
   { key: "name", label: "Name" },
   { key: "category", label: "Category" },
   { key: "location", label: "Location" },
+];
+
+const TAIL_COLUMNS: Column<Asset>[] = [
   {
     key: "assignedTo",
     label: "Assigned To",
@@ -75,6 +86,18 @@ function AssetsContent() {
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
+  // Plant preview modal state
+  const [previewPlant, setPreviewPlant] = useState<{
+    plantNumber: string; category: string; status: string; condition?: string | null;
+    make?: string | null; model?: string | null; year?: number | null;
+    registrationNumber?: string | null; vinNumber?: string | null;
+    stateRegistered?: string | null; licenceType?: string | null;
+    location?: string | null; comments?: string | null;
+    purchaseDate?: string | null; purchasePrice?: string | null;
+    lastServiceDate?: string | null; nextServiceDue?: string | null;
+    assignedTo?: { firstName: string; lastName: string } | null;
+  } | null>(null);
+  const [previewPlantLoading, setPreviewPlantLoading] = useState(false);
   // Open a specific record if ?open=id is in the URL (from global search)
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -107,6 +130,51 @@ function AssetsContent() {
     label: `${e.firstName} ${e.lastName} (${e.employeeNumber})`,
   }));
 
+  // Load full asset detail (includes plantLinks)
+  function loadAssetDetail(assetId: string) {
+    fetch(`/api/assets/${assetId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setSelected(data); });
+  }
+
+  function openPlantPreview(plantId: string) {
+    setPreviewPlantLoading(true);
+    setPreviewPlant(null);
+    fetch(`/api/plant/${plantId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setPreviewPlant(data);
+        setPreviewPlantLoading(false);
+      })
+      .catch(() => setPreviewPlantLoading(false));
+  }
+
+  const columns: Column<Asset>[] = [
+    ...STATIC_COLUMNS,
+    {
+      key: "plantLinks",
+      label: "Linked Plant",
+      render: (item) => {
+        const links = item.plantLinks || [];
+        if (links.length === 0) return <span className="text-gray-400">—</span>;
+        return (
+          <span className="flex flex-wrap gap-1">
+            {links.map((l) => (
+              <button
+                key={l.id}
+                onClick={(e) => { e.stopPropagation(); openPlantPreview(l.plant.id); }}
+                className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
+              >
+                {l.plant.plantNumber}
+              </button>
+            ))}
+          </span>
+        );
+      },
+    },
+    ...TAIL_COLUMNS,
+  ];
+
   function closeModal() {
     setSelected(null);
     setEditing(false);
@@ -116,7 +184,6 @@ function AssetsContent() {
 
   function getFormBody(form: FormData) {
     return {
-      assetNumber: form.get("assetNumber"),
       name: form.get("name"),
       category: form.get("category"),
       make: form.get("make"),
@@ -175,34 +242,35 @@ function AssetsContent() {
 
   function AssetForm({ defaults, onSubmit, submitLabel, onArchive }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onArchive?: () => void }) {
     return (
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Asset Number" name="assetNumber" required placeholder="e.g. AST-001" defaultValue={defaults?.assetNumber || ""} />
-          <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {defaults?.assetNumber && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Asset Number</label>
+              <p className="text-sm font-medium text-gray-900 py-2">{defaults.assetNumber}</p>
+            </div>
+          )}
           <FormField label="Name" name="name" required placeholder="e.g. Makita Impact Drill" defaultValue={defaults?.name || ""} />
           <FormField label="Category" name="category" required placeholder="e.g. Power Tool" defaultValue={defaults?.category || ""} />
+          <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Make" name="make" placeholder="e.g. Makita" defaultValue={defaults?.make || ""} />
           <FormField label="Model" name="model" placeholder="e.g. DTD172" defaultValue={defaults?.model || ""} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Serial Number" name="serialNumber" defaultValue={defaults?.serialNumber || ""} />
-          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SelectField label="Condition" name="condition" defaultValue={defaults?.condition || ""} options={CONDITION_OPTIONS} />
           <FormField label="Purchase Date" name="purchaseDate" type="date" defaultValue={formatDate(defaults?.purchaseDate || null)} />
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Location" name="location" placeholder="e.g. Workshop A" defaultValue={defaults?.location || ""} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
         <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-3 pt-3">
+        <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
           <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           {onArchive && <><div className="flex-1" /><button type="button" onClick={onArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">Archive</button></>}
@@ -238,13 +306,13 @@ function AssetsContent() {
         )}
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
-        <DataTable columns={columns} data={assets} onRowClick={(a) => { setSelected(a); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
+        <DataTable columns={columns} data={assets} onRowClick={(a) => { loadAssetDetail(a.id); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
       )}
 
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
         {selected && !editing && (
           <div>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
               <StatusBadge status={selected.status} />
               {selected.condition && <StatusBadge status={selected.condition} />}
@@ -252,21 +320,41 @@ function AssetsContent() {
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
               )}
             </div>
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Asset #</dt><dd className="font-medium text-gray-900">{selected.assetNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Serial Number</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{selected.location || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Asset #</dt><dd className="font-medium text-gray-900">{selected.assetNumber}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Serial #</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Condition</dt><dd className="font-medium text-gray-900">{selected.condition || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{selected.location ? (LOCATION_LABELS[selected.location] || selected.location) : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
             </dl>
             {selected.notes && (
-              <div className="mt-5 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
+              <div className="mt-3 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
             )}
-            <div className="flex gap-3 mt-6 pt-5 border-t">
+            {/* Linked Plant Info */}
+            {selected.plantLinks && selected.plantLinks.length > 0 && (
+              <div className="mt-5 pt-4 border-t">
+                <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">Linked to Plant</h3>
+                <div className="space-y-1">
+                  {selected.plantLinks.map((link) => (
+                    <div key={link.id} className="flex items-center gap-2 text-sm">
+                      <span className="inline-block w-2 h-2 rounded-full bg-blue-400" />
+                      <button
+                        onClick={() => openPlantPreview(link.plant.id)}
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {link.plant.plantNumber}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 mt-4 pt-4 border-t">
               {selected.isArchived ? (
                 <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
               ) : (
@@ -277,15 +365,54 @@ function AssetsContent() {
         )}
         {selected && editing && (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-5">Edit Asset</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Edit Asset</h2>
             <AssetForm defaults={selected} onSubmit={handleUpdate} submitLabel="Save Changes" onArchive={() => setConfirmAction({ type: "archive" })} />
           </div>
         )}
       </Modal>
 
       <Modal isOpen={creating} onClose={closeModal}>
-        <h2 className="text-xl font-bold text-gray-900 mb-5">Add Asset</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-3">Add Asset</h2>
         <AssetForm onSubmit={handleCreate} submitLabel="Create Asset" />
+      </Modal>
+
+      {/* Plant Preview Modal */}
+      <Modal isOpen={!!previewPlant || previewPlantLoading} onClose={() => { setPreviewPlant(null); setPreviewPlantLoading(false); }}>
+        {previewPlantLoading && <p className="text-sm text-gray-500">Loading plant...</p>}
+        {previewPlant && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-bold text-gray-900">{previewPlant.plantNumber}</h2>
+              <StatusBadge status={previewPlant.status} />
+              {previewPlant.condition && <StatusBadge status={previewPlant.condition} />}
+            </div>
+            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{previewPlant.category?.replace(/_/g, " ") || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{previewPlant.make || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{previewPlant.model || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Year</dt><dd className="font-medium text-gray-900">{previewPlant.year || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Registration</dt><dd className="font-medium text-gray-900">{previewPlant.registrationNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">VIN</dt><dd className="font-medium text-gray-900">{previewPlant.vinNumber || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">State</dt><dd className="font-medium text-gray-900">{previewPlant.stateRegistered || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Licence Type</dt><dd className="font-medium text-gray-900">{previewPlant.licenceType || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Location</dt><dd className="font-medium text-gray-900">{previewPlant.location ? (LOCATION_LABELS[previewPlant.location] || previewPlant.location) : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.purchaseDate || null) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Price</dt><dd className="font-medium text-gray-900">{previewPlant.purchasePrice ? `$${previewPlant.purchasePrice}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{previewPlant.assignedTo ? `${previewPlant.assignedTo.firstName} ${previewPlant.assignedTo.lastName}` : "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Last Service</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.lastServiceDate || null) || "—"}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Next Service Due</dt><dd className="font-medium text-gray-900">{formatDate(previewPlant.nextServiceDue || null) || "—"}</dd></div>
+            </dl>
+            {previewPlant.comments && (
+              <div className="mt-3 text-sm">
+                <p className="text-gray-400 text-xs uppercase tracking-wider">Comments</p>
+                <p className="text-gray-900 whitespace-pre-wrap">{previewPlant.comments}</p>
+              </div>
+            )}
+            <div className="flex gap-3 mt-4 pt-4 border-t">
+              <button onClick={() => setPreviewPlant(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Close</button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

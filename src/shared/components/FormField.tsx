@@ -131,6 +131,8 @@ interface TextAreaFieldProps {
   name: string;
   required?: boolean;
   defaultValue?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   rows?: number;
 }
@@ -140,9 +142,16 @@ export function TextAreaField({
   name,
   required = false,
   defaultValue = "",
+  value,
+  onChange,
   placeholder,
-  rows = 3,
+  rows = 2,
 }: TextAreaFieldProps) {
+  // Use controlled mode if value+onChange provided, otherwise uncontrolled with defaultValue
+  const inputProps = value !== undefined
+    ? { value, onChange }
+    : { defaultValue };
+
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
@@ -153,7 +162,7 @@ export function TextAreaField({
         id={name}
         name={name}
         required={required}
-        defaultValue={defaultValue}
+        {...inputProps}
         placeholder={placeholder}
         rows={rows}
         className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

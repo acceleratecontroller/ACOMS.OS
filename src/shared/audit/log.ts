@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/database/client";
 
-type AuditAction = "CREATE" | "UPDATE" | "ARCHIVE" | "RESTORE";
+type AuditAction = "CREATE" | "UPDATE" | "ARCHIVE" | "RESTORE" | "DELETE";
 
 interface AuditEntry {
   entityType: string;

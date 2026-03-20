@@ -6,6 +6,7 @@ declare module "next-auth" {
   interface User {
     role?: string;
     twoFactorEnabled?: boolean;
+    employeeId?: string;
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module "next-auth" {
       role: string;
       twoFactorEnabled: boolean;
       twoFactorVerified: boolean;
+      employeeId?: string;
     };
   }
 }
@@ -26,5 +28,7 @@ declare module "@auth/core/jwt" {
     id?: string;
     twoFactorEnabled?: boolean;
     twoFactorVerified?: boolean;
+    employeeId?: string;
+    isRevoked?: boolean;
   }
 }

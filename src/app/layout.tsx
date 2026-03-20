@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { SessionProvider } from "@/shared/components/SessionProvider";
+import { Providers } from "@/shared/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased overflow-x-hidden">
-        <SessionProvider>{children}</SessionProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

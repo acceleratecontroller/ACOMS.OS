@@ -6,6 +6,7 @@ import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees — List all active (non-archived) employees
+// STAFF users can only see their own linked employee record
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -14,9 +15,35 @@ export async function GET(request: NextRequest) {
 
   const showArchived = request.nextUrl.searchParams.get("archived") === "true";
 
+  // STAFF: restrict to own employee record only
+  if (session.user.role !== "ADMIN" && session.user.employeeId) {
+    const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
+      prisma.employee.findUnique({
+        where: { id: session.user.employeeId! },
+        include: {
+          trainingRoles: {
+            include: { role: { select: { id: true, name: true, roleNumber: true } } },
+          },
+        },
+      }),
+    );
+    if (error) return error;
+    return NextResponse.json(employee ? [employee] : []);
+  }
+
+  // STAFF without linked employee: return empty
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json([]);
+  }
+
   const { result, error } = await withPrismaError("Failed to list employees", () =>
     prisma.employee.findMany({
       where: { isArchived: showArchived },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
   );
@@ -82,7 +109,6 @@ export async function POST(request: NextRequest) {
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
         shirtSize: data.shirtSize || null,
         pantsSize: data.pantsSize || null,
-        roleType: data.roleType,
         employmentType: data.employmentType,
         location: data.location,
         startDate: new Date(data.startDate),
@@ -90,7 +116,20 @@ export async function POST(request: NextRequest) {
         probationDate: data.probationDate ? new Date(data.probationDate) : null,
         status,
         notes: data.notes || null,
+        emergencyFirstName: data.emergencyFirstName || null,
+        emergencyLastName: data.emergencyLastName || null,
+        emergencyRelation: data.emergencyRelation || null,
+        emergencyPhone: data.emergencyPhone || null,
+        emergencyPhoneAlt: data.emergencyPhoneAlt || null,
         createdById: session.user.id,
+        trainingRoles: data.roleIds.length > 0
+          ? { create: data.roleIds.map((roleId: string) => ({ roleId })) }
+          : undefined,
+      },
+      include: {
+        trainingRoles: {
+          include: { role: { select: { id: true, name: true, roleNumber: true } } },
+        },
       },
     }),
   );

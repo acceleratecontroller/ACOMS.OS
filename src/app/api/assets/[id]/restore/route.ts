@@ -16,6 +16,9 @@ export async function POST(
 
   const { id } = await params;
 
+  // Check current status so we can reset RETIRED → AVAILABLE on restore
+  const current = await prisma.asset.findUnique({ where: { id }, select: { status: true } });
+
   const { result: asset, error } = await withPrismaError("Failed to restore asset", () =>
     prisma.asset.update({
       where: { id },
@@ -23,6 +26,7 @@ export async function POST(
         isArchived: false,
         archivedAt: null,
         archivedById: null,
+        ...(current?.status === "RETIRED" && { status: "AVAILABLE" }),
       },
     }),
   );
