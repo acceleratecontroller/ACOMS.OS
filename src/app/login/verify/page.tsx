@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 
 export default function TwoFactorVerifyPage() {
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,10 +51,8 @@ export default function TwoFactorVerifyPage() {
         return;
       }
 
-      // Show success state, then update session and do a full navigation
-      // to ensure the server reads the fresh JWT cookie
+      // Verification persisted in DB — full page load picks up the new state
       setVerified(true);
-      await update();
       window.location.href = "/";
     } catch {
       setError("Something went wrong. Please try again.");

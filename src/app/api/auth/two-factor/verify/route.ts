@@ -57,8 +57,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  // Success — clear rate limit
+  // Success — clear rate limit and persist verification in DB
   clearAttempts(rateLimitKey);
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { twoFactorVerifiedAt: new Date() },
+  });
 
   return NextResponse.json({ success: true });
 }

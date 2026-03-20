@@ -233,6 +233,7 @@ export async function DELETE(
       twoFactorEnabled: false,
       twoFactorSecret: null,
       twoFactorPending: false,
+      twoFactorVerifiedAt: null,
     },
   });
 

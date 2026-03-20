@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 
 export default function SetupTwoFactorPage() {
   const router = useRouter();
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
 
   const [step, setStep] = useState<"idle" | "scanning" | "backup-codes">("idle");
   const [qrCode, setQrCode] = useState("");
@@ -83,7 +83,6 @@ export default function SetupTwoFactorPage() {
       }
       setBackupCodes(data.backupCodes);
       setStep("backup-codes");
-      await update(); // Refresh session to reflect 2FA enabled
     } catch {
       setError("Something went wrong. Please try again.");
     }
@@ -108,8 +107,7 @@ export default function SetupTwoFactorPage() {
   }
 
   function handleDone() {
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   }
 
   if (status === "loading") {
