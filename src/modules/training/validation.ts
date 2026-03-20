@@ -31,6 +31,7 @@ export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
 
 export const createAccreditationSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  code: optionalString,
   description: optionalString,
   expires: z.boolean().default(false),
   renewalMonths: z.number().int().positive().optional().or(z.null()),

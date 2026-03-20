@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     prisma.accreditation.create({
       data: {
         accreditationNumber,
+        code: data.code || null,
         name: data.name,
         description: data.description || null,
         expires: data.expires,

@@ -433,6 +433,7 @@ model TrainingSkill {
 model Accreditation {
   id                   String  @id @default(uuid())
   accreditationNumber  String  @unique  // Auto: ACCR-0001
+  code                 String?           // External code e.g. HLTAID011
   name                 String
   description          String?
 

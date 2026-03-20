@@ -64,6 +64,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
+        ...(data.code !== undefined && { code: data.code || null }),
         ...(data.description !== undefined && { description: data.description || null }),
         ...(data.expires !== undefined && { expires: data.expires }),
         ...(data.renewalMonths !== undefined && { renewalMonths: data.renewalMonths ?? null }),

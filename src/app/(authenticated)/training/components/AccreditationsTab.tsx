@@ -9,6 +9,7 @@ import { FormField, TextAreaField } from "@/shared/components/FormField";
 interface Accreditation {
   id: string;
   accreditationNumber: string;
+  code: string | null;
   name: string;
   description: string | null;
   expires: boolean;
@@ -27,6 +28,11 @@ const RENEWAL_OPTIONS = [
 
 const columns: Column<Accreditation>[] = [
   { key: "accreditationNumber", label: "Accreditation #" },
+  {
+    key: "code",
+    label: "Code",
+    render: (item) => item.code || <span className="text-gray-400">—</span>,
+  },
   { key: "name", label: "Name" },
   {
     key: "expires",
@@ -98,6 +104,7 @@ export function AccreditationsTab() {
     const fd = new FormData(e.currentTarget);
     const body = {
       name: fd.get("name"),
+      code: (fd.get("code") as string) || null,
       description: fd.get("description") || null,
       expires: formExpires,
       renewalMonths: formExpires && formRenewalMonths ? Number(formRenewalMonths) : null,
@@ -126,6 +133,7 @@ export function AccreditationsTab() {
     const fd = new FormData(e.currentTarget);
     const body = {
       name: fd.get("name"),
+      code: (fd.get("code") as string) || null,
       description: fd.get("description") || null,
       expires: formExpires,
       renewalMonths: formExpires && formRenewalMonths ? Number(formRenewalMonths) : null,
@@ -219,6 +227,7 @@ export function AccreditationsTab() {
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
         <form onSubmit={handleCreate} className="space-y-4">
           <FormField label="Name" name="name" required />
+          <FormField label="Code" name="code" placeholder="e.g. HLTAID011" />
           <TextAreaField label="Description" name="description" />
           <ExpiryFields />
           <div className="flex justify-end gap-2 pt-2">
@@ -260,6 +269,7 @@ export function AccreditationsTab() {
               </div>
             </div>
             <div className="space-y-3 text-sm">
+              {selected.code && <div><span className="text-gray-500">Code:</span> <span className="font-mono">{selected.code}</span></div>}
               {selected.description && <div><span className="text-gray-500">Description:</span> {selected.description}</div>}
               <div>
                 <span className="text-gray-500">Expiry: </span>
@@ -284,6 +294,7 @@ export function AccreditationsTab() {
             {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
             <form onSubmit={handleUpdate} className="space-y-4">
               <FormField label="Name" name="name" required defaultValue={selected.name} />
+              <FormField label="Code" name="code" defaultValue={selected.code || ""} placeholder="e.g. HLTAID011" />
               <TextAreaField label="Description" name="description" defaultValue={selected.description || ""} />
               <ExpiryFields />
               <div className="flex justify-end gap-2 pt-2">
