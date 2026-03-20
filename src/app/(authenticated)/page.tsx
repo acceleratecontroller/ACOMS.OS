@@ -216,7 +216,7 @@ export default async function DashboardPage() {
   }
   const totalAccredIssues = expiredAccredEmployees.length + pendingAccredEmployees.length + missingAccredCount;
 
-  // Build status maps for easy lookup
+  // Build status maps
   const assetStatusMap: Record<string, number> = {};
   for (const g of assetsByStatus) assetStatusMap[g.status] = g._count;
 
@@ -229,276 +229,190 @@ export default async function DashboardPage() {
   const typeMap: Record<string, number> = {};
   for (const g of employeesByType) typeMap[g.employmentType] = g._count;
 
+  // Collect priority items for the attention strip
+  const alerts: { label: string; href: string; color: "red" | "amber" }[] = [];
+  if (overdueTasks > 0) alerts.push({ label: `${overdueTasks} overdue task${overdueTasks !== 1 ? "s" : ""}`, href: "/tasks", color: "red" });
+  if (overdueRecurring > 0) alerts.push({ label: `${overdueRecurring} overdue recurring`, href: "/tasks", color: "red" });
+  if (plantServiceOverdue.length > 0) alerts.push({ label: `${plantServiceOverdue.length} plant overdue`, href: "/plant", color: "red" });
+  if (totalAccredIssues > 0) alerts.push({ label: `${totalAccredIssues} accreditation issue${totalAccredIssues !== 1 ? "s" : ""}`, href: "/training", color: "red" });
+  if (expiringSoonAccredEmployees.length > 0) alerts.push({ label: `${expiringSoonAccredEmployees.length} accred. expiring soon`, href: "/training", color: "amber" });
+  if (plantServiceSoon.length > 0) alerts.push({ label: `${plantServiceSoon.length} plant service due`, href: "/plant", color: "amber" });
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Welcome to ACOMS.OS — your central operations platform.
-      </p>
+      {/* ── Header ── */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Operations overview</p>
+      </div>
 
-      {/* Alerts Banner */}
-      {(totalOverdue > 0 || plantServiceOverdue.length > 0 || totalAccredIssues > 0) && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
-          <h2 className="text-sm font-semibold text-red-800 mb-2">Attention Required</h2>
-          <div className="flex flex-wrap gap-4 text-sm text-red-700">
-            {overdueTasks > 0 && (
-              <Link href="/tasks" className="underline hover:text-red-900">
-                {overdueTasks} overdue task{overdueTasks !== 1 ? "s" : ""}
-              </Link>
-            )}
-            {overdueRecurring > 0 && (
-              <Link href="/tasks" className="underline hover:text-red-900">
-                {overdueRecurring} overdue recurring task{overdueRecurring !== 1 ? "s" : ""}
-              </Link>
-            )}
-            {plantServiceOverdue.length > 0 && (
-              <Link href="/plant" className="underline hover:text-red-900">
-                {plantServiceOverdue.length} plant item{plantServiceOverdue.length !== 1 ? "s" : ""} overdue for service
-              </Link>
-            )}
-            {totalAccredIssues > 0 && (
-              <Link href="/training" className="underline hover:text-red-900">
-                {totalAccredIssues} accreditation issue{totalAccredIssues !== 1 ? "s" : ""} to resolve
-              </Link>
-            )}
-          </div>
+      {/* ── Priority alerts ── */}
+      {alerts.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {alerts.map((a, i) => (
+            <Link
+              key={i}
+              href={a.href}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                a.color === "red"
+                  ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                  : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${a.color === "red" ? "bg-red-500" : "bg-amber-500"}`} />
+              {a.label}
+            </Link>
+          ))}
         </div>
       )}
 
-      {/* Accreditation issues breakdown */}
-      {(expiredAccredEmployees.length > 0 || expiringSoonAccredEmployees.length > 0 || pendingAccredEmployees.length > 0 || missingAccredCount > 0) && (
-        <div className="mb-6 flex flex-wrap gap-3">
-          {expiredAccredEmployees.length > 0 && (
-            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-              <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-              {expiredAccredEmployees.length} expired
-            </Link>
-          )}
-          {expiringSoonAccredEmployees.length > 0 && (
-            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-              {expiringSoonAccredEmployees.length} expiring soon
-            </Link>
-          )}
-          {(missingAccredCount > 0 || pendingAccredEmployees.length > 0) && (
-            <Link href="/training" className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
-              <span className="inline-block w-2 h-2 rounded-full bg-yellow-500" />
-              {missingAccredCount + pendingAccredEmployees.length} missing or pending
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Top-level Stats */}
+      {/* ── Summary stats ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Employees" value={activeEmployees} sub={`${totalEmployees} total`} href="/employees" />
+        <StatCard label="Assets" value={totalAssets} sub={`${unassignedAssets} unassigned`} href="/assets" />
+        <StatCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
         <StatCard
-          label="Active Employees"
-          value={activeEmployees}
-          sub={`${totalEmployees} total`}
-          href="/employees"
-        />
-        <StatCard
-          label="Assets"
-          value={totalAssets}
-          sub={`${unassignedAssets} unassigned`}
-          href="/assets"
-        />
-        <StatCard
-          label="Plant"
-          value={totalPlant}
-          sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`}
-          href="/plant"
-        />
-        <StatCard
-          label="Active Tasks"
+          label="Tasks"
           value={activeTasks}
-          sub={`${highPriorityTasks} high priority`}
+          sub={totalOverdue > 0 ? `${totalOverdue} overdue` : `${highPriorityTasks} high priority`}
           href="/tasks"
-          highlight={overdueTasks > 0}
+          accent={totalOverdue > 0 ? "red" : undefined}
         />
       </div>
 
-      {/* Two-column detail section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* ── Main content — 2 columns ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
 
-        {/* Employee Breakdown */}
-        <div className="bg-white border rounded p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-900">Employees by Location</h2>
-            <Link href="/employees" className="text-xs text-blue-600 hover:underline">View all</Link>
-          </div>
-          {Object.keys(locationMap).length === 0 ? (
-            <p className="text-sm text-gray-400">No active employees</p>
-          ) : (
-            <div className="space-y-2">
-              {Object.entries(locationMap)
-                .sort(([, a], [, b]) => b - a)
-                .map(([loc, count]) => (
-                  <div key={loc} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{formatEnum(loc)}</span>
-                    <span className="font-medium text-gray-900">{count}</span>
+        {/* Left column — 2/3 width */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* Tasks due this week */}
+          <DashboardCard title="Tasks Due This Week" href="/tasks" linkLabel="View all">
+            {tasksDueSoon.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No tasks due in the next 7 days</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {tasksDueSoon.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
+                      <span className="text-xs text-gray-500">{task.owner.firstName} {task.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                    </div>
                   </div>
                 ))}
-            </div>
-          )}
-          {Object.keys(typeMap).length > 0 && (
-            <>
-              <hr className="my-3" />
-              <h3 className="text-xs font-medium text-gray-500 mb-2">By Employment Type</h3>
-              <div className="flex flex-wrap gap-3">
-                {Object.entries(typeMap)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([type, count]) => (
-                    <span key={type} className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                      {formatEnum(type)}: {count}
-                    </span>
-                  ))}
               </div>
-            </>
-          )}
-        </div>
+            )}
+          </DashboardCard>
 
-        {/* Asset & Plant Status */}
-        <div className="bg-white border rounded p-4">
-          <h2 className="font-semibold text-gray-900 mb-3">Asset & Plant Status</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Assets</h3>
+          {/* Asset & Plant overview — compact side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <DashboardCard title="Assets" href="/assets" linkLabel="Manage">
               {Object.keys(assetStatusMap).length === 0 ? (
-                <p className="text-sm text-gray-400">No assets</p>
+                <p className="text-sm text-gray-400 py-2">No assets registered</p>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {Object.entries(assetStatusMap).map(([status, count]) => (
                     <div key={status} className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1">
+                      <span className="text-gray-600 flex items-center gap-1.5">
                         <StatusDot status={status} />
                         {formatEnum(status)}
                       </span>
-                      <span className="font-medium text-gray-900">{count}</span>
+                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-            <div>
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Plant</h3>
+            </DashboardCard>
+
+            <DashboardCard title="Plant" href="/plant" linkLabel="Manage">
               {Object.keys(plantStatusMap).length === 0 ? (
-                <p className="text-sm text-gray-400">No plant</p>
+                <p className="text-sm text-gray-400 py-2">No plant registered</p>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {Object.entries(plantStatusMap).map(([status, count]) => (
                     <div key={status} className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1">
+                      <span className="text-gray-600 flex items-center gap-1.5">
                         <StatusDot status={status} />
                         {formatEnum(status)}
                       </span>
-                      <span className="font-medium text-gray-900">{count}</span>
+                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+              {/* Plant service inline */}
+              {plantServiceOverdue.length > 0 && (
+                <>
+                  <hr className="my-2.5 border-gray-100" />
+                  {plantServiceOverdue.map((p) => (
+                    <div key={p.id} className="flex justify-between text-xs py-0.5">
+                      <span className="text-red-600 font-medium">{p.plantNumber}</span>
+                      <span className="text-red-500">Overdue {formatDate(p.nextServiceDue)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </DashboardCard>
           </div>
-          {/* Plant service alerts */}
-          {(plantServiceOverdue.length > 0 || plantServiceSoon.length > 0) && (
-            <>
-              <hr className="my-3" />
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Service Schedule</h3>
-              <div className="space-y-1">
-                {plantServiceOverdue.map((p) => (
-                  <div key={p.id} className="flex justify-between text-sm">
-                    <span className="text-red-600">{p.plantNumber}{p.make || p.model ? ` — ${[p.make, p.model].filter(Boolean).join(" ")}` : ""}</span>
-                    <span className="text-xs text-red-500">
-                      Overdue {formatDate(p.nextServiceDue)}
-                    </span>
+
+          {/* Employees by location — compact */}
+          <DashboardCard title="Employees" href="/employees" linkLabel="View all">
+            {Object.keys(locationMap).length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No active employees</p>
+            ) : (
+              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+                {Object.entries(locationMap)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([loc, count]) => (
+                    <div key={loc} className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-600">{formatEnum(loc)}</span>
+                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
+                    </div>
+                  ))}
+                {Object.entries(typeMap).length > 0 && (
+                  <div className="w-full mt-1.5 flex flex-wrap gap-2">
+                    {Object.entries(typeMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <span key={type} className="text-xs text-gray-500">
+                          {formatEnum(type)}: {count}
+                        </span>
+                      ))}
                   </div>
-                ))}
-                {plantServiceSoon.map((p) => (
-                  <div key={p.id} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{p.plantNumber}{p.make || p.model ? ` — ${[p.make, p.model].filter(Boolean).join(" ")}` : ""}</span>
-                    <span className="text-xs text-amber-600">
-                      Due {formatDate(p.nextServiceDue)}
-                    </span>
+                )}
+              </div>
+            )}
+          </DashboardCard>
+        </div>
+
+        {/* Right column — 1/3 width */}
+        <div className="space-y-5">
+
+          {/* Recent Activity */}
+          <DashboardCard title="Recent Activity" href="/activity-log" linkLabel="View all">
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No recent activity</p>
+            ) : (
+              <div className="space-y-3">
+                {recentActivity.map((entry) => (
+                  <div key={entry.id} className="flex gap-2.5">
+                    <ActionDot action={entry.action} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-900 truncate">{entry.entityLabel}</p>
+                      <p className="text-xs text-gray-400">
+                        {entry.performedBy.name} &middot; {formatRelativeTime(entry.performedAt)}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
-            </>
-          )}
+            )}
+          </DashboardCard>
         </div>
-
-        {/* Tasks Due Soon */}
-        <div className="bg-white border rounded p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-900">Tasks Due This Week</h2>
-            <Link href="/tasks" className="text-xs text-blue-600 hover:underline">View all</Link>
-          </div>
-          {tasksDueSoon.length === 0 ? (
-            <p className="text-sm text-gray-400">No tasks due in the next 7 days</p>
-          ) : (
-            <div className="space-y-2">
-              {tasksDueSoon.map((task) => (
-                <div key={task.id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <span className="text-gray-900 font-medium truncate block">{task.title}</span>
-                    <span className="text-xs text-gray-500">
-                      {task.owner.firstName} {task.owner.lastName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <PriorityBadge priority={task.priority} />
-                    <span className="text-xs text-gray-500">
-                      {task.dueDate ? formatDate(task.dueDate) : "No date"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white border rounded p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-900">Recent Activity</h2>
-            <Link href="/activity-log" className="text-xs text-blue-600 hover:underline">View all</Link>
-          </div>
-          {recentActivity.length === 0 ? (
-            <p className="text-sm text-gray-400">No recent activity</p>
-          ) : (
-            <div className="space-y-2">
-              {recentActivity.map((entry) => (
-                <div key={entry.id} className="text-sm">
-                  <div className="flex items-center gap-2">
-                    <ActionBadge action={entry.action} />
-                    <span className="text-gray-900 font-medium truncate">{entry.entityLabel}</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {entry.performedBy.name} &middot; {formatRelativeTime(entry.performedAt)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Module Quick Links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <QuickLink title="Employees" href="/employees" count={totalEmployees} />
-        <QuickLink title="Assets" href="/assets" count={totalAssets} />
-        <QuickLink title="Plant" href="/plant" count={totalPlant} />
-        <QuickLink title="Tasks" href="/tasks" count={activeTasks} />
-      </div>
-
-      <div className="p-4 bg-white rounded border text-sm text-gray-500">
-        <p className="font-medium text-gray-700 mb-2">Coming later:</p>
-        <ul className="list-disc list-inside space-y-1">
-          <li>WIP Tracker</li>
-          <li>Job Creation</li>
-          <li>Corrective Actions Register</li>
-          <li>File / Document Attachments</li>
-          <li>Reporting and Dashboards</li>
-        </ul>
       </div>
     </div>
   );
@@ -506,45 +420,46 @@ export default async function DashboardPage() {
 
 /* ─── Helper Components ─────────────────────────────── */
 
-function StatCard({
-  label,
-  value,
-  sub,
-  href,
-  highlight,
-}: {
+function DashboardCard({ title, href, linkLabel, children }: {
+  title: string;
+  href?: string;
+  linkLabel?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        {href && linkLabel && (
+          <Link href={href} className="text-xs text-gray-400 hover:text-blue-600 transition-colors">{linkLabel}</Link>
+        )}
+      </div>
+      <div className="px-4 py-3">{children}</div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, href, accent }: {
   label: string;
   value: number;
   sub?: string;
   href: string;
-  highlight?: boolean;
+  accent?: "red";
 }) {
   return (
     <Link
       href={href}
-      className={`block p-4 rounded border hover:shadow-sm transition-all ${
-        highlight
-          ? "bg-red-50 border-red-200 hover:border-red-400"
-          : "bg-white hover:border-blue-400"
+      className={`block px-4 py-3 rounded-lg border transition-all hover:shadow-sm ${
+        accent === "red"
+          ? "border-red-200 bg-red-50/50 hover:border-red-300"
+          : "border-gray-200 bg-white hover:border-blue-300"
       }`}
     >
-      <div className={`text-2xl font-bold ${highlight ? "text-red-600" : "text-gray-900"}`}>
+      <div className={`text-2xl font-bold tabular-nums ${accent === "red" ? "text-red-600" : "text-gray-900"}`}>
         {value}
       </div>
-      <div className="text-sm text-gray-700 font-medium">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-    </Link>
-  );
-}
-
-function QuickLink({ title, href, count }: { title: string; href: string; count: number }) {
-  return (
-    <Link
-      href={href}
-      className="block p-3 bg-white rounded border hover:border-blue-400 hover:shadow-sm transition-all text-center"
-    >
-      <div className="text-lg font-bold text-gray-900">{count}</div>
-      <div className="text-xs text-gray-500">{title}</div>
+      <div className="text-sm font-medium text-gray-700">{label}</div>
+      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
     </Link>
   );
 }
@@ -559,36 +474,30 @@ function StatusDot({ status }: { status: string }) {
     DECOMMISSIONED: "bg-gray-400",
     STANDBY: "bg-amber-400",
   };
-  return (
-    <span className={`inline-block w-2 h-2 rounded-full ${colors[status] ?? "bg-gray-300"}`} />
-  );
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] ?? "bg-gray-300"}`} />;
 }
 
-function PriorityBadge({ priority }: { priority: string }) {
-  const styles: Record<string, string> = {
-    HIGH: "bg-red-100 text-red-700",
-    MEDIUM: "bg-amber-100 text-amber-700",
-    LOW: "bg-gray-100 text-gray-600",
+function PriorityDot({ priority }: { priority: string }) {
+  const colors: Record<string, string> = {
+    HIGH: "bg-red-400",
+    MEDIUM: "bg-amber-400",
+    LOW: "bg-gray-300",
   };
-  return (
-    <span className={`text-xs px-1.5 py-0.5 rounded ${styles[priority] ?? "bg-gray-100 text-gray-600"}`}>
-      {priority}
-    </span>
-  );
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[priority] ?? "bg-gray-300"}`} />;
 }
 
-function ActionBadge({ action }: { action: string }) {
-  const styles: Record<string, string> = {
-    CREATE: "bg-green-100 text-green-700",
-    UPDATE: "bg-blue-100 text-blue-700",
-    ARCHIVE: "bg-gray-100 text-gray-600",
-    RESTORE: "bg-purple-100 text-purple-700",
-    COMPLETE: "bg-green-100 text-green-700",
+function ActionDot({ action }: { action: string }) {
+  const colors: Record<string, string> = {
+    CREATE: "bg-green-400",
+    UPDATE: "bg-blue-400",
+    ARCHIVE: "bg-gray-400",
+    RESTORE: "bg-purple-400",
+    COMPLETE: "bg-green-400",
   };
   return (
-    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${styles[action] ?? "bg-gray-100 text-gray-600"}`}>
-      {action}
-    </span>
+    <div className="pt-1.5 shrink-0">
+      <span className={`inline-block w-2 h-2 rounded-full ${colors[action] ?? "bg-gray-300"}`} />
+    </div>
   );
 }
 
