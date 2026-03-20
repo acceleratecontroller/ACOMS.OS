@@ -355,81 +355,93 @@ function EmployeesContent() {
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
         {selected && !editing && (
           <div>
-            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-6">
-              <h2 className="text-lg md:text-xl font-bold text-gray-900">
-                {selected.firstName} {selected.lastName}
-              </h2>
-              <StatusBadge status={selected.status} />
-              {selected.isArchived && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
-              )}
-            </div>
-            <dl className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 md:gap-y-5 text-sm">
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employee #</dt><dd className="font-medium text-gray-900">{selected.employeeNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Roles</dt><dd className="font-medium text-gray-900">{selected.trainingRoles.length > 0 ? selected.trainingRoles.map((r) => r.role.name).join(", ") : "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Employment Type</dt><dd className="font-medium text-gray-900">{EMPLOYMENT_LABELS[selected.employmentType]}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Location</dt><dd className="font-medium text-gray-900">{LOCATION_LABELS[selected.location]}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Work Email</dt><dd className="font-medium text-gray-900">{selected.email || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Personal Email</dt><dd className="font-medium text-gray-900">{selected.personalEmail || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Phone</dt><dd className="font-medium text-gray-900">{selected.phone || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Date of Birth</dt><dd className="font-medium text-gray-900">{formatDate(selected.dateOfBirth) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Start Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.startDate)}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">End Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.endDate) || "—"}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Probation Review</dt><dd className="font-medium text-gray-900">{formatDate(selected.probationDate) || "—"}</dd></div>
-              <div className="md:col-span-3"><dt className="text-gray-400 text-xs uppercase tracking-wider mb-1">Address</dt><dd className="font-medium text-gray-900">{selected.address || "—"}</dd></div>
-            </dl>
-            <div className="mt-4 inline-flex items-center gap-4 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <span className="text-gray-400 text-xs uppercase tracking-wider font-medium">Uniform</span>
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                </svg>
-                <span className="text-sm font-medium text-gray-900">{selected.shirtSize || "—"}</span>
-              </div>
-              <div className="w-px h-4 bg-gray-300" />
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                </svg>
-                <span className="text-sm font-medium text-gray-900">{selected.pantsSize || "—"}</span>
-              </div>
-            </div>
-            {selected.notes && (
-              <div className="mt-5 text-sm">
-                <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Notes</p>
-                <p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p>
-              </div>
-            )}
-            {(selected.emergencyFirstName || selected.emergencyLastName || selected.emergencyPhone) && (
-              <div className="mt-5 bg-gray-50 rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Emergency Contact</p>
-                <dl className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
-                  <div>
-                    <dt className="text-gray-400 text-xs mb-0.5">Name</dt>
-                    <dd className="font-medium text-gray-900">{[selected.emergencyFirstName, selected.emergencyLastName].filter(Boolean).join(" ") || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 text-xs mb-0.5">Relationship</dt>
-                    <dd className="font-medium text-gray-900">{selected.emergencyRelation ? (EMERGENCY_RELATION_LABELS[selected.emergencyRelation] || selected.emergencyRelation) : "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 text-xs mb-0.5">Contact Number</dt>
-                    <dd className="font-medium text-gray-900">{selected.emergencyPhone || "—"}</dd>
-                  </div>
-                  {selected.emergencyPhoneAlt && (
-                    <div>
-                      <dt className="text-gray-400 text-xs mb-0.5">Alternative Number</dt>
-                      <dd className="font-medium text-gray-900">{selected.emergencyPhoneAlt}</dd>
-                    </div>
+            {/* ── Header ── */}
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {selected.firstName} {selected.lastName}
+                  </h2>
+                  <StatusBadge status={selected.status} />
+                  {selected.isArchived && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">Archived</span>
                   )}
-                </dl>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selected.employeeNumber}
+                  {selected.trainingRoles.length > 0 && <> &middot; {selected.trainingRoles.map((r) => r.role.name).join(", ")}</>}
+                  {" "}&middot; {EMPLOYMENT_LABELS[selected.employmentType]}
+                  {" "}&middot; {LOCATION_LABELS[selected.location]}
+                </p>
               </div>
-            )}
-            <div className="flex gap-3 mt-6 pt-5 border-t">
-              {selected.isArchived ? (
-                <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore</button>
-              ) : (
-                <button onClick={() => { setSelectedRoleIds(selected.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Edit</button>
+              <div className="flex items-center gap-2 shrink-0 ml-4">
+                {selected.isArchived ? (
+                  <button onClick={() => setConfirmAction({ type: "restore" })} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">Restore</button>
+                ) : (
+                  <button onClick={() => { setSelectedRoleIds(selected.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">Edit</button>
+                )}
+              </div>
+            </div>
+
+            {/* ── Content sections ── */}
+            <div className="space-y-4">
+              {/* Employment */}
+              <DetailSection title="Employment">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
+                  <DetailField label="Start Date" value={formatDate(selected.startDate)} />
+                  <DetailField label="End Date" value={formatDate(selected.endDate)} />
+                  <DetailField label="Probation Review" value={formatDate(selected.probationDate)} />
+                  <DetailField label="Location" value={LOCATION_LABELS[selected.location]} />
+                </div>
+              </DetailSection>
+
+              {/* Contact */}
+              <DetailSection title="Contact">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
+                  <DetailField label="Phone" value={selected.phone} />
+                  <DetailField label="Work Email" value={selected.email} />
+                  <DetailField label="Personal Email" value={selected.personalEmail} />
+                  <DetailField label="Address" value={selected.address} className="col-span-2 md:col-span-3" />
+                </div>
+              </DetailSection>
+
+              {/* Personal & Uniform — side by side on desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DetailSection title="Personal">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <DetailField label="Date of Birth" value={formatDate(selected.dateOfBirth)} />
+                    <div />
+                    <DetailField label="Shirt Size" value={selected.shirtSize} />
+                    <DetailField label="Pants Size" value={selected.pantsSize} />
+                  </div>
+                </DetailSection>
+
+                {/* Emergency Contact */}
+                <DetailSection title="Emergency Contact">
+                  {selected.emergencyFirstName || selected.emergencyLastName || selected.emergencyPhone ? (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <DetailField
+                        label="Name"
+                        value={[selected.emergencyFirstName, selected.emergencyLastName].filter(Boolean).join(" ")}
+                      />
+                      <DetailField
+                        label="Relationship"
+                        value={selected.emergencyRelation ? (EMERGENCY_RELATION_LABELS[selected.emergencyRelation] || selected.emergencyRelation) : null}
+                      />
+                      <DetailField label="Contact Number" value={selected.emergencyPhone} />
+                      <DetailField label="Alt. Number" value={selected.emergencyPhoneAlt} />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Not provided</p>
+                  )}
+                </DetailSection>
+              </div>
+
+              {/* Notes */}
+              {selected.notes && (
+                <DetailSection title="Notes">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{selected.notes}</p>
+                </DetailSection>
               )}
             </div>
           </div>
@@ -669,6 +681,30 @@ function EmployeesContent() {
         onConfirm={confirmAction?.type === "archive" ? handleArchive : handleRestore}
         onCancel={() => setConfirmAction(null)}
       />
+    </div>
+  );
+}
+
+/* ─── View modal helper components ──────────────────── */
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-gray-200 rounded-lg bg-white">
+      <div className="px-4 py-2 border-b border-gray-100">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</h3>
+      </div>
+      <div className="px-4 py-3">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DetailField({ label, value, className }: { label: string; value: string | null | undefined; className?: string }) {
+  return (
+    <div className={className}>
+      <dt className="text-xs text-gray-500 mb-0.5">{label}</dt>
+      <dd className="text-sm font-medium text-gray-900">{value || "—"}</dd>
     </div>
   );
 }
