@@ -22,7 +22,7 @@ interface ComplianceSummary {
 }
 
 function TrainingContent() {
-  const [activeTab, setActiveTab] = useState<TrainingTab>("roles");
+  const [activeTab, setActiveTab] = useState<TrainingTab>("matrix");
   const [compliance, setCompliance] = useState<ComplianceSummary | null>(null);
 
   useEffect(() => {

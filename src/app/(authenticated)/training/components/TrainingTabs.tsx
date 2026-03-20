@@ -8,10 +8,10 @@ interface TrainingTabsProps {
 }
 
 const tabs: { key: TrainingTab; label: string }[] = [
+  { key: "matrix", label: "Matrix" },
   { key: "roles", label: "Roles" },
   { key: "skills", label: "Skills" },
   { key: "accreditations", label: "Accreditations" },
-  { key: "matrix", label: "Matrix" },
 ];
 
 export function TrainingTabs({ active, onChange }: TrainingTabsProps) {
