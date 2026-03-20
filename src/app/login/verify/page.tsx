@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 
 export default function TwoFactorVerifyPage() {
@@ -105,7 +105,14 @@ export default function TwoFactorVerifyPage() {
           </button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="text-sm text-gray-500 hover:underline"
+          >
+            Sign out
+          </button>
           <button
             type="button"
             onClick={() => {
