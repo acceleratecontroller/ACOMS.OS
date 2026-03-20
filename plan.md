@@ -1,220 +1,135 @@
-# Training Matrix — Implementation Plan
+# Plan: Employee Compliance Management & Accreditation Expiry Settings
 
-## Overview
+## Problem
 
-New "Training" tab between Employees and Assets. Manages **Roles**, **Skills**, and **Accreditations** with linking between them and assignment to employees. Two view modes: Employee View (employee cards with their training info) and Matrix View (tree/hierarchy of role→skill→accreditation links).
+1. **No way to update employee compliance** — The employee compliance view is read-only. You can see that someone is non-compliant, but there's no way to mark an accreditation as verified, set expiry dates, or manage it per-employee.
 
----
-
-## Phase 1: Database Schema
-
-### New Prisma Models
-
-**TrainingRole**
-- `id` (UUID), `roleNumber` (unique, auto: `ROLE-0001`), `name`, `description?`, `category` (enum: OFFICE | FIELD)
-- Standard audit fields: `createdAt`, `updatedAt`, `createdBy/Id`, `isArchived`, `archivedAt`, `archivedBy/Id`
-
-**TrainingSkill**
-- `id` (UUID), `skillNumber` (unique, auto: `SKILL-0001`), `name`, `description?`
-- Standard audit fields
-
-**Accreditation**
-- `id` (UUID), `accreditationNumber` (unique, auto: `ACCR-0001`), `name`, `description?`
-- Standard audit fields
-
-**RoleSkillLink** (many-to-many: Role ↔ Skill)
-- `id` (UUID), `roleId`, `skillId`
-- `@@unique([roleId, skillId])`
-
-**SkillAccreditationLink** (many-to-many: Skill ↔ Accreditation)
-- `id` (UUID), `skillId`, `accreditationId`
-- `@@unique([skillId, accreditationId])`
-
-**EmployeeRole** (many-to-many: Employee ↔ Role)
-- `id` (UUID), `employeeId`, `roleId`, `assignedAt` (DateTime)
-- `@@unique([employeeId, roleId])`
-
-**EmployeeAccreditation** (Employee's actual accreditations)
-- `id` (UUID), `employeeId`, `accreditationId`
-- `issueDate?` (DateTime), `expiryDate?` (DateTime), `certificateNumber?` (String)
-- `notes?` (String)
-- `@@unique([employeeId, accreditationId])`
-
-### New Enums
-- `TrainingRoleCategory`: `OFFICE`, `FIELD`
-
-### Migration
-- Run `npx prisma migrate dev --name add-training-matrix`
+2. **Accreditations lack expiry/renewal metadata** — When creating an accreditation (e.g. "White Card"), there's no way to specify whether it expires or how often it needs renewal. This should live on the accreditation definition itself, not just per-employee.
 
 ---
 
-## Phase 2: API Routes
+## Part 1: Accreditation Expiry & Renewal Fields
 
-All routes follow existing patterns (auth check, Zod validation, `withPrismaError`, audit logging).
+### Schema Changes (Prisma)
 
-### CRUD Routes
+Add three fields to the `Accreditation` model:
 
-| Route | Methods | Notes |
-|-------|---------|-------|
-| `/api/training/roles` | GET, POST | List/create roles. GET supports `?archived=true` |
-| `/api/training/roles/[id]` | GET, PUT | Get/update single role |
-| `/api/training/roles/[id]/archive` | POST | Archive role |
-| `/api/training/roles/[id]/restore` | POST | Restore role |
-| `/api/training/skills` | GET, POST | List/create skills |
-| `/api/training/skills/[id]` | GET, PUT | Get/update single skill |
-| `/api/training/skills/[id]/archive` | POST | Archive skill |
-| `/api/training/skills/[id]/restore` | POST | Restore skill |
-| `/api/training/accreditations` | GET, POST | List/create accreditations |
-| `/api/training/accreditations/[id]` | GET, PUT | Get/update single accreditation |
-| `/api/training/accreditations/[id]/archive` | POST | Archive accreditation |
-| `/api/training/accreditations/[id]/restore` | POST | Restore accreditation |
-
-### Linking Routes
-
-| Route | Methods | Notes |
-|-------|---------|-------|
-| `/api/training/roles/[id]/skills` | GET, POST, DELETE | Link/unlink skills to a role |
-| `/api/training/skills/[id]/accreditations` | GET, POST, DELETE | Link/unlink accreditations to a skill |
-
-### Employee Assignment Routes
-
-| Route | Methods | Notes |
-|-------|---------|-------|
-| `/api/training/employees/[employeeId]/roles` | GET, POST, DELETE | Assign/remove roles for an employee. **POST triggers auto-assign**: when a role is assigned, all accreditations linked via role→skill→accreditation are automatically added to the employee's accreditations (if not already present), with no expiry date (to be filled in manually). |
-| `/api/training/employees/[employeeId]/accreditations` | GET, POST, PUT, DELETE | Manage employee accreditations directly (for updating expiry dates, adding standalone accreditations not linked to any skill, etc.) |
-
-### Summary/Matrix Route
-
-| Route | Methods | Notes |
-|-------|---------|-------|
-| `/api/training/matrix` | GET | Returns full role→skill→accreditation tree structure for the matrix view |
-| `/api/training/employees/summary` | GET | Returns all employees with their roles, skills, accreditations, and compliance status |
-
----
-
-## Phase 3: Validation Schemas
-
-File: `src/modules/training/validation.ts`
-
-- `createRoleSchema`: name (required), description (optional), category (enum OFFICE/FIELD)
-- `updateRoleSchema`: partial of create
-- `createSkillSchema`: name (required), description (optional)
-- `updateSkillSchema`: partial of create
-- `createAccreditationSchema`: name (required), description (optional)
-- `updateAccreditationSchema`: partial of create
-- `assignEmployeeAccreditationSchema`: accreditationId (required), issueDate (optional), expiryDate (optional), certificateNumber (optional), notes (optional)
-- `updateEmployeeAccreditationSchema`: partial of assign (minus accreditationId)
-
----
-
-## Phase 4: Navigation
-
-Update `src/config/navigation.ts` to add Training tab between Employees and Assets:
 ```
-{ label: "Training", href: "/training", icon: "T" }
+expires        Boolean   @default(false)   // Does this accreditation expire?
+renewalMonths  Int?                        // How often (months) renewal is needed (12, 24, 36, etc.)
+renewalNotes   String?                     // E.g. "Must complete refresher course"
 ```
 
----
+**Migration**: `20260320120000_add_accreditation_expiry_fields` — all columns nullable/defaulted, no breaking changes.
 
-## Phase 5: Frontend — Training Page
+### Validation Changes
 
-File: `src/app/(authenticated)/training/page.tsx`
+Update `createAccreditationSchema` and `updateAccreditationSchema` to include:
+- `expires`: boolean (default false)
+- `renewalMonths`: optional positive integer
+- `renewalNotes`: optional string
 
-### Top Section — Action Buttons
-Three buttons at the top:
-- **+ New Role** → opens create role modal
-- **+ New Skill** → opens create skill modal
-- **+ New Accreditation** → opens create accreditation modal
+### API Changes
 
-### View Toggle
-Toggle button/tabs to switch between two views:
-1. **Employee View** (default)
-2. **Matrix View**
+Update `POST /api/training/accreditations` and `PUT /api/training/accreditations/[id]` to persist the new fields.
 
----
+### UI Changes (AccreditationsTab)
 
-### Employee View
-
-Similar layout to the Employees tab but focused on training data.
-
-**DataTable columns:**
-- Employee # | Name | Roles | Skills | Accreditations | Compliance Status
-
-**Compliance Status logic:**
-- For each employee, look at their assigned roles → what skills those roles require → what accreditations those skills require
-- Compare required accreditations vs actual employee accreditations
-- **Compliant** (green): All required accreditations present and not expired
-- **Expiring Soon** (yellow): All present but one or more expires within 30 days
-- **Non-Compliant** (red): Missing accreditations or one or more expired
-
-**Row click** opens a detail modal showing:
-- Employee name and number
-- Assigned roles (listed as badges)
-- Required accreditations (from role→skill→accreditation links) with status indicators:
-  - Green check: has it, not expired
-  - Yellow warning: has it, expiring within 30 days
-  - Red X: missing or expired
-- Extra accreditations (ones they have that aren't required by any role)
-- Each accreditation shows: name, certificate number, issue date, expiry date
-
-**From this modal you can:**
-- Assign/remove roles (dropdown + add button)
-- Add/edit/remove accreditations (with expiry date, certificate number fields)
+Update the create/edit forms in AccreditationsTab to add:
+- **"Has Expiry" checkbox** — when checked, reveals:
+  - **"Renewal Period"** dropdown (6, 12, 24, 36, 60 months)
+  - **"Renewal Notes"** text field
+- Show expiry info in the view mode and table
 
 ---
 
-### Matrix View
+## Part 2: Employee Compliance Popup (MatrixTab)
 
-Tree/hierarchy display showing the full role→skill→accreditation structure.
+### What it does
 
-**Layout:**
-- Each **Role** is an expandable card/section (click to expand/collapse)
-  - Shows role name, category badge (Office/Field), description
-  - Inside: list of linked **Skills**
-    - Each skill shows its name and description
-    - Under each skill: linked **Accreditations** shown as badges/chips
-- Below the role tree: a section for **Unlinked Accreditations** (accreditations not linked to any skill)
-- Below that: **Unlinked Skills** (skills not linked to any role)
+Clicking an employee card in the **Employee Compliance** view opens a modal showing all their required accreditations with inline editing.
 
-**Each item is clickable** to open an edit modal where you can:
-- Edit the role/skill/accreditation details
-- Manage links (add/remove skills from a role, add/remove accreditations from a skill)
-- Archive the item
+### Modal Layout
+
+```
+┌─────────────────────────────────────────────────────┐
+│  John Smith (E0001)                    75% compliant │
+│  Roles: Site Supervisor, Crane Operator              │
+│─────────────────────────────────────────────────────│
+│                                                      │
+│  ACCREDITATION         STATUS        EXPIRY   CERT#  │
+│  ─────────────────────────────────────────────────── │
+│  White Card            [VERIFIED ▾]  2027-03  WC123  │
+│  Working at Heights    [PENDING  ▾]  ________  ____  │
+│  First Aid             [MISSING  ▾]  ________  ____  │
+│  Crane Licence         [EXEMPT   ▾]  ________  ____  │
+│                                                      │
+│  Notes: ________________________________________     │
+│                                                      │
+│                              [ Save All Changes ]    │
+└─────────────────────────────────────────────────────┘
+```
+
+Each accreditation row has:
+- **Accreditation name** (read-only) + whether it expires + renewal period info
+- **Status dropdown** — PENDING / VERIFIED / EXPIRED / EXEMPT (for MISSING ones, selecting any status auto-creates the EmployeeAccreditation record)
+- **Expiry Date** — date picker, only shown when the accreditation definition has `expires=true`
+- **Certificate Number** — optional text field
+- **Notes** — optional text field (per accreditation)
+
+### API Usage
+
+No new API endpoints needed:
+- Employee data comes from existing `GET /api/training/matrix?view=employees`
+- Status updates use existing `PUT /api/training/employees/[employeeId]/accreditations/[id]`
+- Creating MISSING records uses existing `POST /api/training/employees/[employeeId]/accreditations`
+
+### Matrix API Tweak
+
+Update `GET /api/training/matrix?view=employees` to include the accreditation definition's `expires` and `renewalMonths` fields in the nested accreditation data, so the modal knows whether to show a date picker.
+
+### MatrixTab UI Changes
+
+- Make each employee card **clickable** (add hover state + cursor-pointer)
+- Add a `Modal` component import and state management for the selected employee
+- Inside the modal: table of accreditations with inline edit fields
+- "Save All Changes" button that batches PUT/POST calls for each changed accreditation
+- After saving, refresh the employee list to update compliance percentages
 
 ---
 
-## Phase 6: Constants
+## File Change Summary
 
-Add to `src/config/constants.ts`:
-- `TRAINING_ROLE_CATEGORY_OPTIONS`: `[{ value: "OFFICE", label: "Office" }, { value: "FIELD", label: "Field" }]`
+| File | Change |
+|------|--------|
+| `prisma/schema.prisma` | Add `expires`, `renewalMonths`, `renewalNotes` to Accreditation |
+| `prisma/migrations/20260320120000_...` | New migration for 3 columns |
+| `src/modules/training/validation.ts` | Add new fields to accreditation schemas |
+| `src/app/api/training/accreditations/route.ts` | Handle new fields in POST |
+| `src/app/api/training/accreditations/[id]/route.ts` | Handle new fields in PUT/GET |
+| `src/app/api/training/matrix/route.ts` | Include `expires`, `renewalMonths` in employee view accreditation data |
+| `src/app/(authenticated)/training/components/AccreditationsTab.tsx` | Add expiry toggle + renewal fields to forms |
+| `src/app/(authenticated)/training/components/MatrixTab.tsx` | Add clickable employee cards + compliance management modal |
 
----
-
-## Phase 7: Audit Logging
-
-All create/update/archive/restore operations on roles, skills, accreditations, and employee assignments get logged via the existing `audit()` function with:
-- `entityType`: "TrainingRole", "TrainingSkill", "Accreditation", "EmployeeAccreditation", "EmployeeRole"
-- Standard action types: CREATE, UPDATE, ARCHIVE, RESTORE
+**No new files needed** — all changes are to existing files.
 
 ---
 
 ## Implementation Order
 
-1. **Schema + Migration** — Prisma models, enums, relations, migrate
-2. **Validation** — Zod schemas for all entities
-3. **API Routes** — CRUD for roles, skills, accreditations, then linking routes, then employee assignment routes, then summary/matrix routes
-4. **Constants + Navigation** — Add constants and nav tab
-5. **Frontend — Shell** — Page skeleton with view toggle, action buttons, empty states
-6. **Frontend — Create/Edit Modals** — Forms for roles, skills, accreditations
-7. **Frontend — Matrix View** — Tree/hierarchy display with link management
-8. **Frontend — Employee View** — Employee list with compliance status, detail modal with role/accreditation management
-9. **Expiry Warnings** — Visual indicators for expiring/expired accreditations in both views
+1. Schema + migration (Accreditation expiry fields)
+2. Validation schema updates
+3. Accreditation API updates (create/update with new fields)
+4. AccreditationsTab UI (expiry toggle in create/edit forms)
+5. Matrix API tweak (include expiry metadata in employee view)
+6. MatrixTab compliance modal (the main feature — clickable employee → edit accreditations)
+7. TypeScript check + commit + push
 
 ---
 
-## Things Worth Noting
+## Notes
 
-- **Auto-assign behavior**: When a role is assigned to an employee, all accreditations linked through that role's skills are automatically added to the employee with blank expiry dates. The admin then needs to fill in the actual expiry dates. This means the compliance status would show these as "present but no expiry set" — treated as compliant (since the accreditation exists, just needs date updating).
-- **Standalone accreditations**: An employee can have accreditations not linked to any skill/role. These show separately in the employee detail view as "Additional Accreditations".
-- **Removing a role**: When a role is removed from an employee, the auto-assigned accreditations are NOT automatically removed (since the employee still holds those accreditations in reality). Only manual removal deletes them.
-- **Archive cascading**: Archiving a role/skill/accreditation doesn't delete links — it just hides the item from active lists. Links remain so data isn't lost.
+- **No breaking changes** — new fields all have defaults, existing data unaffected
+- **Reuses existing endpoints** — the PUT for employee accreditations already supports all the fields we need
+- **MISSING → created on save** — if an accreditation shows as MISSING and the admin changes its status, we POST to create it then
+- **Accreditation expiry is informational** — it tells the admin "this needs renewing every X months" but doesn't auto-expire records. Auto-expiry could be added later
