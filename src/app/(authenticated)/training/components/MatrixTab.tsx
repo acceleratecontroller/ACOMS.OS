@@ -181,7 +181,7 @@ const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
 
 // ═══════════════════════════════════════════════════════
 export function MatrixTab() {
-  const [view, setView] = useState<View>("tree");
+  const [view, setView] = useState<View>("employees");
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,16 +214,16 @@ export function MatrixTab() {
     <>
       <div className="flex items-center gap-3 mb-4">
         <button
-          onClick={() => setView("tree")}
-          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "tree" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
-        >
-          Role / Skill / Accreditation Tree
-        </button>
-        <button
           onClick={() => setView("employees")}
           className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "employees" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
         >
           Employee Compliance
+        </button>
+        <button
+          onClick={() => setView("tree")}
+          className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "tree" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
+        >
+          Role / Skill / Accreditation Tree
         </button>
       </div>
 
