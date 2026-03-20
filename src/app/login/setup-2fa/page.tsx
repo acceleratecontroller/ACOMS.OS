@@ -2,13 +2,13 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function SetupTwoFactorPage() {
   const router = useRouter();
   const { data: session, status, update } = useSession();
 
-  const [step, setStep] = useState<"loading" | "scanning" | "confirming" | "backup-codes">("loading");
+  const [step, setStep] = useState<"idle" | "scanning" | "backup-codes">("idle");
   const [qrCode, setQrCode] = useState("");
   const [manualEntry, setManualEntry] = useState("");
   const [confirmCode, setConfirmCode] = useState("");
@@ -16,6 +16,7 @@ export default function SetupTwoFactorPage() {
   const [backupCodesCopied, setBackupCodesCopied] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const setupStarted = useRef(false);
 
   // If not logged in, redirect to login
   // If already has 2FA enabled, redirect to home
@@ -34,8 +35,9 @@ export default function SetupTwoFactorPage() {
         router.push("/");
         return;
       }
-      // User needs to set up 2FA — start the setup
-      if (step === "loading") {
+      // User needs to set up 2FA — start the setup (ref prevents double-fire in strict mode)
+      if (!setupStarted.current) {
+        setupStarted.current = true;
         startSetup();
       }
     }
@@ -43,6 +45,7 @@ export default function SetupTwoFactorPage() {
 
   async function startSetup() {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/auth/two-factor/setup", { method: "POST" });
       const data = await res.json();
@@ -107,11 +110,11 @@ export default function SetupTwoFactorPage() {
     router.refresh();
   }
 
-  if (status === "loading" || step === "loading") {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="w-full max-w-md bg-white rounded border p-6 text-center">
-          <p className="text-sm text-gray-500">Setting up two-factor authentication...</p>
+          <p className="text-sm text-gray-500">Loading...</p>
         </div>
       </div>
     );
@@ -129,6 +132,32 @@ export default function SetupTwoFactorPage() {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {/* Loading state while fetching QR code */}
+        {step === "idle" && !error && (
+          <p className="text-sm text-gray-500 text-center py-4">Setting up two-factor authentication...</p>
+        )}
+
+        {/* Error with retry */}
+        {step === "idle" && error && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setupStarted.current = false; startSetup(); }}
+              disabled={loading}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Retrying..." : "Try Again"}
+            </button>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            >
+              Sign out
+            </button>
           </div>
         )}
 
