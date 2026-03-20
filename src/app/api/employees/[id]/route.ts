@@ -6,6 +6,7 @@ import { audit, diff } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees/[id] — Get a single employee
+// STAFF users can only view their own linked employee record
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,6 +17,12 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  // STAFF can only view their own record
+  if (session.user.role !== "ADMIN" && id !== session.user.employeeId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
     prisma.employee.findUnique({
       where: { id },

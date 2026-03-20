@@ -6,6 +6,7 @@ import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/training/employees/[employeeId]/accreditations
+// STAFF users can only view their own accreditations
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ employeeId: string }> }
@@ -16,6 +17,11 @@ export async function GET(
   }
 
   const { employeeId } = await params;
+
+  // STAFF can only view their own accreditations
+  if (session.user.role !== "ADMIN" && employeeId !== session.user.employeeId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { result, error } = await withPrismaError("Failed to list employee accreditations", () =>
     prisma.employeeAccreditation.findMany({
       where: { employeeId },

@@ -4,10 +4,15 @@ import { auth } from "@/shared/auth/auth";
 import { withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/training/matrix — Full role→skill→accreditation tree + employee summary
+// Admin only — contains all employee training data
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const view = request.nextUrl.searchParams.get("view"); // "tree" or "employees"

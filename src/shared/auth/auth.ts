@@ -21,6 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
+          include: { employee: { select: { id: true } } },
         });
 
         if (!user || !user.isActive) {
@@ -38,6 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          employeeId: user.employee?.id,
         };
       },
     }),
@@ -47,6 +49,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.role = (user as { role: string }).role;
         token.id = user.id;
+        token.employeeId = (user as { employeeId?: string }).employeeId;
       }
       return token;
     },
@@ -54,6 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.employeeId = token.employeeId as string | undefined;
       }
       return session;
     },

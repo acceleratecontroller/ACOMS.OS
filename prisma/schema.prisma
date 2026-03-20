@@ -126,6 +126,9 @@ model User {
   createdAccreditations   Accreditation[]  @relation("AccreditationCreatedBy")
   archivedAccreditations  Accreditation[]  @relation("AccreditationArchivedBy")
 
+  // Linked employee record (optional one-to-one)
+  employee  Employee? @relation("EmployeeUser")
+
   // Audit log entries performed by this user
   auditLogs AuditLog[]
 }
@@ -154,6 +157,10 @@ model Employee {
   employeeNumber String           @unique  // Auto-generated: E0001, E0002, etc.
   firstName      String
   lastName       String
+
+  // Optional link to a User for login access
+  userId         String?        @unique
+  user           User?          @relation("EmployeeUser", fields: [userId], references: [id])
   email          String?                   // Work email
   personalEmail  String?                   // Personal email
   phone          String?

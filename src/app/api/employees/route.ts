@@ -6,6 +6,7 @@ import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/employees — List all active (non-archived) employees
+// STAFF users can only see their own linked employee record
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -13,6 +14,27 @@ export async function GET(request: NextRequest) {
   }
 
   const showArchived = request.nextUrl.searchParams.get("archived") === "true";
+
+  // STAFF: restrict to own employee record only
+  if (session.user.role !== "ADMIN" && session.user.employeeId) {
+    const { result: employee, error } = await withPrismaError("Failed to get employee", () =>
+      prisma.employee.findUnique({
+        where: { id: session.user.employeeId! },
+        include: {
+          trainingRoles: {
+            include: { role: { select: { id: true, name: true, roleNumber: true } } },
+          },
+        },
+      }),
+    );
+    if (error) return error;
+    return NextResponse.json(employee ? [employee] : []);
+  }
+
+  // STAFF without linked employee: return empty
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json([]);
+  }
 
   const { result, error } = await withPrismaError("Failed to list employees", () =>
     prisma.employee.findMany({

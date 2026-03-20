@@ -5,10 +5,15 @@ import { withPrismaError } from "@/shared/api/helpers";
 
 // GET /api/training/compliance-summary
 // Returns counts of employees with expired, expiring-soon, missing, and pending accreditations.
+// Admin only — STAFF users view their own training data through the employee endpoints.
 export async function GET() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const today = new Date();

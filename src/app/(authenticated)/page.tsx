@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/shared/database/client";
+import { auth } from "@/shared/auth/auth";
 
 export default async function DashboardPage() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  // STAFF dashboard — show own info, training status, and read-only asset/plant counts
+  if (!isAdmin) {
+    return <StaffDashboard employeeId={session?.user?.employeeId} />;
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -414,6 +422,142 @@ export default async function DashboardPage() {
           </DashboardCard>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Staff Dashboard ───────────────────────────────── */
+
+async function StaffDashboard({ employeeId }: { employeeId?: string }) {
+  const [totalAssets, totalPlant, employee] = await Promise.all([
+    prisma.asset.count({ where: { isArchived: false } }),
+    prisma.plant.count({ where: { isArchived: false } }),
+    employeeId
+      ? prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: {
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            location: true,
+            employmentType: true,
+            status: true,
+            accreditations: {
+              include: {
+                accreditation: {
+                  select: { name: true, accreditationNumber: true, expires: true },
+                },
+              },
+            },
+            trainingRoles: {
+              include: {
+                role: { select: { name: true } },
+              },
+            },
+          },
+        })
+      : null,
+  ]);
+
+  const pendingCount = employee?.accreditations.filter((a) => a.status === "PENDING").length ?? 0;
+  const expiredCount = employee?.accreditations.filter((a) => a.status === "EXPIRED").length ?? 0;
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {employee ? `Welcome, ${employee.firstName}` : "Welcome"}
+        </p>
+      </div>
+
+      {/* Training alerts for own record */}
+      {(pendingCount > 0 || expiredCount > 0) && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {expiredCount > 0 && (
+            <Link
+              href="/training"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              {expiredCount} expired accreditation{expiredCount !== 1 ? "s" : ""}
+            </Link>
+          )}
+          {pendingCount > 0 && (
+            <Link
+              href="/training"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              {pendingCount} pending accreditation{pendingCount !== 1 ? "s" : ""}
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <StatCard label="Assets" value={totalAssets} href="/assets" />
+        <StatCard label="Plant" value={totalPlant} href="/plant" />
+      </div>
+
+      {/* Employee info + training */}
+      {employee && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <DashboardCard title="Your Details" href={`/employees/${employeeId}`} linkLabel="View">
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Employee #</span>
+                <span className="font-medium text-gray-900">{employee.employeeNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Location</span>
+                <span className="font-medium text-gray-900">{formatEnum(employee.location)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Type</span>
+                <span className="font-medium text-gray-900">{formatEnum(employee.employmentType)}</span>
+              </div>
+              {employee.trainingRoles.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Roles</span>
+                  <span className="font-medium text-gray-900 text-right">
+                    {employee.trainingRoles.map((r) => r.role.name).join(", ")}
+                  </span>
+                </div>
+              )}
+            </dl>
+          </DashboardCard>
+
+          <DashboardCard title="Your Training" href="/training" linkLabel="View all">
+            {employee.accreditations.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No accreditations assigned</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {employee.accreditations.map((ea) => (
+                  <div key={ea.id} className="flex items-center justify-between py-2 first:pt-0 last:pb-0">
+                    <span className="text-sm text-gray-900 truncate">{ea.accreditation.name}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      ea.status === "VERIFIED" ? "bg-green-50 text-green-700" :
+                      ea.status === "EXPIRED" ? "bg-red-50 text-red-700" :
+                      ea.status === "PENDING" ? "bg-amber-50 text-amber-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {ea.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DashboardCard>
+        </div>
+      )}
+
+      {!employee && (
+        <DashboardCard title="Your Details">
+          <p className="text-sm text-gray-400 py-2">Your account is not linked to an employee record. Contact your administrator.</p>
+        </DashboardCard>
+      )}
     </div>
   );
 }

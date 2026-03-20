@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
@@ -45,9 +46,19 @@ interface Employee {
   trainingRoles: { role: TrainingRoleRef }[];
 }
 
+interface AccessInfo {
+  id: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+}
+
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -55,6 +66,26 @@ export default function EmployeeDetailPage() {
   const [error, setError] = useState("");
   const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+
+  // Login access state
+  const [access, setAccess] = useState<AccessInfo | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [showGrantForm, setShowGrantForm] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [accessError, setAccessError] = useState("");
+  const [accessSaving, setAccessSaving] = useState(false);
+
+  const loadAccess = useCallback(() => {
+    if (!isAdmin) return;
+    setAccessLoading(true);
+    fetch(`/api/employees/${id}/access`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        setAccess(data?.access ?? null);
+        setAccessLoading(false);
+      })
+      .catch(() => setAccessLoading(false));
+  }, [id, isAdmin]);
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
@@ -67,7 +98,8 @@ export default function EmployeeDetailPage() {
     fetch("/api/training/roles")
       .then((r) => r.ok ? r.json() : [])
       .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
-  }, [id]);
+    loadAccess();
+  }, [id, loadAccess]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -121,6 +153,91 @@ export default function EmployeeDetailPage() {
     }
   }
 
+  async function handleGrantAccess(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAccessError("");
+    setAccessSaving(true);
+
+    const form = new FormData(e.currentTarget);
+    const res = await fetch(`/api/employees/${id}/access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: form.get("accessEmail"),
+        password: form.get("accessPassword"),
+        role: form.get("accessRole"),
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setAccess(data);
+      setShowGrantForm(false);
+    } else {
+      const data = await res.json();
+      setAccessError(data.error || "Failed to grant access.");
+    }
+    setAccessSaving(false);
+  }
+
+  async function handleRevokeAccess() {
+    if (!confirm("Revoke login access for this employee? They will no longer be able to log in.")) return;
+    setAccessSaving(true);
+    const res = await fetch(`/api/employees/${id}/access`, { method: "DELETE" });
+    if (res.ok) {
+      setAccess((prev) => prev ? { ...prev, isActive: false } : null);
+    }
+    setAccessSaving(false);
+  }
+
+  async function handleReactivateAccess() {
+    setAccessSaving(true);
+    const res = await fetch(`/api/employees/${id}/access`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: true }),
+    });
+    if (res.ok) {
+      setAccess((prev) => prev ? { ...prev, isActive: true } : null);
+    }
+    setAccessSaving(false);
+  }
+
+  async function handleChangeRole(newRole: string) {
+    setAccessSaving(true);
+    const res = await fetch(`/api/employees/${id}/access`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setAccess(data);
+    }
+    setAccessSaving(false);
+  }
+
+  async function handleResetPassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAccessError("");
+    setAccessSaving(true);
+
+    const form = new FormData(e.currentTarget);
+    const res = await fetch(`/api/employees/${id}/access`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: form.get("newPassword") }),
+    });
+
+    if (res.ok) {
+      setShowPasswordReset(false);
+    } else {
+      const data = await res.json();
+      setAccessError(data.error || "Failed to reset password.");
+    }
+    setAccessSaving(false);
+  }
+
   if (loading) return <p className="text-sm text-gray-500">Loading...</p>;
   if (!employee) return <p className="text-sm text-red-500">Employee not found.</p>;
 
@@ -157,12 +274,163 @@ export default function EmployeeDetailPage() {
               <p className="whitespace-pre-wrap">{employee.notes}</p>
             </div>
           )}
-          <div className="flex gap-3 mt-6 pt-4 border-t">
-            <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
-            <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
-            <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-3 mt-6 pt-4 border-t">
+              <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
+              <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
+              <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
+            </div>
+          )}
+          {!isAdmin && (
+            <div className="flex gap-3 mt-6 pt-4 border-t">
+              <button onClick={() => router.push("/employees")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>
+            </div>
+          )}
         </div>
+
+        {/* Login Access Section — Admin only */}
+        {isAdmin && (
+          <div className="max-w-2xl mt-6 bg-white rounded border p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Login Access</h2>
+
+            {accessLoading && <p className="text-sm text-gray-400">Loading...</p>}
+
+            {!accessLoading && !access && !showGrantForm && (
+              <div>
+                <p className="text-sm text-gray-500 mb-3">This employee does not have login access.</p>
+                <button
+                  onClick={() => setShowGrantForm(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700"
+                >
+                  Grant Access
+                </button>
+              </div>
+            )}
+
+            {showGrantForm && (
+              <form onSubmit={handleGrantAccess} className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Login Email</label>
+                    <input
+                      name="accessEmail"
+                      type="email"
+                      required
+                      defaultValue={employee.email || ""}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Temporary Password</label>
+                    <input
+                      name="accessPassword"
+                      type="text"
+                      required
+                      minLength={6}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Min. 6 characters"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    name="accessRole"
+                    defaultValue="STAFF"
+                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="STAFF">Staff (limited access)</option>
+                    <option value="ADMIN">Admin (full access)</option>
+                  </select>
+                </div>
+                {accessError && <p className="text-sm text-red-500">{accessError}</p>}
+                <div className="flex gap-3">
+                  <button type="submit" disabled={accessSaving} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {accessSaving ? "Granting..." : "Grant Access"}
+                  </button>
+                  <button type="button" onClick={() => { setShowGrantForm(false); setAccessError(""); }} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!accessLoading && access && (
+              <div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
+                  <div>
+                    <dt className="text-gray-500">Login Email</dt>
+                    <dd className="font-medium">{access.email}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Status</dt>
+                    <dd>
+                      <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${access.isActive ? "text-green-700" : "text-red-600"}`}>
+                        <span className={`w-2 h-2 rounded-full ${access.isActive ? "bg-green-500" : "bg-red-500"}`} />
+                        {access.isActive ? "Active" : "Revoked"}
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Role</dt>
+                    <dd className="font-medium flex items-center gap-2">
+                      {access.role}
+                      <select
+                        value={access.role}
+                        onChange={(e) => handleChangeRole(e.target.value)}
+                        disabled={accessSaving}
+                        className="ml-2 text-xs border border-gray-300 rounded px-1 py-0.5"
+                      >
+                        <option value="STAFF">STAFF</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
+                    </dd>
+                  </div>
+                </dl>
+
+                {showPasswordReset ? (
+                  <form onSubmit={handleResetPassword} className="mb-3 space-y-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                      <input
+                        name="newPassword"
+                        type="text"
+                        required
+                        minLength={6}
+                        className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Min. 6 characters"
+                      />
+                    </div>
+                    {accessError && <p className="text-sm text-red-500">{accessError}</p>}
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={accessSaving} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                        {accessSaving ? "Resetting..." : "Reset Password"}
+                      </button>
+                      <button type="button" onClick={() => { setShowPasswordReset(false); setAccessError(""); }} className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-50">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowPasswordReset(true)} className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-50">
+                      Reset Password
+                    </button>
+                    {access.isActive ? (
+                      <button onClick={handleRevokeAccess} disabled={accessSaving} className="border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50">
+                        Revoke Access
+                      </button>
+                    ) : (
+                      <button onClick={handleReactivateAccess} disabled={accessSaving} className="border border-green-300 text-green-700 px-3 py-1.5 rounded text-sm hover:bg-green-50 disabled:opacity-50">
+                        Reactivate Access
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }

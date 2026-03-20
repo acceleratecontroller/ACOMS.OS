@@ -3,13 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { navigationItems } from "@/config/navigation";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: session } = useSession();
+  const role = session?.user?.role;
 
-  const navLinks = navigationItems.map((item) => {
+  const visibleItems = navigationItems.filter(
+    (item) => !item.adminOnly || role === "ADMIN"
+  );
+
+  const navLinks = visibleItems.map((item) => {
     const isActive =
       item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
     return (
