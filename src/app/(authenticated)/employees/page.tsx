@@ -449,113 +449,117 @@ function EmployeesContent() {
 
         {selected && editing && (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Edit Employee</h2>
-            <p className="text-sm text-gray-500 mb-5">Employee # {selected.employeeNumber}</p>
-            <form onSubmit={handleUpdate} className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FormField label="First Name" name="firstName" required defaultValue={selected.firstName} />
-                <FormField label="Last Name" name="lastName" required defaultValue={selected.lastName} />
-                <FormField label="Phone" name="phone" defaultValue={selected.phone || ""} />
+            {/* ── Header ── */}
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold text-gray-900">Edit Employee</h2>
+                  <StatusBadge status={selected.status} />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selected.employeeNumber} &middot; {selected.firstName} {selected.lastName}
+                </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <FormField label="Work Email" name="email" type="email" defaultValue={selected.email || ""} />
-                <FormField label="Personal Email" name="personalEmail" type="email" defaultValue={selected.personalEmail || ""} />
+              <div className="flex items-center gap-2 shrink-0 ml-4">
+                <button type="button" onClick={() => setConfirmAction({ type: "archive" })} className="px-3 py-1.5 rounded-lg text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50 transition-colors">
+                  Archive
+                </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FormField label="Date of Birth" name="dateOfBirth" type="date" defaultValue={formatDate(selected.dateOfBirth)} />
-                <div className="md:col-span-2">
+            </div>
+
+            <form onSubmit={handleUpdate} className="space-y-4">
+              {/* ── Identity ── */}
+              <EditSection title="Identity">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormField label="First Name" name="firstName" required defaultValue={selected.firstName} />
+                  <FormField label="Last Name" name="lastName" required defaultValue={selected.lastName} />
+                  <FormField label="Date of Birth" name="dateOfBirth" type="date" defaultValue={formatDate(selected.dateOfBirth)} />
+                </div>
+              </EditSection>
+
+              {/* ── Employment ── */}
+              <EditSection title="Employment">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SelectField label="Employment Type" name="employmentType" required defaultValue={selected.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
+                  <SelectField label="Location" name="location" required defaultValue={selected.location} options={LOCATION_OPTIONS} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+                  <SelectField label="Status" name="status" required defaultValue={selected.status} options={STATUS_OPTIONS} />
+                  <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(selected.startDate)} />
+                  <ClearableDateField label="Probation Review" name="probationDate" defaultValue={formatDate(selected.probationDate)} />
+                  <ClearableDateField label="End Date" name="endDate" defaultValue={formatDate(selected.endDate)} />
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                  <div className="border border-gray-300 rounded-lg p-2 max-h-28 overflow-y-auto space-y-0.5">
+                    {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
+                    {trainingRoles.map((role) => (
+                      <label key={role.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedRoleIds.includes(role.id)}
+                          onChange={(e) => {
+                            setSelectedRoleIds((prev) =>
+                              e.target.checked ? [...prev, role.id] : prev.filter((id) => id !== role.id)
+                            );
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-900">{role.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </EditSection>
+
+              {/* ── Contact ── */}
+              <EditSection title="Contact">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormField label="Phone" name="phone" defaultValue={selected.phone || ""} />
+                  <FormField label="Work Email" name="email" type="email" defaultValue={selected.email || ""} />
+                  <FormField label="Personal Email" name="personalEmail" type="email" defaultValue={selected.personalEmail || ""} />
+                </div>
+                <div className="mt-3">
                   <AddressAutocomplete label="Address" name="address" defaultValue={selected.address || ""} />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
-                <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
-                  {trainingRoles.length === 0 && <p className="text-xs text-gray-400 py-1">No roles created yet. Add roles in the Training tab.</p>}
-                  {trainingRoles.map((role) => (
-                    <label key={role.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedRoleIds.includes(role.id)}
-                        onChange={(e) => {
-                          setSelectedRoleIds((prev) =>
-                            e.target.checked ? [...prev, role.id] : prev.filter((id) => id !== role.id)
-                          );
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-900">{role.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <SelectField label="Employment Type" name="employmentType" required defaultValue={selected.employmentType} options={EMPLOYMENT_TYPE_OPTIONS} />
-                <SelectField label="Location" name="location" required defaultValue={selected.location} options={LOCATION_OPTIONS} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FormField label="Start Date" name="startDate" type="date" required defaultValue={formatDate(selected.startDate)} />
-                <ClearableDateField label="End Date" name="endDate" defaultValue={formatDate(selected.endDate)} />
-                <ClearableDateField label="Probation Review Date" name="probationDate" defaultValue={formatDate(selected.probationDate)} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <SelectField label="Status" name="status" required defaultValue={selected.status} options={STATUS_OPTIONS} />
-              </div>
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Uniform Size</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-                      Shirt
-                    </label>
-                    <select name="shirtSize" defaultValue={selected.shirtSize || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select...</option>
-                      {SHIRT_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
-                      Pants
-                    </label>
-                    <select name="pantsSize" defaultValue={selected.pantsSize || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select...</option>
-                      {PANTS_SIZE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <TextAreaField label="Notes" name="notes" defaultValue={selected.notes || ""} rows={2} />
+              </EditSection>
 
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Contact</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <FormField label="First Name" name="emergencyFirstName" defaultValue={selected.emergencyFirstName || ""} />
-                  <FormField label="Last Name" name="emergencyLastName" defaultValue={selected.emergencyLastName || ""} />
-                  <SelectField label="Relationship" name="emergencyRelation" defaultValue={selected.emergencyRelation || ""} options={EMERGENCY_RELATION_OPTIONS} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                  <FormField label="Contact Number" name="emergencyPhone" defaultValue={selected.emergencyPhone || ""} />
-                  <FormField label="Alternative Number" name="emergencyPhoneAlt" defaultValue={selected.emergencyPhoneAlt || ""} />
-                </div>
+              {/* ── Personal & Emergency Contact side by side ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <EditSection title="Personal">
+                  <div className="grid grid-cols-2 gap-3">
+                    <SelectField label="Shirt Size" name="shirtSize" defaultValue={selected.shirtSize || ""} options={SHIRT_SIZE_OPTIONS} />
+                    <SelectField label="Pants Size" name="pantsSize" defaultValue={selected.pantsSize || ""} options={PANTS_SIZE_OPTIONS} />
+                  </div>
+                </EditSection>
+
+                <EditSection title="Emergency Contact" titleColor="text-red-600">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <FormField label="First Name" name="emergencyFirstName" defaultValue={selected.emergencyFirstName || ""} />
+                    <FormField label="Last Name" name="emergencyLastName" defaultValue={selected.emergencyLastName || ""} />
+                    <SelectField label="Relationship" name="emergencyRelation" defaultValue={selected.emergencyRelation || ""} options={EMERGENCY_RELATION_OPTIONS} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <FormField label="Contact Number" name="emergencyPhone" defaultValue={selected.emergencyPhone || ""} />
+                    <FormField label="Alt. Number" name="emergencyPhoneAlt" defaultValue={selected.emergencyPhoneAlt || ""} />
+                  </div>
+                </EditSection>
               </div>
+
+              {/* ── Notes ── */}
+              <EditSection title="Notes">
+                <TextAreaField label="" name="notes" defaultValue={selected.notes || ""} rows={2} />
+              </EditSection>
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
 
-              <div className="flex gap-3 pt-3">
+              {/* ── Footer actions ── */}
+              <div className="flex items-center gap-3 pt-2">
                 <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
-                <button type="button" onClick={closeModal} className="border border-gray-300 px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700 transition-colors">
                   Cancel
-                </button>
-                <div className="flex-1" />
-                <button type="button" onClick={() => setConfirmAction({ type: "archive" })} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition-colors">
-                  Archive
                 </button>
               </div>
             </form>
@@ -705,6 +709,19 @@ function DetailField({ label, value, className }: { label: string; value: string
     <div className={className}>
       <dt className="text-xs text-gray-500 mb-0.5">{label}</dt>
       <dd className="text-sm font-medium text-gray-900">{value || "—"}</dd>
+    </div>
+  );
+}
+
+function EditSection({ title, titleColor, children }: { title: string; titleColor?: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-gray-200 rounded-lg bg-white">
+      <div className="px-4 py-2 border-b border-gray-100">
+        <h3 className={`text-xs font-semibold uppercase tracking-wider ${titleColor || "text-gray-500"}`}>{title}</h3>
+      </div>
+      <div className="px-4 py-3">
+        {children}
+      </div>
     </div>
   );
 }
