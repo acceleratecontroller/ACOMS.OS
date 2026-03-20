@@ -24,5 +24,6 @@ declare module "@auth/core/jwt" {
     role?: string;
     id?: string;
     employeeId?: string;
+    isRevoked?: boolean;
   }
 }

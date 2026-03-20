@@ -39,6 +39,14 @@ export async function middleware(request: NextRequest) {
         salt: tokenCookie.name,
       });
 
+      // If user has been revoked, clear cookies and redirect to login
+      if (token?.isRevoked) {
+        const response = NextResponse.redirect(new URL("/login", request.url));
+        response.cookies.delete("authjs.session-token");
+        response.cookies.delete("__Secure-authjs.session-token");
+        return response;
+      }
+
       if (token?.role && token.role !== "ADMIN") {
         // Check if STAFF user is trying to access admin-only page routes
         const isAdminOnlyPage = ADMIN_ONLY_ROUTES.some(
