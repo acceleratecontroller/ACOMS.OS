@@ -436,6 +436,11 @@ model Accreditation {
   name                 String
   description          String?
 
+  // Expiry / renewal settings
+  expires       Boolean @default(false)  // Does this accreditation expire?
+  renewalMonths Int?                     // Renewal frequency in months (e.g. 12, 24, 36)
+  renewalNotes  String?                  // E.g. "Must complete refresher course"
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   createdBy    User     @relation("AccreditationCreatedBy", fields: [createdById], references: [id])

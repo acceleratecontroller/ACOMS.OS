@@ -65,6 +65,9 @@ export async function PUT(
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description || null }),
+        ...(data.expires !== undefined && { expires: data.expires }),
+        ...(data.renewalMonths !== undefined && { renewalMonths: data.renewalMonths ?? null }),
+        ...(data.renewalNotes !== undefined && { renewalNotes: data.renewalNotes || null }),
       },
     }),
   );

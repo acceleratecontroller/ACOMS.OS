@@ -11,12 +11,37 @@ interface Accreditation {
   accreditationNumber: string;
   name: string;
   description: string | null;
+  expires: boolean;
+  renewalMonths: number | null;
+  renewalNotes: string | null;
   isArchived: boolean;
 }
+
+const RENEWAL_OPTIONS = [
+  { value: 6, label: "6 months" },
+  { value: 12, label: "12 months" },
+  { value: 24, label: "2 years" },
+  { value: 36, label: "3 years" },
+  { value: 60, label: "5 years" },
+];
 
 const columns: Column<Accreditation>[] = [
   { key: "accreditationNumber", label: "Accreditation #" },
   { key: "name", label: "Name" },
+  {
+    key: "expires",
+    label: "Expiry",
+    render: (item) => {
+      if (!item.expires) return <span className="text-gray-400">No expiry</span>;
+      const period = RENEWAL_OPTIONS.find((o) => o.value === item.renewalMonths);
+      return (
+        <span className="text-amber-600 font-medium">
+          Every {period ? period.label : `${item.renewalMonths}mo`}
+        </span>
+      );
+    },
+    hideOnMobile: true,
+  },
   {
     key: "description",
     label: "Description",
@@ -36,6 +61,11 @@ export function AccreditationsTab() {
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
 
+  // Expiry form state (shared between create and edit)
+  const [formExpires, setFormExpires] = useState(false);
+  const [formRenewalMonths, setFormRenewalMonths] = useState<number | "">("");
+  const [formRenewalNotes, setFormRenewalNotes] = useState("");
+
   const loadAccreditations = useCallback((archived: boolean) => {
     setLoading(true);
     const url = archived ? "/api/training/accreditations?archived=true" : "/api/training/accreditations";
@@ -47,11 +77,18 @@ export function AccreditationsTab() {
 
   useEffect(() => { loadAccreditations(showArchived); }, [loadAccreditations, showArchived]);
 
+  function resetExpiryForm() {
+    setFormExpires(false);
+    setFormRenewalMonths("");
+    setFormRenewalNotes("");
+  }
+
   function closeModal() {
     setSelected(null);
     setEditing(false);
     setCreating(false);
     setError("");
+    resetExpiryForm();
   }
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -59,7 +96,13 @@ export function AccreditationsTab() {
     setError("");
     setSaving(true);
     const fd = new FormData(e.currentTarget);
-    const body = { name: fd.get("name"), description: fd.get("description") || null };
+    const body = {
+      name: fd.get("name"),
+      description: fd.get("description") || null,
+      expires: formExpires,
+      renewalMonths: formExpires && formRenewalMonths ? Number(formRenewalMonths) : null,
+      renewalNotes: formExpires ? (fd.get("renewalNotes") as string) || null : null,
+    };
     const res = await fetch("/api/training/accreditations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,7 +124,13 @@ export function AccreditationsTab() {
     setError("");
     setSaving(true);
     const fd = new FormData(e.currentTarget);
-    const body = { name: fd.get("name"), description: fd.get("description") || null };
+    const body = {
+      name: fd.get("name"),
+      description: fd.get("description") || null,
+      expires: formExpires,
+      renewalMonths: formExpires && formRenewalMonths ? Number(formRenewalMonths) : null,
+      renewalNotes: formExpires ? (fd.get("renewalNotes") as string) || null : null,
+    };
     const res = await fetch(`/api/training/accreditations/${selected.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -112,6 +161,40 @@ export function AccreditationsTab() {
     loadAccreditations(showArchived);
   }
 
+  function ExpiryFields() {
+    return (
+      <div className="border border-gray-200 rounded-lg p-3 space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formExpires}
+            onChange={(e) => setFormExpires(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-gray-700">This accreditation expires</span>
+        </label>
+        {formExpires && (
+          <div className="space-y-3 pl-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Renewal Period</label>
+              <select
+                value={formRenewalMonths}
+                onChange={(e) => setFormRenewalMonths(e.target.value ? Number(e.target.value) : "")}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select...</option>
+                {RENEWAL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <TextAreaField label="Renewal Notes" name="renewalNotes" defaultValue={formRenewalNotes} rows={2} placeholder="E.g. Must complete refresher course" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-4">
@@ -119,7 +202,7 @@ export function AccreditationsTab() {
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="rounded" />
           Show archived
         </label>
-        <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+        <button onClick={() => { resetExpiryForm(); setCreating(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
           + New Accreditation
         </button>
       </div>
@@ -137,6 +220,7 @@ export function AccreditationsTab() {
         <form onSubmit={handleCreate} className="space-y-4">
           <FormField label="Name" name="name" required />
           <TextAreaField label="Description" name="description" />
+          <ExpiryFields />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={closeModal} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
             <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
@@ -156,7 +240,17 @@ export function AccreditationsTab() {
                 <h2 className="text-lg font-semibold">{selected.name}</h2>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setEditing(true)} className="text-blue-600 text-sm hover:underline">Edit</button>
+                <button
+                  onClick={() => {
+                    setFormExpires(selected.expires);
+                    setFormRenewalMonths(selected.renewalMonths ?? "");
+                    setFormRenewalNotes(selected.renewalNotes || "");
+                    setEditing(true);
+                  }}
+                  className="text-blue-600 text-sm hover:underline"
+                >
+                  Edit
+                </button>
                 <button
                   onClick={() => setConfirmAction({ type: selected.isArchived ? "restore" : "archive" })}
                   className={`text-sm hover:underline ${selected.isArchived ? "text-green-600" : "text-red-600"}`}
@@ -167,6 +261,19 @@ export function AccreditationsTab() {
             </div>
             <div className="space-y-3 text-sm">
               {selected.description && <div><span className="text-gray-500">Description:</span> {selected.description}</div>}
+              <div>
+                <span className="text-gray-500">Expiry: </span>
+                {selected.expires ? (
+                  <span className="text-amber-600 font-medium">
+                    Expires — renew every {RENEWAL_OPTIONS.find((o) => o.value === selected.renewalMonths)?.label || `${selected.renewalMonths} months`}
+                  </span>
+                ) : (
+                  <span className="text-gray-600">Does not expire</span>
+                )}
+              </div>
+              {selected.expires && selected.renewalNotes && (
+                <div><span className="text-gray-500">Renewal Notes:</span> {selected.renewalNotes}</div>
+              )}
             </div>
           </div>
         )}
@@ -178,6 +285,7 @@ export function AccreditationsTab() {
             <form onSubmit={handleUpdate} className="space-y-4">
               <FormField label="Name" name="name" required defaultValue={selected.name} />
               <TextAreaField label="Description" name="description" defaultValue={selected.description || ""} />
+              <ExpiryFields />
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
                 <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">

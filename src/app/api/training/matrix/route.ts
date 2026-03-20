@@ -42,7 +42,11 @@ export async function GET(request: NextRequest) {
                           name: true,
                           isArchived: true,
                           accreditationLinks: {
-                            select: { accreditationId: true },
+                            include: {
+                              accreditation: {
+                                select: { id: true, accreditationNumber: true, name: true, expires: true, renewalMonths: true },
+                              },
+                            },
                           },
                         },
                       },
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
           accreditations: {
             include: {
               accreditation: {
-                select: { id: true, accreditationNumber: true, name: true, isArchived: true },
+                select: { id: true, accreditationNumber: true, name: true, isArchived: true, expires: true, renewalMonths: true },
               },
             },
           },
