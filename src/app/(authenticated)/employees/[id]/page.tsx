@@ -56,7 +56,7 @@ interface AccessInfo {
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -76,7 +76,7 @@ export default function EmployeeDetailPage() {
   const [accessSaving, setAccessSaving] = useState(false);
 
   const loadAccess = useCallback(() => {
-    if (!isAdmin) return;
+    if (sessionStatus !== "authenticated" || !isAdmin) return;
     setAccessLoading(true);
     fetch(`/api/employees/${id}/access`)
       .then((r) => r.ok ? r.json() : null)
@@ -85,7 +85,7 @@ export default function EmployeeDetailPage() {
         setAccessLoading(false);
       })
       .catch(() => setAccessLoading(false));
-  }, [id, isAdmin]);
+  }, [id, isAdmin, sessionStatus]);
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
