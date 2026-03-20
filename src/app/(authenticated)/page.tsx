@@ -8,6 +8,9 @@ export default async function DashboardPage() {
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
+  const thirtyDaysFromNow = new Date(today);
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
   // Parallel fetch all dashboard data
   const [
     // Employee stats
@@ -32,6 +35,9 @@ export default async function DashboardPage() {
     overdueRecurring,
     // Recent activity
     recentActivity,
+    // Training compliance
+    expiredAccredEmployees,
+    expiringSoonAccredEmployees,
   ] = await Promise.all([
     // Employees
     prisma.employee.count({ where: { isArchived: false, status: "ACTIVE" } }),
@@ -113,6 +119,28 @@ export default async function DashboardPage() {
       orderBy: { performedAt: "desc" },
       take: 8,
     }),
+    // Training: employees with expired accreditations
+    prisma.employeeAccreditation.findMany({
+      where: {
+        expiryDate: { lt: today },
+        accreditation: { expires: true, isArchived: false },
+        employee: { isArchived: false },
+        status: { not: "EXEMPT" },
+      },
+      select: { employeeId: true },
+      distinct: ["employeeId"],
+    }),
+    // Training: employees with accreditations expiring within 30 days
+    prisma.employeeAccreditation.findMany({
+      where: {
+        expiryDate: { gte: today, lte: thirtyDaysFromNow },
+        accreditation: { expires: true, isArchived: false },
+        employee: { isArchived: false },
+        status: { not: "EXEMPT" },
+      },
+      select: { employeeId: true },
+      distinct: ["employeeId"],
+    }),
   ]);
 
   const totalOverdue = overdueTasks + overdueRecurring;
@@ -138,7 +166,7 @@ export default async function DashboardPage() {
       </p>
 
       {/* Alerts Banner */}
-      {(totalOverdue > 0 || plantServiceOverdue.length > 0) && (
+      {(totalOverdue > 0 || plantServiceOverdue.length > 0 || expiredAccredEmployees.length > 0) && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
           <h2 className="text-sm font-semibold text-red-800 mb-2">Attention Required</h2>
           <div className="flex flex-wrap gap-4 text-sm text-red-700">
@@ -157,6 +185,22 @@ export default async function DashboardPage() {
                 {plantServiceOverdue.length} plant item{plantServiceOverdue.length !== 1 ? "s" : ""} overdue for service
               </Link>
             )}
+            {expiredAccredEmployees.length > 0 && (
+              <Link href="/training" className="underline hover:text-red-900">
+                {expiredAccredEmployees.length} employee{expiredAccredEmployees.length !== 1 ? "s" : ""} with expired accreditations
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expiring soon warning (separate amber banner) */}
+      {expiringSoonAccredEmployees.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded">
+          <div className="flex flex-wrap gap-4 text-sm text-amber-700">
+            <Link href="/training" className="underline hover:text-amber-900">
+              {expiringSoonAccredEmployees.length} employee{expiringSoonAccredEmployees.length !== 1 ? "s" : ""} with accreditations expiring within 30 days
+            </Link>
           </div>
         </div>
       )}

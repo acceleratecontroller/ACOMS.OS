@@ -79,6 +79,7 @@ const STATUS_COLORS: Record<string, string> = {
   EXPIRED: "bg-red-100 text-red-700",
   EXEMPT: "bg-blue-100 text-blue-700",
   MISSING: "bg-gray-100 text-gray-500",
+  EXPIRY_PASSED: "bg-red-100 text-red-700",
 };
 
 const STATUS_OPTIONS = ["PENDING", "VERIFIED", "EXPIRED", "EXEMPT"] as const;
@@ -90,18 +91,61 @@ interface AccredEditRow {
   accreditationNumber: string;
   expires: boolean;
   renewalMonths: number | null;
-  // existing EmployeeAccreditation record (null if MISSING)
   recordId: string | null;
-  // editable fields
   status: string;
   expiryDate: string;
   certificateNumber: string;
   notes: string;
-  // track if changed
   dirty: boolean;
 }
 
-// ─── Helpers ───────────────────────────────────────────
+// ─── Date helpers ──────────────────────────────────────
+const EXPIRY_SOON_DAYS = 30;
+
+function isDateExpired(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+function isDateExpiringSoon(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const soonDate = new Date(today);
+  soonDate.setDate(soonDate.getDate() + EXPIRY_SOON_DAYS);
+  return d >= today && d <= soonDate;
+}
+
+function daysUntil(dateStr: string): number {
+  const d = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Determine the effective compliance status for a held accreditation.
+ * VERIFIED but with a past expiryDate → effectively expired (not compliant).
+ * EXEMPT → always compliant regardless of dates.
+ */
+function getEffectiveStatus(held: EmployeeAccred): string {
+  if (held.status === "EXEMPT") return "EXEMPT";
+  if (held.status === "VERIFIED" && held.accreditation.expires && isDateExpired(held.expiryDate)) {
+    return "EXPIRY_PASSED";
+  }
+  return held.status;
+}
+
+function isEffectivelyCompliant(held: EmployeeAccred): boolean {
+  const eff = getEffectiveStatus(held);
+  return eff === "VERIFIED" || eff === "EXEMPT";
+}
+
+// ─── Compliance computation ────────────────────────────
 function computeCompliance(emp: EmployeeRow) {
   const requiredAccredIds = new Set<string>();
   emp.trainingRoles.forEach((tr) => {
@@ -115,13 +159,22 @@ function computeCompliance(emp: EmployeeRow) {
   const heldMap = new Map(emp.accreditations.map((ea) => [ea.accreditation.id, ea]));
   const total = requiredAccredIds.size;
   let compliant = 0;
+  let expiredCount = 0;
+  let expiringSoonCount = 0;
+
   requiredAccredIds.forEach((id) => {
     const held = heldMap.get(id);
-    if (held && (held.status === "VERIFIED" || held.status === "EXEMPT")) compliant++;
+    if (held) {
+      if (isEffectivelyCompliant(held)) compliant++;
+      if (held.accreditation.expires) {
+        if (isDateExpired(held.expiryDate)) expiredCount++;
+        else if (isDateExpiringSoon(held.expiryDate)) expiringSoonCount++;
+      }
+    }
   });
 
   const pct = total > 0 ? Math.round((compliant / total) * 100) : 100;
-  return { requiredAccredIds, heldMap, pct, total, compliant };
+  return { requiredAccredIds, heldMap, pct, total, compliant, expiredCount, expiringSoonCount };
 }
 
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
@@ -154,7 +207,6 @@ export function MatrixTab() {
 
   function handleModalClose() {
     setSelectedEmployee(null);
-    // Refresh employee data after modal closes to reflect any changes
     if (view === "employees") loadData("employees");
   }
 
@@ -183,7 +235,6 @@ export function MatrixTab() {
         <EmployeeComplianceView employees={employees} onEmployeeClick={handleEmployeeClick} />
       )}
 
-      {/* Compliance Edit Modal */}
       {selectedEmployee && (
         <ComplianceModal employee={selectedEmployee} onClose={handleModalClose} />
       )}
@@ -270,7 +321,7 @@ function EmployeeComplianceView({ employees, onEmployeeClick }: { employees: Emp
   return (
     <div className="space-y-3">
       {employees.map((emp) => {
-        const { requiredAccredIds, heldMap, pct } = computeCompliance(emp);
+        const { requiredAccredIds, heldMap, pct, expiredCount, expiringSoonCount } = computeCompliance(emp);
         const barColor = pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-500";
 
         return (
@@ -284,9 +335,21 @@ function EmployeeComplianceView({ employees, onEmployeeClick }: { employees: Emp
                 <span className="text-xs font-mono text-gray-400">{emp.employeeNumber}</span>
                 <span className="ml-2 font-medium">{emp.firstName} {emp.lastName}</span>
               </div>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                {pct}% compliant
-              </span>
+              <div className="flex items-center gap-2">
+                {expiredCount > 0 && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-100 text-red-700">
+                    {expiredCount} expired
+                  </span>
+                )}
+                {expiringSoonCount > 0 && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                    {expiringSoonCount} expiring soon
+                  </span>
+                )}
+                <span className={`text-xs font-medium px-2 py-0.5 rounded ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                  {pct}% compliant
+                </span>
+              </div>
             </div>
 
             {/* Progress bar */}
@@ -306,17 +369,22 @@ function EmployeeComplianceView({ employees, onEmployeeClick }: { employees: Emp
               <div className="flex flex-wrap gap-1 mt-1">
                 {Array.from(requiredAccredIds).map((accredId) => {
                   const held = heldMap.get(accredId);
-                  // Find accreditation name from the role tree
                   const accredDef = held?.accreditation || emp.trainingRoles
                     .flatMap((tr) => tr.role.skillLinks)
                     .flatMap((sl) => sl.skill.accreditationLinks)
                     .map((al) => al.accreditation)
                     .find((a) => a.id === accredId);
                   const label = accredDef?.name || accredId;
-                  const status = held ? held.status : "MISSING";
+
+                  // Use effective status (date-aware)
+                  const effectiveStatus = held ? getEffectiveStatus(held) : "MISSING";
+                  const displayLabel = effectiveStatus === "EXPIRY_PASSED"
+                    ? "Expired (date)"
+                    : (ACCREDITATION_STATUS_LABELS[effectiveStatus] || effectiveStatus);
+
                   return (
-                    <span key={accredId} className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[status] || STATUS_COLORS.MISSING}`}>
-                      {label}: {ACCREDITATION_STATUS_LABELS[status] || status}
+                    <span key={accredId} className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[effectiveStatus] || STATUS_COLORS.MISSING}`}>
+                      {label}: {displayLabel}
                     </span>
                   );
                 })}
@@ -336,11 +404,9 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Build edit rows from employee data
   useEffect(() => {
     const heldMap = new Map(employee.accreditations.map((ea) => [ea.accreditation.id, ea]));
 
-    // Collect all required accreditations from role→skill→accreditation chain
     const accredMap = new Map<string, AccredDef>();
     employee.trainingRoles.forEach((tr) => {
       tr.role.skillLinks.forEach((sl) => {
@@ -368,10 +434,10 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
       });
     });
 
-    // Sort: non-compliant first, then alphabetical
+    // Sort: non-compliant first (including date-expired), then alphabetical
     editRows.sort((a, b) => {
-      const aOk = a.status === "VERIFIED" || a.status === "EXEMPT" ? 1 : 0;
-      const bOk = b.status === "VERIFIED" || b.status === "EXEMPT" ? 1 : 0;
+      const aOk = (a.status === "VERIFIED" && !isDateExpired(a.expiryDate)) || a.status === "EXEMPT" ? 1 : 0;
+      const bOk = (b.status === "VERIFIED" && !isDateExpired(b.expiryDate)) || b.status === "EXEMPT" ? 1 : 0;
       if (aOk !== bOk) return aOk - bOk;
       return a.accreditationName.localeCompare(b.accreditationName);
     });
@@ -399,7 +465,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     try {
       for (const row of dirtyRows) {
         if (row.recordId) {
-          // UPDATE existing record
           const res = await fetch(`/api/training/employees/${employee.id}/accreditations/${row.recordId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -415,7 +480,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
             throw new Error(err.error || `Failed to update ${row.accreditationName}`);
           }
         } else {
-          // CREATE new record (was MISSING)
           const res = await fetch(`/api/training/employees/${employee.id}/accreditations`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -435,9 +499,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
       }
 
       setSuccessMsg(`Saved ${dirtyRows.length} change${dirtyRows.length > 1 ? "s" : ""}.`);
-      // Mark all clean
       setRows((prev) => prev.map((r) => ({ ...r, dirty: false })));
-      // Auto-close after brief delay
       setTimeout(() => onClose(), 800);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -446,7 +508,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     }
   }
 
-  const { pct, compliant, total } = computeCompliance(employee);
+  const { pct, compliant, total, expiredCount, expiringSoonCount } = computeCompliance(employee);
   const dirtyCount = rows.filter((r) => r.dirty).length;
 
   return (
@@ -460,9 +522,21 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
               {employee.firstName} {employee.lastName}
             </h2>
           </div>
-          <span className={`text-sm font-medium px-3 py-1 rounded-full ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-            {compliant}/{total} — {pct}%
-          </span>
+          <div className="flex items-center gap-2">
+            {expiredCount > 0 && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-100 text-red-700">
+                {expiredCount} expired
+              </span>
+            )}
+            {expiringSoonCount > 0 && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                {expiringSoonCount} soon
+              </span>
+            )}
+            <span className={`text-sm font-medium px-3 py-1 rounded-full ${pct === 100 ? "bg-green-100 text-green-700" : pct >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+              {compliant}/{total} — {pct}%
+            </span>
+          </div>
         </div>
 
         {employee.trainingRoles.length > 0 && (
@@ -480,86 +554,116 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
           {rows.length === 0 && (
             <p className="text-sm text-gray-500 py-4 text-center">No accreditations required for assigned roles.</p>
           )}
-          {rows.map((row, idx) => (
-            <div
-              key={row.accreditationId}
-              className={`border rounded-lg p-3 space-y-2 ${row.dirty ? "border-blue-300 bg-blue-50/30" : "border-gray-200"}`}
-            >
-              {/* Accreditation header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-mono text-gray-400 mr-2">{row.accreditationNumber}</span>
-                  <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
-                </div>
-                {row.expires && (
-                  <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                    Renew every {row.renewalMonths ? `${row.renewalMonths}mo` : "—"}
-                  </span>
-                )}
-              </div>
+          {rows.map((row, idx) => {
+            const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
+            const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
+            const showExpiryWarning = row.status === "VERIFIED" && dateExpired;
+            const showExpiringSoonWarning = row.status === "VERIFIED" && dateExpiringSoon;
 
-              {/* Editable fields */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {/* Status */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">Status</label>
-                  <select
-                    value={row.status === "MISSING" ? "" : row.status}
-                    onChange={(e) => updateRow(idx, "status", e.target.value)}
-                    className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      row.status === "VERIFIED" ? "border-green-300 bg-green-50" :
-                      row.status === "EXPIRED" ? "border-red-300 bg-red-50" :
-                      row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
-                      row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
-                      "border-yellow-300 bg-yellow-50"
-                    }`}
-                  >
-                    {row.status === "MISSING" && <option value="">Missing</option>}
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Expiry Date — only if accreditation expires */}
-                {row.expires && (
+            return (
+              <div
+                key={row.accreditationId}
+                className={`border rounded-lg p-3 space-y-2 ${
+                  row.dirty ? "border-blue-300 bg-blue-50/30" :
+                  showExpiryWarning ? "border-red-300 bg-red-50/30" :
+                  showExpiringSoonWarning ? "border-amber-300 bg-amber-50/30" :
+                  "border-gray-200"
+                }`}
+              >
+                {/* Accreditation header */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Expiry Date</label>
-                    <input
-                      type="date"
-                      value={row.expiryDate}
-                      onChange={(e) => updateRow(idx, "expiryDate", e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <span className="text-xs font-mono text-gray-400 mr-2">{row.accreditationNumber}</span>
+                    <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {row.expires && row.renewalMonths && (
+                      <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
+                        Typical: {row.renewalMonths}mo renewal
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expiry warnings */}
+                {showExpiryWarning && (
+                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    Expired on {row.expiryDate} — status shows Verified but expiry date has passed. Not compliant until renewed.
+                  </div>
+                )}
+                {showExpiringSoonWarning && row.expiryDate && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    Expires in {daysUntil(row.expiryDate)} days ({row.expiryDate}). Plan renewal soon.
                   </div>
                 )}
 
-                {/* Certificate Number */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
-                  <input
-                    type="text"
-                    value={row.certificateNumber}
-                    onChange={(e) => updateRow(idx, "certificateNumber", e.target.value)}
-                    placeholder="—"
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                {/* Editable fields */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {/* Status */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Status</label>
+                    <select
+                      value={row.status === "MISSING" ? "" : row.status}
+                      onChange={(e) => updateRow(idx, "status", e.target.value)}
+                      className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
+                        row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
+                        row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
+                        row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
+                        "border-yellow-300 bg-yellow-50"
+                      }`}
+                    >
+                      {row.status === "MISSING" && <option value="">Missing</option>}
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Notes */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
-                  <input
-                    type="text"
-                    value={row.notes}
-                    onChange={(e) => updateRow(idx, "notes", e.target.value)}
-                    placeholder="—"
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {/* Expiry Date — only if accreditation expires */}
+                  {row.expires && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Expiry Date</label>
+                      <input
+                        type="date"
+                        value={row.expiryDate}
+                        onChange={(e) => updateRow(idx, "expiryDate", e.target.value)}
+                        className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          dateExpired ? "border-red-300 bg-red-50 text-red-700" :
+                          dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
+                          "border-gray-300"
+                        }`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Certificate Number */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
+                    <input
+                      type="text"
+                      value={row.certificateNumber}
+                      onChange={(e) => updateRow(idx, "certificateNumber", e.target.value)}
+                      placeholder="—"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
+                    <input
+                      type="text"
+                      value={row.notes}
+                      onChange={(e) => updateRow(idx, "notes", e.target.value)}
+                      placeholder="—"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer */}
