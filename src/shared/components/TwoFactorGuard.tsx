@@ -4,33 +4,37 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+const ADMIN_EMAIL = "admin@acoms.local";
+
 /**
- * Redirects users to /login/verify if they have 2FA enabled but haven't verified yet.
- * Wrap authenticated pages with this component.
+ * Guards authenticated pages:
+ * - If 2FA is enabled but not verified this session → redirect to /login/verify
+ * - If 2FA is not enabled and user is not the root admin → redirect to /login/setup-2fa
  */
 export function TwoFactorGuard({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  useEffect(() => {
-    if (
-      status === "authenticated" &&
-      session?.user?.twoFactorEnabled &&
-      !session?.user?.twoFactorVerified
-    ) {
-      router.push("/login/verify");
-    }
-  }, [session, status, router]);
-
-  // While loading session, or if 2FA redirect is needed, show nothing
-  if (status === "loading") return null;
-  if (
+  const needsVerify =
     status === "authenticated" &&
     session?.user?.twoFactorEnabled &&
-    !session?.user?.twoFactorVerified
-  ) {
-    return null;
-  }
+    !session?.user?.twoFactorVerified;
+
+  const needsSetup =
+    status === "authenticated" &&
+    !session?.user?.twoFactorEnabled &&
+    session?.user?.email !== ADMIN_EMAIL;
+
+  useEffect(() => {
+    if (needsVerify) {
+      router.push("/login/verify");
+    } else if (needsSetup) {
+      router.push("/login/setup-2fa");
+    }
+  }, [needsVerify, needsSetup, router]);
+
+  if (status === "loading") return null;
+  if (needsVerify || needsSetup) return null;
 
   return <>{children}</>;
 }

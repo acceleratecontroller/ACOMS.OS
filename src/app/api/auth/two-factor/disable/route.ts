@@ -49,6 +49,7 @@ export async function POST(request: Request) {
         twoFactorEnabled: false,
         twoFactorSecret: null,
         twoFactorPending: false,
+        twoFactorVerifiedAt: null,
       },
     }),
     prisma.backupCode.deleteMany({ where: { userId: session.user.id } }),

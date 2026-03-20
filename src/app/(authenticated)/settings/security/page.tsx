@@ -33,6 +33,8 @@ export default function SecuritySettingsPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const is2FAEnabled = session?.user?.twoFactorEnabled ?? false;
+  const isAdmin = session?.user?.email === "admin@acoms.local";
+  const canDisable2FA = isAdmin; // Only root admin can disable — 2FA is mandatory for all others
 
   const clearMessages = useCallback(() => {
     setError("");
@@ -332,62 +334,71 @@ export default function SecuritySettingsPage() {
               Your account is protected with two-factor authentication.
             </p>
 
-            {/* Disable 2FA */}
-            {disableStep === "idle" ? (
-              <button
-                type="button"
-                onClick={() => { setDisableStep("confirming"); clearMessages(); }}
-                className="text-sm text-red-600 hover:underline"
-              >
-                Disable two-factor authentication
-              </button>
-            ) : (
-              <form onSubmit={handleDisable} className="space-y-3 border-t pt-4">
-                <p className="text-sm font-medium text-gray-700">
-                  Confirm by entering your password and a current authenticator code.
-                </p>
-                <div>
-                  <label htmlFor="disable-password" className="block text-sm text-gray-600 mb-1">Password</label>
-                  <input
-                    id="disable-password"
-                    type="password"
-                    required
-                    value={disablePassword}
-                    onChange={(e) => setDisablePassword(e.target.value)}
-                    className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="disable-code" className="block text-sm text-gray-600 mb-1">Authenticator code</label>
-                  <input
-                    id="disable-code"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    required
-                    placeholder="000000"
-                    value={disableCode}
-                    onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-red-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
-                  >
-                    {loading ? "Disabling..." : "Disable 2FA"}
-                  </button>
+            {/* Disable 2FA — only available to root admin since 2FA is mandatory */}
+            {canDisable2FA && (
+              <>
+                {disableStep === "idle" ? (
                   <button
                     type="button"
-                    onClick={() => { setDisableStep("idle"); setDisablePassword(""); setDisableCode(""); clearMessages(); }}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    onClick={() => { setDisableStep("confirming"); clearMessages(); }}
+                    className="text-sm text-red-600 hover:underline"
                   >
-                    Cancel
+                    Disable two-factor authentication
                   </button>
-                </div>
-              </form>
+                ) : (
+                  <form onSubmit={handleDisable} className="space-y-3 border-t pt-4">
+                    <p className="text-sm font-medium text-gray-700">
+                      Confirm by entering your password and a current authenticator code.
+                    </p>
+                    <div>
+                      <label htmlFor="disable-password" className="block text-sm text-gray-600 mb-1">Password</label>
+                      <input
+                        id="disable-password"
+                        type="password"
+                        required
+                        value={disablePassword}
+                        onChange={(e) => setDisablePassword(e.target.value)}
+                        className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="disable-code" className="block text-sm text-gray-600 mb-1">Authenticator code</label>
+                      <input
+                        id="disable-code"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        required
+                        placeholder="000000"
+                        value={disableCode}
+                        onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                        className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="bg-red-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      >
+                        {loading ? "Disabling..." : "Disable 2FA"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setDisableStep("idle"); setDisablePassword(""); setDisableCode(""); clearMessages(); }}
+                        className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+            {!canDisable2FA && (
+              <p className="text-xs text-gray-400">
+                Two-factor authentication is required for all accounts and cannot be disabled.
+              </p>
             )}
 
             {/* Regenerate backup codes */}

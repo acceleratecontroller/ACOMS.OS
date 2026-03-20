@@ -103,10 +103,11 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // Two-Factor Authentication
-  twoFactorEnabled Boolean  @default(false)
-  twoFactorSecret  String?              // AES-256-GCM encrypted TOTP secret
-  twoFactorPending Boolean  @default(false) // True during setup, before first code confirmation
-  twoFactorRequired Boolean @default(false) // Admin-enforced: user must enable 2FA
+  twoFactorEnabled    Boolean   @default(false)
+  twoFactorSecret     String?              // AES-256-GCM encrypted TOTP secret
+  twoFactorPending    Boolean   @default(false) // True during setup, before first code confirmation
+  twoFactorRequired   Boolean   @default(false) // Admin-enforced: user must enable 2FA
+  twoFactorVerifiedAt DateTime?            // Set when user passes 2FA check; cleared on new login
 
   // Records this user created
   createdEmployees  Employee[] @relation("EmployeeCreatedBy")

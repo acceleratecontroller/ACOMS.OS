@@ -34,6 +34,8 @@ export default function LoginPage() {
 
       if (session?.user?.twoFactorEnabled && !session?.user?.twoFactorVerified) {
         router.push("/login/verify");
+      } else if (!session?.user?.twoFactorEnabled && session?.user?.email !== "admin@acoms.local") {
+        router.push("/login/setup-2fa");
       } else {
         router.push("/");
       }

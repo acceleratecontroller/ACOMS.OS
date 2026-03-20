@@ -144,7 +144,14 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const updateData: { role?: "ADMIN" | "STAFF"; passwordHash?: string; isActive?: boolean } = {};
+  const updateData: {
+    role?: "ADMIN" | "STAFF";
+    passwordHash?: string;
+    isActive?: boolean;
+    twoFactorEnabled?: boolean;
+    twoFactorSecret?: string | null;
+    twoFactorPending?: boolean;
+  } = {};
 
   if (body.role !== undefined) {
     updateData.role = body.role === "ADMIN" ? "ADMIN" : "STAFF";
@@ -159,6 +166,12 @@ export async function PUT(
 
   if (body.isActive !== undefined) {
     updateData.isActive = body.isActive;
+    // When reinstating a user, clear 2FA so they must set it up fresh
+    if (body.isActive === true) {
+      updateData.twoFactorEnabled = false;
+      updateData.twoFactorSecret = null;
+      updateData.twoFactorPending = false;
+    }
   }
 
   const { result: user, error } = await withPrismaError("Failed to update user", () =>
@@ -168,6 +181,13 @@ export async function PUT(
     }),
   );
   if (error) return error;
+
+  // When reinstating, also delete backup codes so 2FA starts fresh
+  if (body.isActive === true) {
+    await prisma.backupCode.deleteMany({
+      where: { userId: employee.userId! },
+    });
+  }
 
   audit({
     entityType: "Employee",
@@ -208,7 +228,18 @@ export async function DELETE(
 
   await prisma.user.update({
     where: { id: employee.userId },
-    data: { isActive: false },
+    data: {
+      isActive: false,
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorPending: false,
+      twoFactorVerifiedAt: null,
+    },
+  });
+
+  // Delete all backup codes for this user
+  await prisma.backupCode.deleteMany({
+    where: { userId: employee.userId },
   });
 
   audit({
