@@ -1,135 +1,107 @@
-# Plan: Employee Compliance Management & Accreditation Expiry Settings
+# Plan: Fix Expiry-Based Compliance Logic
 
 ## Problem
 
-1. **No way to update employee compliance** — The employee compliance view is read-only. You can see that someone is non-compliant, but there's no way to mark an accreditation as verified, set expiry dates, or manage it per-employee.
+Compliance is currently based solely on the `status` field (VERIFIED/EXEMPT = compliant). This means:
+- An employee with a **VERIFIED** accreditation whose **expiry date has passed** still shows as compliant
+- There's no visibility into expired or soon-to-expire accreditations on the dashboard or training page
+- The `renewalMonths` field is being treated as a tracking mechanism, but it should be **informational only** — a driver's licence might say "renew every 5 years" but someone could do a 3-year renewal
 
-2. **Accreditations lack expiry/renewal metadata** — When creating an accreditation (e.g. "White Card"), there's no way to specify whether it expires or how often it needs renewal. This should live on the accreditation definition itself, not just per-employee.
-
----
-
-## Part 1: Accreditation Expiry & Renewal Fields
-
-### Schema Changes (Prisma)
-
-Add three fields to the `Accreditation` model:
-
-```
-expires        Boolean   @default(false)   // Does this accreditation expire?
-renewalMonths  Int?                        // How often (months) renewal is needed (12, 24, 36, etc.)
-renewalNotes   String?                     // E.g. "Must complete refresher course"
-```
-
-**Migration**: `20260320120000_add_accreditation_expiry_fields` — all columns nullable/defaulted, no breaking changes.
-
-### Validation Changes
-
-Update `createAccreditationSchema` and `updateAccreditationSchema` to include:
-- `expires`: boolean (default false)
-- `renewalMonths`: optional positive integer
-- `renewalNotes`: optional string
-
-### API Changes
-
-Update `POST /api/training/accreditations` and `PUT /api/training/accreditations/[id]` to persist the new fields.
-
-### UI Changes (AccreditationsTab)
-
-Update the create/edit forms in AccreditationsTab to add:
-- **"Has Expiry" checkbox** — when checked, reveals:
-  - **"Renewal Period"** dropdown (6, 12, 24, 36, 60 months)
-  - **"Renewal Notes"** text field
-- Show expiry info in the view mode and table
+**The individual `expiryDate` on each EmployeeAccreditation is the single source of truth for compliance.**
 
 ---
 
-## Part 2: Employee Compliance Popup (MatrixTab)
+## Step 1: Fix `computeCompliance()` in MatrixTab.tsx
 
-### What it does
+Update the compliance function to check `expiryDate` in addition to `status`:
 
-Clicking an employee card in the **Employee Compliance** view opens a modal showing all their required accreditations with inline editing.
+| Status | expiryDate | Result |
+|--------|-----------|--------|
+| VERIFIED | in the past | **Not compliant** (effectively expired) |
+| VERIFIED | in the future / null | Compliant |
+| EXEMPT | any | Always compliant |
+| PENDING / EXPIRED / MISSING | any | Not compliant |
 
-### Modal Layout
+Also compute:
+- `expiredCount` — how many accreditations have passed their expiry date
+- `expiringSoonCount` — how many expire within 30 days
 
-```
-┌─────────────────────────────────────────────────────┐
-│  John Smith (E0001)                    75% compliant │
-│  Roles: Site Supervisor, Crane Operator              │
-│─────────────────────────────────────────────────────│
-│                                                      │
-│  ACCREDITATION         STATUS        EXPIRY   CERT#  │
-│  ─────────────────────────────────────────────────── │
-│  White Card            [VERIFIED ▾]  2027-03  WC123  │
-│  Working at Heights    [PENDING  ▾]  ________  ____  │
-│  First Aid             [MISSING  ▾]  ________  ____  │
-│  Crane Licence         [EXEMPT   ▾]  ________  ____  │
-│                                                      │
-│  Notes: ________________________________________     │
-│                                                      │
-│                              [ Save All Changes ]    │
-└─────────────────────────────────────────────────────┘
-```
-
-Each accreditation row has:
-- **Accreditation name** (read-only) + whether it expires + renewal period info
-- **Status dropdown** — PENDING / VERIFIED / EXPIRED / EXEMPT (for MISSING ones, selecting any status auto-creates the EmployeeAccreditation record)
-- **Expiry Date** — date picker, only shown when the accreditation definition has `expires=true`
-- **Certificate Number** — optional text field
-- **Notes** — optional text field (per accreditation)
-
-### API Usage
-
-No new API endpoints needed:
-- Employee data comes from existing `GET /api/training/matrix?view=employees`
-- Status updates use existing `PUT /api/training/employees/[employeeId]/accreditations/[id]`
-- Creating MISSING records uses existing `POST /api/training/employees/[employeeId]/accreditations`
-
-### Matrix API Tweak
-
-Update `GET /api/training/matrix?view=employees` to include the accreditation definition's `expires` and `renewalMonths` fields in the nested accreditation data, so the modal knows whether to show a date picker.
-
-### MatrixTab UI Changes
-
-- Make each employee card **clickable** (add hover state + cursor-pointer)
-- Add a `Modal` component import and state management for the selected employee
-- Inside the modal: table of accreditations with inline edit fields
-- "Save All Changes" button that batches PUT/POST calls for each changed accreditation
-- After saving, refresh the employee list to update compliance percentages
+**File:** `src/app/(authenticated)/training/components/MatrixTab.tsx`
 
 ---
 
-## File Change Summary
+## Step 2: Visual indicators in Employee Compliance cards + Modal
+
+**Employee cards** (compliance view):
+- Red badge: "X expired" when any accreditation has a past expiry date
+- Amber badge: "X expiring soon" when any expire within 30 days
+- Individual accreditation status chips reflect date-based expiry (override VERIFIED → show as expired if date has passed)
+
+**ComplianceModal** (employee detail popup):
+- If VERIFIED but expiryDate < today → red warning: "Expired on [date] — update status"
+- If expiryDate within 30 days → amber warning: "Expires in X days"
+- Visual-only — admin still updates status/date manually
+
+**File:** `src/app/(authenticated)/training/components/MatrixTab.tsx`
+
+---
+
+## Step 3: Add expiry alert banner to the Training page
+
+Add a summary banner above the tabs on the training page:
+- Red: "X employees have expired accreditations"
+- Amber: "X employees have accreditations expiring within 30 days"
+- Clicking either switches to the Matrix tab (employee compliance view)
+
+New API endpoint: **`GET /api/training/compliance-summary`** returns:
+```json
+{ "expired": 3, "expiringSoon": 5 }
+```
+
+Server-side query checks `EmployeeAccreditation.expiryDate` against today's date for active, non-archived employees with `expires=true` accreditations. This avoids loading the full matrix client-side just for counts.
+
+**Files:**
+- `src/app/api/training/compliance-summary/route.ts` (new)
+- `src/app/(authenticated)/training/page.tsx`
+
+---
+
+## Step 4: Add expiry alerts to the Dashboard (cover page)
+
+Add a "Training Compliance" section to the main dashboard, following the existing alert pattern (similar to overdue tasks / plant service alerts):
+- Red alert: "X employees have expired accreditations"
+- Amber alert: "X accreditations expiring within 30 days"
+- Both link to `/training`
+
+Reuses the same `/api/training/compliance-summary` endpoint from Step 3.
+
+**File:** `src/app/(authenticated)/page.tsx`
+
+---
+
+## What does NOT change
+
+- **No schema changes** — `expiryDate` already exists on EmployeeAccreditation
+- **`renewalMonths` stays as-is** — informational FYI on the accreditation definition, not used for compliance calculations
+- **No auto-status updates** — admins manage statuses manually; the system just surfaces warnings
+- **No auto-renewal** — the system never auto-calculates expiry dates from renewalMonths
+
+---
+
+## Files Changed Summary
 
 | File | Change |
 |------|--------|
-| `prisma/schema.prisma` | Add `expires`, `renewalMonths`, `renewalNotes` to Accreditation |
-| `prisma/migrations/20260320120000_...` | New migration for 3 columns |
-| `src/modules/training/validation.ts` | Add new fields to accreditation schemas |
-| `src/app/api/training/accreditations/route.ts` | Handle new fields in POST |
-| `src/app/api/training/accreditations/[id]/route.ts` | Handle new fields in PUT/GET |
-| `src/app/api/training/matrix/route.ts` | Include `expires`, `renewalMonths` in employee view accreditation data |
-| `src/app/(authenticated)/training/components/AccreditationsTab.tsx` | Add expiry toggle + renewal fields to forms |
-| `src/app/(authenticated)/training/components/MatrixTab.tsx` | Add clickable employee cards + compliance management modal |
-
-**No new files needed** — all changes are to existing files.
-
----
+| `src/app/(authenticated)/training/components/MatrixTab.tsx` | Fix compliance logic, add expiry badges, modal warnings (Steps 1, 2, 5) |
+| `src/app/api/training/compliance-summary/route.ts` | **New** — lightweight endpoint for expired/expiring counts (Step 3) |
+| `src/app/(authenticated)/training/page.tsx` | Add expiry alert banner above tabs (Step 3) |
+| `src/app/(authenticated)/page.tsx` | Add training compliance alerts to dashboard (Step 4) |
 
 ## Implementation Order
 
-1. Schema + migration (Accreditation expiry fields)
-2. Validation schema updates
-3. Accreditation API updates (create/update with new fields)
-4. AccreditationsTab UI (expiry toggle in create/edit forms)
-5. Matrix API tweak (include expiry metadata in employee view)
-6. MatrixTab compliance modal (the main feature — clickable employee → edit accreditations)
-7. TypeScript check + commit + push
-
----
-
-## Notes
-
-- **No breaking changes** — new fields all have defaults, existing data unaffected
-- **Reuses existing endpoints** — the PUT for employee accreditations already supports all the fields we need
-- **MISSING → created on save** — if an accreditation shows as MISSING and the admin changes its status, we POST to create it then
-- **Accreditation expiry is informational** — it tells the admin "this needs renewing every X months" but doesn't auto-expire records. Auto-expiry could be added later
+1. Fix `computeCompliance()` + employee card badges (Steps 1-2)
+2. Update ComplianceModal with expiry warnings (Step 2 cont.)
+3. Create compliance-summary API endpoint (Step 3)
+4. Add training page alert banner (Step 3)
+5. Add dashboard alerts (Step 4)
+6. TypeScript check + commit + push
