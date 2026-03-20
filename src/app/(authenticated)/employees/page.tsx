@@ -460,11 +460,6 @@ function EmployeesContent() {
                   {selected.employeeNumber} &middot; {selected.firstName} {selected.lastName}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0 ml-4">
-                <button type="button" onClick={() => setConfirmAction({ type: "archive" })} className="px-3 py-1.5 rounded-lg text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50 transition-colors">
-                  Archive
-                </button>
-              </div>
             </div>
 
             <form onSubmit={handleUpdate} className="space-y-4">
@@ -560,6 +555,10 @@ function EmployeesContent() {
                 </button>
                 <button type="button" onClick={closeModal} className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700 transition-colors">
                   Cancel
+                </button>
+                <div className="flex-1" />
+                <button type="button" onClick={() => setConfirmAction({ type: "archive" })} className="px-3 py-1.5 rounded-lg text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50 transition-colors">
+                  Archive
                 </button>
               </div>
             </form>
