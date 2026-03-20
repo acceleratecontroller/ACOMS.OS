@@ -76,6 +76,20 @@ enum PlantStatus {
   STANDBY
 }
 
+// ─── Training Matrix Enums ──────────────────────────────
+
+enum TrainingRoleCategory {
+  OFFICE
+  FIELD
+}
+
+enum AccreditationStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  EXEMPT
+}
+
 // ─── User (Login / Account) ─────────────────────────────
 
 model User {
@@ -103,6 +117,14 @@ model User {
   archivedTasks         Task[]          @relation("TaskArchivedBy")
   createdRecurringTasks RecurringTask[] @relation("RecurringTaskCreatedBy")
   archivedRecurringTasks RecurringTask[] @relation("RecurringTaskArchivedBy")
+
+  // Training matrix records
+  createdTrainingRoles    TrainingRole[]   @relation("TrainingRoleCreatedBy")
+  archivedTrainingRoles   TrainingRole[]   @relation("TrainingRoleArchivedBy")
+  createdTrainingSkills   TrainingSkill[]  @relation("TrainingSkillCreatedBy")
+  archivedTrainingSkills  TrainingSkill[]  @relation("TrainingSkillArchivedBy")
+  createdAccreditations   Accreditation[]  @relation("AccreditationCreatedBy")
+  archivedAccreditations  Accreditation[]  @relation("AccreditationArchivedBy")
 
   // Audit log entries performed by this user
   auditLogs AuditLog[]
@@ -165,6 +187,10 @@ model Employee {
   // Task relations: tasks owned by this employee
   assignedTasks          Task[]          @relation("TaskOwner")
   assignedRecurringTasks RecurringTask[] @relation("RecurringTaskOwner")
+
+  // Training matrix relations
+  trainingRoles          EmployeeRole[]
+  accreditations         EmployeeAccreditation[]
 }
 
 // ─── Task Enums ───────────────────────────────────────────
@@ -357,4 +383,132 @@ model Plant {
 
   // Linked assets (e.g. first aid kit, fire extinguisher)
   assetLinks   PlantAssetLink[]
+}
+
+// ─── Training Matrix ────────────────────────────────────
+// Roles group skills. Skills link to accreditations.
+// Chain: Role → Skill → Accreditation
+
+model TrainingRole {
+  id          String               @id @default(uuid())
+  roleNumber  String               @unique  // Auto: ROLE-0001
+  name        String
+  description String?
+  category    TrainingRoleCategory
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("TrainingRoleCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("TrainingRoleArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  skillLinks   RoleSkillLink[]
+  employees    EmployeeRole[]
+}
+
+model TrainingSkill {
+  id          String  @id @default(uuid())
+  skillNumber String  @unique  // Auto: SKILL-0001
+  name        String
+  description String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("TrainingSkillCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("TrainingSkillArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  roleLinks           RoleSkillLink[]
+  accreditationLinks  SkillAccreditationLink[]
+}
+
+model Accreditation {
+  id                   String  @id @default(uuid())
+  accreditationNumber  String  @unique  // Auto: ACCR-0001
+  name                 String
+  description          String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    User     @relation("AccreditationCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+
+  isArchived   Boolean  @default(false)
+  archivedAt   DateTime?
+  archivedBy   User?    @relation("AccreditationArchivedBy", fields: [archivedById], references: [id])
+  archivedById String?
+
+  skillLinks  SkillAccreditationLink[]
+  employees   EmployeeAccreditation[]
+}
+
+// ─── Training Link Tables ────────────────────────────────
+
+model RoleSkillLink {
+  id       String        @id @default(uuid())
+  roleId   String
+  role     TrainingRole  @relation(fields: [roleId], references: [id])
+  skillId  String
+  skill    TrainingSkill @relation(fields: [skillId], references: [id])
+
+  @@unique([roleId, skillId])
+  @@index([roleId])
+  @@index([skillId])
+}
+
+model SkillAccreditationLink {
+  id               String        @id @default(uuid())
+  skillId          String
+  skill            TrainingSkill @relation(fields: [skillId], references: [id])
+  accreditationId  String
+  accreditation    Accreditation @relation(fields: [accreditationId], references: [id])
+
+  @@unique([skillId, accreditationId])
+  @@index([skillId])
+  @@index([accreditationId])
+}
+
+// ─── Employee Training Assignments ───────────────────────
+
+model EmployeeRole {
+  id         String       @id @default(uuid())
+  employeeId String
+  employee   Employee     @relation(fields: [employeeId], references: [id])
+  roleId     String
+  role       TrainingRole @relation(fields: [roleId], references: [id])
+  assignedAt DateTime     @default(now())
+
+  @@unique([employeeId, roleId])
+  @@index([employeeId])
+  @@index([roleId])
+}
+
+model EmployeeAccreditation {
+  id                String              @id @default(uuid())
+  employeeId        String
+  employee          Employee            @relation(fields: [employeeId], references: [id])
+  accreditationId   String
+  accreditation     Accreditation       @relation(fields: [accreditationId], references: [id])
+  status            AccreditationStatus @default(PENDING)
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  certificateNumber String?
+  notes             String?
+
+  // Evidence placeholders — ready for file upload system later
+  evidenceFileName  String?
+  evidenceFileUrl   String?
+  evidenceNotes     String?
+
+  @@unique([employeeId, accreditationId])
+  @@index([employeeId])
+  @@index([accreditationId])
 }

@@ -10,6 +10,7 @@ export interface NavItem {
 export const navigationItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "H" },
   { label: "Employees", href: "/employees", icon: "E" },
+  { label: "Training", href: "/training", icon: "R" },
   { label: "Assets", href: "/assets", icon: "A" },
   { label: "Plant", href: "/plant", icon: "P" },
   { label: "Task Manager", href: "/tasks", icon: "T" },

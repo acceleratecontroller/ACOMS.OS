@@ -1,0 +1,135 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/shared/database/client";
+import { auth } from "@/shared/auth/auth";
+import { audit } from "@/shared/audit/log";
+import { parseBody, withPrismaError } from "@/shared/api/helpers";
+
+// GET /api/training/employees/[employeeId]/roles
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ employeeId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { employeeId } = await params;
+  const { result, error } = await withPrismaError("Failed to list employee roles", () =>
+    prisma.employeeRole.findMany({
+      where: { employeeId },
+      include: {
+        role: {
+          select: { id: true, roleNumber: true, name: true, category: true, isArchived: true },
+        },
+      },
+    }),
+  );
+  if (error) return error;
+
+  return NextResponse.json(result);
+}
+
+// POST /api/training/employees/[employeeId]/roles — Assign a role + auto-assign accreditations
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ employeeId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { employeeId } = await params;
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
+  const roleId = (body as { roleId?: string }).roleId;
+  if (!roleId) {
+    return NextResponse.json({ error: "roleId is required" }, { status: 400 });
+  }
+
+  // Assign the role
+  const { result: employeeRole, error } = await withPrismaError("Failed to assign role", () =>
+    prisma.employeeRole.create({
+      data: { employeeId, roleId },
+      include: {
+        role: { select: { id: true, roleNumber: true, name: true, category: true } },
+      },
+    }),
+  );
+  if (error) return error;
+
+  // Auto-assign accreditations: role → skills → accreditations
+  // Find all accreditation IDs required by this role's skills
+  const requiredAccreditations = await prisma.skillAccreditationLink.findMany({
+    where: {
+      skill: {
+        roleLinks: { some: { roleId } },
+      },
+    },
+    select: { accreditationId: true },
+  });
+
+  const uniqueAccrIds = [...new Set(requiredAccreditations.map((r) => r.accreditationId))];
+
+  if (uniqueAccrIds.length > 0) {
+    // Find which ones the employee already has
+    const existing = await prisma.employeeAccreditation.findMany({
+      where: {
+        employeeId,
+        accreditationId: { in: uniqueAccrIds },
+      },
+      select: { accreditationId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.accreditationId));
+
+    // Create records for ones they don't have yet (PENDING status, no dates)
+    const toCreate = uniqueAccrIds.filter((id) => !existingIds.has(id));
+    if (toCreate.length > 0) {
+      await prisma.employeeAccreditation.createMany({
+        data: toCreate.map((accreditationId) => ({
+          employeeId,
+          accreditationId,
+          status: "PENDING" as const,
+        })),
+      });
+    }
+  }
+
+  audit({
+    entityType: "EmployeeRole",
+    entityId: employeeRole.id,
+    action: "CREATE",
+    entityLabel: `${employeeRole.role.name} assigned to employee ${employeeId}`,
+    performedById: session.user.id,
+  });
+
+  return NextResponse.json(employeeRole, { status: 201 });
+}
+
+// DELETE /api/training/employees/[employeeId]/roles — Remove a role (does NOT remove accreditations)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ employeeId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { employeeId } = await params;
+  const roleId = request.nextUrl.searchParams.get("roleId");
+  if (!roleId) {
+    return NextResponse.json({ error: "roleId query param is required" }, { status: 400 });
+  }
+
+  const { error } = await withPrismaError("Failed to remove role", () =>
+    prisma.employeeRole.delete({
+      where: { employeeId_roleId: { employeeId, roleId } },
+    }),
+  );
+  if (error) return error;
+
+  return NextResponse.json({ success: true });
+}

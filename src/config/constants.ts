@@ -128,6 +128,24 @@ export const CONDITION_OPTIONS: SelectOption[] = [
   { value: "POOR", label: "Poor" },
 ];
 
+// ─── Training constants ─────────────────────────────────
+
+export const TRAINING_ROLE_CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "OFFICE", label: "Office" },
+  { value: "FIELD", label: "Field" },
+];
+
+export const ACCREDITATION_STATUS_OPTIONS: SelectOption[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "VERIFIED", label: "Verified" },
+  { value: "EXPIRED", label: "Expired" },
+  { value: "EXEMPT", label: "Exempt" },
+];
+
+export const ACCREDITATION_STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  ACCREDITATION_STATUS_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 // ─── Task constants ──────────────────────────────────────
 
 export const TASK_STATUS_OPTIONS: SelectOption[] = [
