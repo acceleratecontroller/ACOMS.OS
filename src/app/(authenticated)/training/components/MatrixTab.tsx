@@ -71,6 +71,7 @@ interface EmployeeRow {
 }
 
 type View = "tree" | "employees";
+type ComplianceFilter = "all" | "expired" | "missing_pending" | "expiring_soon" | "compliant";
 
 // ─── Status colours ────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -186,6 +187,7 @@ export function MatrixTab() {
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null);
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
 
   const loadData = useCallback((v: View) => {
     setLoading(true);
@@ -232,7 +234,7 @@ export function MatrixTab() {
       ) : view === "tree" ? (
         <TreeView data={treeData} />
       ) : (
-        <EmployeeComplianceView employees={employees} onEmployeeClick={handleEmployeeClick} />
+        <EmployeeComplianceView employees={employees} onEmployeeClick={handleEmployeeClick} filter={complianceFilter} onFilterChange={setComplianceFilter} />
       )}
 
       {selectedEmployee && (
@@ -313,14 +315,78 @@ function TreeView({ data }: { data: TreeData | null }) {
 }
 
 // ─── Employee Compliance View ──────────────────────────
-function EmployeeComplianceView({ employees, onEmployeeClick }: { employees: EmployeeRow[]; onEmployeeClick: (emp: EmployeeRow) => void }) {
+function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterChange }: {
+  employees: EmployeeRow[];
+  onEmployeeClick: (emp: EmployeeRow) => void;
+  filter: ComplianceFilter;
+  onFilterChange: (f: ComplianceFilter) => void;
+}) {
   if (employees.length === 0) {
     return <div className="text-center py-12 text-gray-500">No active employees found.</div>;
   }
 
+  // Compute compliance for each employee and categorise
+  const enriched = employees.map((emp) => {
+    const c = computeCompliance(emp);
+    // Count missing: required but not held at all
+    let missingCount = 0;
+    let pendingCount = 0;
+    c.requiredAccredIds.forEach((id) => {
+      const held = c.heldMap.get(id);
+      if (!held) missingCount++;
+      else if (held.status === "PENDING") pendingCount++;
+    });
+    return { emp, ...c, missingCount, pendingCount };
+  });
+
+  // Count per category
+  const counts = { all: enriched.length, expired: 0, missing_pending: 0, expiring_soon: 0, compliant: 0 };
+  for (const e of enriched) {
+    if (e.expiredCount > 0) counts.expired++;
+    if (e.missingCount > 0 || e.pendingCount > 0) counts.missing_pending++;
+    if (e.expiringSoonCount > 0) counts.expiring_soon++;
+    if (e.pct === 100) counts.compliant++;
+  }
+
+  // Apply filter
+  const filtered = enriched.filter((e) => {
+    switch (filter) {
+      case "expired": return e.expiredCount > 0;
+      case "missing_pending": return e.missingCount > 0 || e.pendingCount > 0;
+      case "expiring_soon": return e.expiringSoonCount > 0;
+      case "compliant": return e.pct === 100;
+      default: return true;
+    }
+  });
+
+  const filterButtons: { key: ComplianceFilter; label: string; count: number; color: string; activeColor: string }[] = [
+    { key: "all", label: "All", count: counts.all, color: "text-gray-600 hover:bg-gray-100", activeColor: "bg-gray-200 text-gray-800" },
+    { key: "expired", label: "Expired", count: counts.expired, color: "text-red-600 hover:bg-red-50", activeColor: "bg-red-100 text-red-800" },
+    { key: "missing_pending", label: "Missing / Pending", count: counts.missing_pending, color: "text-yellow-600 hover:bg-yellow-50", activeColor: "bg-yellow-100 text-yellow-800" },
+    { key: "expiring_soon", label: "Expiring Soon", count: counts.expiring_soon, color: "text-amber-600 hover:bg-amber-50", activeColor: "bg-amber-100 text-amber-800" },
+    { key: "compliant", label: "Compliant", count: counts.compliant, color: "text-green-600 hover:bg-green-50", activeColor: "bg-green-100 text-green-800" },
+  ];
+
   return (
-    <div className="space-y-3">
-      {employees.map((emp) => {
+    <div>
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {filterButtons.map((fb) => (
+          <button
+            key={fb.key}
+            onClick={() => onFilterChange(fb.key)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === fb.key ? fb.activeColor : fb.color}`}
+          >
+            {fb.label} <span className="ml-1 opacity-70">({fb.count})</span>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-8 text-gray-400 text-sm">No employees match this filter.</div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(({ emp }) => {
         const { requiredAccredIds, heldMap, pct, expiredCount, expiringSoonCount } = computeCompliance(emp);
         const barColor = pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-500";
 
@@ -393,6 +459,8 @@ function EmployeeComplianceView({ employees, onEmployeeClick }: { employees: Emp
           </div>
         );
       })}
+        </div>
+      )}
     </div>
   );
 }
