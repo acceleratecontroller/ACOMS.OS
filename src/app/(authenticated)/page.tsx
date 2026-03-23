@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { getDateBoundaries } from "@/shared/date-utils";
 import { DashboardTaskCentre } from "./DashboardTaskCentre";
 import type { DashboardTaskItem, DashboardEmployee } from "./DashboardTaskCentre";
 
@@ -23,19 +24,8 @@ export default async function DashboardPage({
   // Filter tasks to logged-in employee unless "all" view is selected
   const taskOwnerFilter = !viewAll && employeeId ? { ownerId: employeeId } : {};
 
-  // Use UTC midnight boundaries to match how Prisma stores dates,
-  // avoiding timezone-shift bugs (e.g. yesterday showing as "Due Today").
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-  const tomorrow = new Date(today);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
-  const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setUTCDate(sevenDaysFromNow.getUTCDate() + 7);
-
-  const thirtyDaysFromNow = new Date(today);
-  thirtyDaysFromNow.setUTCDate(thirtyDaysFromNow.getUTCDate() + 30);
+  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
+  const { today, tomorrow, sevenDays: sevenDaysFromNow, thirtyDays: thirtyDaysFromNow } = getDateBoundaries();
 
   // Parallel fetch all dashboard data
   const [
@@ -438,14 +428,8 @@ export default async function DashboardPage({
 /* ─── Staff Dashboard ───────────────────────────────── */
 
 async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
-  // Use UTC midnight boundaries to match how Prisma stores dates,
-  // avoiding timezone-shift bugs (e.g. yesterday showing as "Due Today").
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const staffTomorrow = new Date(today);
-  staffTomorrow.setUTCDate(staffTomorrow.getUTCDate() + 1);
-  const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setUTCDate(sevenDaysFromNow.getUTCDate() + 7);
+  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
+  const { today, tomorrow: staffTomorrow, sevenDays: sevenDaysFromNow } = getDateBoundaries();
 
   const [totalAssets, totalPlant, employee, overdueTasks, tasksDueToday, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),

@@ -68,13 +68,12 @@ export const PRIORITY_BADGE_COLORS: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────
 
 /**
- * Extract the YYYY-MM-DD date portion and create a local-midnight Date.
- * This avoids timezone shifts that occur when parsing UTC ISO strings
- * (e.g. "2026-03-22T00:00:00.000Z" becoming March 23 in AEDT).
+ * Parse a date string and return midnight in the user's local timezone,
+ * preserving the calendar date the user sees (not the UTC date portion).
  */
 function toDateOnly(dateStr: string): Date {
-  const [y, m, d] = dateStr.substring(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const d = new Date(dateStr);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 function todayDateOnly(): Date {
