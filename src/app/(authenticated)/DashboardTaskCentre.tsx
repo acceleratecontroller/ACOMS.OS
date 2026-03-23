@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/shared/components/Modal";
@@ -47,9 +47,22 @@ export interface DashboardTaskItem {
   nextDue?: string | null;
 }
 
-type TabKey = "overdue" | "due-today" | "this-week" | "recurring" | "all";
+type ViewMode = "quick" | "recurring";
+type FilterKey = "all" | "overdue" | "due-today" | "due-soon" | "not-started" | "in-progress" | "stuck" | "completed" | "high";
+type SortKey = "due-date" | "priority" | "owner" | "status" | "title";
 
 const STATUS_OPTIONS = TASK_STATUS_OPTIONS;
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "due-date", label: "Due Date" },
+  { value: "priority", label: "Priority" },
+  { value: "owner", label: "Owner" },
+  { value: "status", label: "Status" },
+  { value: "title", label: "Title" },
+];
+
+const PRIORITY_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+const STATUS_URGENCY: Record<string, number> = { overdue: 0, "due-today": 1, "due-soon": 2 };
 
 // ─── Component ────────────────────────────────────────────
 
@@ -63,31 +76,94 @@ export function DashboardTaskCentre({
   viewAll: boolean;
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("quick");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("due-date");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [editingTask, setEditingTask] = useState<DashboardTaskItem | null>(null);
   const [confirmComplete, setConfirmComplete] = useState<DashboardTaskItem | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<DashboardTaskItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
 
-  // Tab counts
-  const counts: Record<TabKey, number> = {
-    overdue: tasks.filter((t) => t.status === "overdue").length,
-    "due-today": tasks.filter((t) => t.status === "due-today").length,
-    "this-week": tasks.filter((t) => t.status === "due-soon").length,
-    recurring: tasks.filter((t) => t.type === "recurring").length,
-    all: tasks.length,
-  };
+  // Close action menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-  // Filtered tasks
-  const filtered = activeTab === "all"
-    ? tasks
-    : activeTab === "recurring"
-      ? tasks.filter((t) => t.type === "recurring")
-      : activeTab === "this-week"
-        ? tasks.filter((t) => t.status === "due-soon")
-        : tasks.filter((t) => t.status === activeTab);
+  // Split tasks by view mode
+  const quickTasks = useMemo(() => tasks.filter((t) => t.type === "task"), [tasks]);
+  const recurringTasks = useMemo(() => tasks.filter((t) => t.type === "recurring"), [tasks]);
+  const baseTasks = viewMode === "quick" ? quickTasks : recurringTasks;
+
+  // Filter counts (computed on baseTasks for quick view)
+  const filterCounts = useMemo((): Record<FilterKey, number> => {
+    const t: DashboardTaskItem[] = quickTasks;
+    return {
+      all: t.length,
+      overdue: t.filter((x: DashboardTaskItem) => x.status === "overdue").length,
+      "due-today": t.filter((x: DashboardTaskItem) => x.status === "due-today").length,
+      "due-soon": t.filter((x: DashboardTaskItem) => x.status === "due-soon").length,
+      "not-started": t.filter((x: DashboardTaskItem) => x.taskStatus === "NOT_STARTED").length,
+      "in-progress": t.filter((x: DashboardTaskItem) => x.taskStatus === "IN_PROGRESS").length,
+      stuck: t.filter((x: DashboardTaskItem) => x.taskStatus === "STUCK" || x.taskStatus === "AWAITING_RESPONSE").length,
+      completed: t.filter((x: DashboardTaskItem) => x.taskStatus === "COMPLETED").length,
+      high: t.filter((x: DashboardTaskItem) => x.priority === "HIGH").length,
+    };
+  }, [quickTasks]);
+
+  // Unique owners for filter
+  const ownerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    baseTasks.forEach((t: DashboardTaskItem) => map.set(t.ownerId, t.owner));
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [baseTasks]);
+
+  // Apply filters, search, owner, sort
+  const filtered = useMemo(() => {
+    let result = [...baseTasks];
+
+    // Filter
+    if (activeFilter === "overdue") result = result.filter((t) => t.status === "overdue");
+    else if (activeFilter === "due-today") result = result.filter((t) => t.status === "due-today");
+    else if (activeFilter === "due-soon") result = result.filter((t) => t.status === "due-soon");
+    else if (activeFilter === "not-started") result = result.filter((t) => t.taskStatus === "NOT_STARTED");
+    else if (activeFilter === "in-progress") result = result.filter((t) => t.taskStatus === "IN_PROGRESS");
+    else if (activeFilter === "stuck") result = result.filter((t) => t.taskStatus === "STUCK" || t.taskStatus === "AWAITING_RESPONSE");
+    else if (activeFilter === "completed") result = result.filter((t) => t.taskStatus === "COMPLETED");
+    else if (activeFilter === "high") result = result.filter((t) => t.priority === "HIGH");
+
+    // Owner filter
+    if (ownerFilter !== "all") result = result.filter((t) => t.ownerId === ownerFilter);
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((t) => t.title.toLowerCase().includes(q) || t.owner.toLowerCase().includes(q));
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === "due-date") return (STATUS_URGENCY[a.status] ?? 9) - (STATUS_URGENCY[b.status] ?? 9);
+      if (sortBy === "priority") return (PRIORITY_ORDER[a.priority || "MEDIUM"] ?? 9) - (PRIORITY_ORDER[b.priority || "MEDIUM"] ?? 9);
+      if (sortBy === "owner") return a.owner.localeCompare(b.owner);
+      if (sortBy === "status") return (a.taskStatus || "").localeCompare(b.taskStatus || "");
+      if (sortBy === "title") return a.title.localeCompare(b.title);
+      return 0;
+    });
+
+    return result;
+  }, [baseTasks, activeFilter, ownerFilter, search, sortBy]);
 
   // ─── Complete handler ────────────────────────────────
 
@@ -188,117 +264,296 @@ export function DashboardTaskCentre({
     }
   }, [editingTask, router]);
 
-  // Tab config
-  const tabs: { key: TabKey; label: string; color: string; activeColor: string }[] = [
-    { key: "all", label: "All", color: "text-gray-600 border-gray-200 bg-white", activeColor: "bg-gray-700 text-white border-gray-700" },
-    { key: "overdue", label: "Overdue", color: "text-red-700 border-red-200 bg-white", activeColor: "bg-red-600 text-white border-red-600" },
-    { key: "due-today", label: "Due Today", color: "text-orange-700 border-orange-200 bg-white", activeColor: "bg-orange-500 text-white border-orange-500" },
-    { key: "this-week", label: "This Week", color: "text-yellow-700 border-yellow-200 bg-white", activeColor: "bg-yellow-500 text-white border-yellow-500" },
-    { key: "recurring", label: "Recurring", color: "text-blue-700 border-blue-200 bg-white", activeColor: "bg-blue-600 text-white border-blue-600" },
-  ];
-
   return (
     <>
-      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">
-            {viewAll ? "All Tasks" : "My Tasks"}
-          </h2>
-          <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
+      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col">
+        {/* ─── Compact Header ─────────────────────────────── */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">
+              Task Manager
+            </h2>
+            <span className="text-[11px] text-gray-400">{viewAll ? "All team tasks" : "Your assigned tasks"}</span>
+          </div>
+          <Link href="/tasks" className="text-[11px] text-gray-400 hover:text-blue-600 transition-colors">Open full view</Link>
         </div>
 
-        {/* Tab filters */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-50 bg-gray-50/50 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border whitespace-nowrap transition-colors ${
-                activeTab === tab.key ? tab.activeColor : tab.color
-              }`}
-            >
-              {tab.label}
-              <span className="font-bold tabular-nums">{counts[tab.key]}</span>
-            </button>
-          ))}
+        {/* ─── View Tabs ──────────────────────────────────── */}
+        <div className="flex items-center gap-0 px-4 border-b border-gray-200">
+          <button
+            onClick={() => { setViewMode("quick"); setActiveFilter("all"); }}
+            className={`relative px-3 py-2 text-xs font-medium transition-colors ${
+              viewMode === "quick"
+                ? "text-gray-900"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Quick Tasks
+            <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{quickTasks.length}</span>
+            {viewMode === "quick" && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
+          </button>
+          <button
+            onClick={() => { setViewMode("recurring"); setActiveFilter("all"); }}
+            className={`relative px-3 py-2 text-xs font-medium transition-colors ${
+              viewMode === "recurring"
+                ? "text-gray-900"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Recurring
+            <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{recurringTasks.length}</span>
+            {viewMode === "recurring" && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
+          </button>
         </div>
 
-        {/* Task rows */}
-        <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
-          {filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">No tasks in this category</div>
-          ) : (
-            filtered.map((task) => (
-              <div
-                key={task.id}
-                className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_70px_80px_90px_70px] items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-gray-50 cursor-pointer ${
-                  task.status === "overdue" ? "bg-red-50/40" : task.status === "due-today" ? "bg-orange-50/40" : ""
-                }`}
-                onClick={() => setEditingTask(task)}
-              >
-                {/* Title + type */}
-                <div className="min-w-0">
-                  <span className={`font-medium truncate block ${
-                    task.status === "overdue" ? "text-red-700" : task.status === "due-today" ? "text-orange-700" : "text-gray-900"
-                  }`}>
-                    {task.title}
-                  </span>
-                  <span className="text-[11px] text-gray-400 md:hidden">
-                    {task.type === "recurring" ? "Recurring" : "Task"} &middot; {task.owner}
-                  </span>
-                </div>
-                {/* Type badge — desktop */}
-                <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center ${
-                  task.type === "recurring" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
-                }`}>
-                  {task.type === "recurring" ? "Recurring" : "Task"}
-                </span>
-                {/* Owner — desktop */}
-                <span className="hidden md:block text-xs text-gray-500 truncate">{task.owner}</span>
-                {/* Priority — desktop */}
-                <span className="hidden md:block">
-                  {task.priority ? <PriorityBadge priority={task.priority} /> : <span className="text-[10px] text-gray-300">&mdash;</span>}
-                </span>
-                {/* Date */}
-                <span className={`hidden md:block text-xs tabular-nums ${
-                  task.status === "overdue" ? "text-red-500 font-medium" : "text-gray-500"
-                }`}>
-                  {task.dateLabel}
-                </span>
-                {/* Status badge */}
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full text-center whitespace-nowrap ${
-                  task.status === "overdue" ? "bg-red-100 text-red-700" :
-                  task.status === "due-today" ? "bg-orange-100 text-orange-700" :
-                  "bg-yellow-100 text-yellow-700"
-                }`}>
-                  {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Due Today" : "Due Soon"}
-                </span>
-                {/* Complete button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (task.type === "recurring") {
-                      setConfirmComplete(task);
-                    } else {
-                      handleComplete(task);
-                    }
-                  }}
-                  disabled={completing === task.id}
-                  className="hidden md:flex items-center justify-center w-6 h-6 rounded-full border border-gray-300 text-gray-400 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50 shrink-0"
-                  title="Mark complete"
-                >
-                  {completing === task.id ? (
-                    <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
+        {/* ─── Quick Tasks View ───────────────────────────── */}
+        {viewMode === "quick" && (
+          <>
+            {/* Command Bar */}
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+              {/* Search */}
+              <div className="relative flex-1 max-w-[200px]">
+                <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search tasks..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-7 pr-2 py-1 text-[11px] bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 placeholder:text-gray-400"
+                />
               </div>
-            ))
-          )}
-        </div>
+              {/* Owner filter */}
+              <select
+                value={ownerFilter}
+                onChange={(e) => setOwnerFilter(e.target.value)}
+                className="text-[11px] bg-white border border-gray-200 rounded px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300 max-w-[130px]"
+              >
+                <option value="all">All owners</option>
+                {ownerOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                className="text-[11px] bg-white border border-gray-200 rounded px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>Sort: {o.label}</option>
+                ))}
+              </select>
+              {/* Spacer */}
+              <div className="flex-1" />
+              {/* Add Task */}
+              <Link
+                href="/tasks"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Task
+              </Link>
+            </div>
+
+            {/* Filter Chips */}
+            <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-100 overflow-x-auto">
+              {/* Time-based filters */}
+              <FilterChip label="All" count={filterCounts.all} active={activeFilter === "all"} onClick={() => setActiveFilter("all")} />
+              <span className="w-px h-4 bg-gray-200 mx-0.5" />
+              <FilterChip label="Overdue" count={filterCounts.overdue} active={activeFilter === "overdue"} onClick={() => setActiveFilter("overdue")} variant="red" />
+              <FilterChip label="Due Today" count={filterCounts["due-today"]} active={activeFilter === "due-today"} onClick={() => setActiveFilter("due-today")} variant="orange" />
+              <FilterChip label="Due Soon" count={filterCounts["due-soon"]} active={activeFilter === "due-soon"} onClick={() => setActiveFilter("due-soon")} variant="blue" />
+              <span className="w-px h-4 bg-gray-200 mx-0.5" />
+              {/* Workflow filters */}
+              <FilterChip label="Not Started" count={filterCounts["not-started"]} active={activeFilter === "not-started"} onClick={() => setActiveFilter("not-started")} />
+              <FilterChip label="In Progress" count={filterCounts["in-progress"]} active={activeFilter === "in-progress"} onClick={() => setActiveFilter("in-progress")} />
+              <FilterChip label="Stuck" count={filterCounts.stuck} active={activeFilter === "stuck"} onClick={() => setActiveFilter("stuck")} variant="red" />
+              <span className="w-px h-4 bg-gray-200 mx-0.5" />
+              <FilterChip label="High Priority" count={filterCounts.high} active={activeFilter === "high"} onClick={() => setActiveFilter("high")} variant="orange" />
+            </div>
+
+            {/* Table Header */}
+            <div className="hidden md:grid grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px] items-center gap-0 px-3 py-1 border-b border-gray-200 bg-gray-50/80 text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+              <span />
+              <span className="pl-2">Task</span>
+              <span>Owner</span>
+              <span>Priority</span>
+              <span>Due</span>
+              <span>Status</span>
+              <span>Progress</span>
+              <span className="text-center">Actions</span>
+            </div>
+
+            {/* Task Rows */}
+            <div className="flex-1 overflow-y-auto max-h-[380px]">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <svg className="w-8 h-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <p className="text-xs text-gray-400 font-medium">No tasks match your filters</p>
+                  <p className="text-[11px] text-gray-300 mt-0.5">Try adjusting your search or filter criteria</p>
+                </div>
+              ) : (
+                filtered.map((task) => {
+                  const accentColor = task.status === "overdue" ? "bg-red-500" : task.status === "due-today" ? "bg-orange-400" : "bg-blue-400";
+                  const isStuck = task.taskStatus === "STUCK" || task.taskStatus === "AWAITING_RESPONSE";
+                  return (
+                    <div
+                      key={task.id}
+                      className="group grid grid-cols-[3px_1fr_auto] md:grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px] items-center gap-0 px-3 py-0 border-b border-gray-100 hover:bg-gray-50/80 cursor-pointer transition-colors"
+                      onClick={() => setEditingTask(task)}
+                    >
+                      {/* Left accent */}
+                      <span className={`w-[3px] h-7 rounded-full ${accentColor}`} />
+
+                      {/* Title */}
+                      <div className="min-w-0 pl-2 py-1.5">
+                        <span className={`text-[13px] font-medium truncate block leading-tight ${
+                          isStuck ? "text-red-600" : task.status === "overdue" ? "text-gray-900" : "text-gray-800"
+                        }`}>
+                          {task.title}
+                        </span>
+                        <span className="text-[10px] text-gray-400 md:hidden">
+                          {task.owner} &middot; {task.dateLabel}
+                        </span>
+                      </div>
+
+                      {/* Owner */}
+                      <span className="hidden md:block text-[11px] text-gray-500 truncate pr-1">{task.owner}</span>
+
+                      {/* Priority */}
+                      <span className="hidden md:block">
+                        {task.priority ? <PriorityDot priority={task.priority} /> : <span className="text-[10px] text-gray-300">&mdash;</span>}
+                      </span>
+
+                      {/* Due */}
+                      <span className={`hidden md:block text-[11px] tabular-nums ${
+                        task.status === "overdue" ? "text-red-600 font-semibold" : task.status === "due-today" ? "text-orange-600 font-medium" : "text-gray-500"
+                      }`}>
+                        {task.dateLabel}
+                      </span>
+
+                      {/* Status badge */}
+                      <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center whitespace-nowrap ${
+                        task.status === "overdue" ? "bg-red-50 text-red-700" :
+                        task.status === "due-today" ? "bg-orange-50 text-orange-700" :
+                        "bg-blue-50 text-blue-600"
+                      }`}>
+                        {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Today" : "Soon"}
+                      </span>
+
+                      {/* Progress */}
+                      <span className="hidden md:block">
+                        {task.taskStatus ? <ProgressBadge status={task.taskStatus} /> : <span className="text-[10px] text-gray-300">&mdash;</span>}
+                      </span>
+
+                      {/* Actions */}
+                      <div className="hidden md:flex items-center justify-center gap-1 relative" onClick={(e) => e.stopPropagation()}>
+                        {/* Complete */}
+                        <button
+                          onClick={() => task.type === "recurring" ? setConfirmComplete(task) : handleComplete(task)}
+                          disabled={completing === task.id}
+                          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                          title="Complete"
+                        >
+                          {completing === task.id ? (
+                            <span className="w-3 h-3 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                        {/* More menu */}
+                        <button
+                          onClick={() => setActionMenuId(actionMenuId === task.id ? null : task.id)}
+                          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="More actions"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="5" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {actionMenuId === task.id && (
+                          <div ref={actionMenuRef} className="absolute right-0 top-6 z-20 bg-white border border-gray-200 rounded-md shadow-lg py-0.5 min-w-[120px]">
+                            <button onClick={() => { setEditingTask(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-[11px] text-gray-700 hover:bg-gray-50">
+                              Edit task
+                            </button>
+                            <button onClick={() => { setConfirmArchive(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-[11px] text-red-600 hover:bg-red-50">
+                              Archive
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer summary */}
+            {filtered.length > 0 && (
+              <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50/40 text-[10px] text-gray-400">
+                {filtered.length} task{filtered.length !== 1 ? "s" : ""}{activeFilter !== "all" || ownerFilter !== "all" || search ? " (filtered)" : ""} &middot; {filterCounts.overdue} overdue &middot; {filterCounts["due-today"]} due today
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ─── Recurring View (unchanged — placeholder passthrough) ── */}
+        {viewMode === "recurring" && (
+          <>
+            <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+              {recurringTasks.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-gray-400">No recurring tasks due</div>
+              ) : (
+                recurringTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => setEditingTask(task)}
+                  >
+                    <span className={`w-[3px] h-6 rounded-full ${
+                      task.status === "overdue" ? "bg-red-500" : task.status === "due-today" ? "bg-orange-400" : "bg-blue-400"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-900 truncate block text-[13px]">{task.title}</span>
+                      <span className="text-[10px] text-gray-400">{task.owner} &middot; {task.dateLabel}</span>
+                    </div>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
+                      task.status === "overdue" ? "bg-red-50 text-red-700" :
+                      task.status === "due-today" ? "bg-orange-50 text-orange-700" :
+                      "bg-blue-50 text-blue-600"
+                    }`}>
+                      {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Today" : "Soon"}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmComplete(task); }}
+                      disabled={completing === task.id}
+                      className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                      title="Complete"
+                    >
+                      {completing === task.id ? (
+                        <span className="w-3 h-3 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ─── Edit Task Modal ───────────────────────────────── */}
@@ -475,6 +730,70 @@ export function DashboardTaskCentre({
 }
 
 // ─── Helpers ────────────────────────────────────────────
+
+// ─── Filter Chip ────────────────────────────────────────
+
+function FilterChip({ label, count, active, onClick, variant }: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  variant?: "red" | "orange" | "blue";
+}) {
+  const base = "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap transition-all cursor-pointer";
+  const activeStyle = variant === "red" ? "bg-red-600 text-white"
+    : variant === "orange" ? "bg-orange-500 text-white"
+    : variant === "blue" ? "bg-blue-600 text-white"
+    : "bg-gray-800 text-white";
+  const inactiveStyle = "text-gray-500 hover:bg-gray-100";
+  return (
+    <button onClick={onClick} className={`${base} ${active ? activeStyle : inactiveStyle}`}>
+      {label}
+      <span className={`tabular-nums ${active ? "opacity-80" : "text-gray-400"}`}>{count}</span>
+    </button>
+  );
+}
+
+// ─── Priority Dot ───────────────────────────────────────
+
+function PriorityDot({ priority }: { priority: string }) {
+  const cfg: Record<string, { color: string; label: string }> = {
+    HIGH: { color: "bg-red-500", label: "High" },
+    MEDIUM: { color: "bg-amber-400", label: "Med" },
+    LOW: { color: "bg-gray-300", label: "Low" },
+  };
+  const c = cfg[priority] ?? cfg.LOW;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`w-1.5 h-1.5 rounded-full ${c.color}`} />
+      <span className="text-[10px] text-gray-500">{c.label}</span>
+    </span>
+  );
+}
+
+// ─── Progress Badge ─────────────────────────────────────
+
+function ProgressBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    NOT_STARTED: "text-gray-400",
+    IN_PROGRESS: "text-blue-600",
+    STUCK: "text-red-600 font-semibold",
+    AWAITING_RESPONSE: "text-orange-600",
+    COMPLETED: "text-green-600",
+  };
+  const labels: Record<string, string> = {
+    NOT_STARTED: "Not started",
+    IN_PROGRESS: "Active",
+    STUCK: "Stuck",
+    AWAITING_RESPONSE: "Waiting",
+    COMPLETED: "Done",
+  };
+  return (
+    <span className={`text-[10px] ${styles[status] ?? "text-gray-400"}`}>
+      {labels[status] ?? status}
+    </span>
+  );
+}
 
 function PriorityBadge({ priority }: { priority: string }) {
   const styles: Record<string, string> = {
