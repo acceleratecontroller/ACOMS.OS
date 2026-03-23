@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { DashboardTaskCentre } from "./DashboardTaskCentre";
+import type { DashboardTaskItem, DashboardEmployee } from "./DashboardTaskCentre";
 
 export default async function DashboardPage({
   searchParams,
@@ -69,6 +71,8 @@ export default async function DashboardPage({
     expiringSoonAccredEmployees,
     pendingAccredEmployees,
     employeesWithTrainingRoles,
+    // Employee list for task edit forms
+    employeesList,
   ] = await Promise.all([
     // Employees
     prisma.employee.count({ where: { isArchived: false, status: "ACTIVE" } }),
@@ -292,6 +296,12 @@ export default async function DashboardPage({
         },
       },
     }),
+    // Employee list for edit dropdowns
+    prisma.employee.findMany({
+      where: { isArchived: false, status: "ACTIVE" },
+      select: { id: true, firstName: true, lastName: true, employeeNumber: true },
+      orderBy: { firstName: "asc" },
+    }),
   ]);
 
   const totalOverdue = overdueTasks + overdueRecurring;
@@ -335,15 +345,14 @@ export default async function DashboardPage({
   const totalDueSoon = tasksDueSoon.length + recurringDueSoon.length;
   const totalRecurringDue = overdueRecurring + recurringDueTodayCount + recurringDueSoon.length;
 
-  // Build all task rows for the command centre
-  type TaskItem = { id: string; title: string; type: "task" | "recurring"; owner: string; priority?: string; date: Date | null; status: "overdue" | "due-today" | "due-soon"; dateLabel: string };
-  const allTaskItems: TaskItem[] = [
-    ...overdueTaskItems.map((t) => ({ id: t.id, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "overdue" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "" })),
-    ...overdueRecurringTasks.map((t) => ({ id: `r-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "overdue" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "" })),
-    ...tasksDueToday.map((t) => ({ id: `td-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "due-today" as const, dateLabel: "Today" })),
-    ...recurringDueToday.map((t) => ({ id: `rt-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "due-today" as const, dateLabel: "Today" })),
-    ...tasksDueSoon.map((t) => ({ id: `s-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "due-soon" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "" })),
-    ...recurringDueSoon.map((t) => ({ id: `rs-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "due-soon" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "" })),
+  // Build all task rows for the command centre (with edit form data)
+  const allTaskItems: DashboardTaskItem[] = [
+    ...overdueTaskItems.map((t) => ({ id: t.id, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "overdue" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
+    ...overdueRecurringTasks.map((t) => ({ id: `r-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "overdue" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
+    ...tasksDueToday.map((t) => ({ id: `td-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "due-today" as const, dateLabel: "Today", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
+    ...recurringDueToday.map((t) => ({ id: `rt-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "due-today" as const, dateLabel: "Today", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
+    ...tasksDueSoon.map((t) => ({ id: `s-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "due-soon" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
+    ...recurringDueSoon.map((t) => ({ id: `rs-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "due-soon" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
   ];
 
   return (
@@ -382,77 +391,8 @@ export default async function DashboardPage({
 
       {/* ── Task Command Centre (primary) + Activity sidebar ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-        {/* Task centre — 3/4 */}
-        <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">
-              {viewAll ? "All Tasks" : "My Tasks"}
-            </h2>
-            <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
-          </div>
-
-          {/* Tab filters */}
-          <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-50 bg-gray-50/50 overflow-x-auto">
-            <TabChip label="Overdue" count={overdueTaskItems.length + overdueRecurringTasks.length} active color="red" />
-            <TabChip label="Due Today" count={tasksDueToday.length + recurringDueToday.length} color="orange" />
-            <TabChip label="This Week" count={tasksDueSoon.length + recurringDueSoon.length} color="yellow" />
-            <TabChip label="All" count={allTaskItems.length} color="gray" />
-          </div>
-
-          {/* Task rows */}
-          <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
-            {allTaskItems.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">No tasks require attention</div>
-            ) : (
-              allTaskItems.map((task) => (
-                <div
-                  key={task.id}
-                  className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_70px_80px_90px] items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-gray-50 ${
-                    task.status === "overdue" ? "bg-red-50/40" : task.status === "due-today" ? "bg-orange-50/40" : ""
-                  }`}
-                >
-                  {/* Title + type */}
-                  <div className="min-w-0">
-                    <span className={`font-medium truncate block ${
-                      task.status === "overdue" ? "text-red-700" : task.status === "due-today" ? "text-orange-700" : "text-gray-900"
-                    }`}>
-                      {task.title}
-                    </span>
-                    <span className="text-[11px] text-gray-400 md:hidden">
-                      {task.type === "recurring" ? "Recurring" : "Task"} &middot; {task.owner}
-                    </span>
-                  </div>
-                  {/* Type badge — desktop */}
-                  <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center ${
-                    task.type === "recurring" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
-                  }`}>
-                    {task.type === "recurring" ? "Recurring" : "Task"}
-                  </span>
-                  {/* Owner — desktop */}
-                  <span className="hidden md:block text-xs text-gray-500 truncate">{task.owner}</span>
-                  {/* Priority — desktop */}
-                  <span className="hidden md:block">
-                    {task.priority ? <PriorityBadge priority={task.priority} /> : <span className="text-[10px] text-gray-300">—</span>}
-                  </span>
-                  {/* Date */}
-                  <span className={`hidden md:block text-xs tabular-nums ${
-                    task.status === "overdue" ? "text-red-500 font-medium" : "text-gray-500"
-                  }`}>
-                    {task.dateLabel}
-                  </span>
-                  {/* Status badge */}
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full text-center whitespace-nowrap ${
-                    task.status === "overdue" ? "bg-red-100 text-red-700" :
-                    task.status === "due-today" ? "bg-orange-100 text-orange-700" :
-                    "bg-yellow-100 text-yellow-700"
-                  }`}>
-                    {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Due Today" : "Due Soon"}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        {/* Task centre — 3/4 (client component with complete + edit) */}
+        <DashboardTaskCentre tasks={allTaskItems} employees={employeesList} viewAll={viewAll} />
 
         {/* Recent Activity — sidebar 1/4 */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -882,26 +822,6 @@ function StatusChip({ count, label, color, href }: {
   );
 }
 
-function TabChip({ label, count, color, active }: {
-  label: string;
-  count: number;
-  color: "red" | "orange" | "yellow" | "gray";
-  active?: boolean;
-}) {
-  const styles: Record<string, string> = {
-    red: active ? "bg-red-600 text-white" : "bg-white text-red-700 border-red-200",
-    orange: "bg-white text-orange-700 border-orange-200",
-    yellow: "bg-white text-yellow-700 border-yellow-200",
-    gray: "bg-white text-gray-600 border-gray-200",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border whitespace-nowrap ${styles[color]}`}>
-      {label}
-      <span className="font-bold tabular-nums">{count}</span>
-    </span>
-  );
-}
-
 function StatCard({ label, value, sub, href, accent }: {
   label: string;
   value: number;
@@ -942,19 +862,6 @@ function MiniCard({ label, value, sub, href }: {
       <div className="text-xs font-medium text-gray-700">{label}</div>
       <div className="text-[10px] text-gray-400">{sub}</div>
     </Link>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const styles: Record<string, string> = {
-    HIGH: "bg-red-100 text-red-600",
-    MEDIUM: "bg-amber-100 text-amber-600",
-    LOW: "bg-gray-100 text-gray-500",
-  };
-  return (
-    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${styles[priority] ?? "bg-gray-100 text-gray-500"}`}>
-      {priority}
-    </span>
   );
 }
 
