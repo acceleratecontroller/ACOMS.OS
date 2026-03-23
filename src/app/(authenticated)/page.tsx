@@ -24,6 +24,9 @@ export default async function DashboardPage({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
@@ -53,6 +56,8 @@ export default async function DashboardPage({
     tasksDueSoon,
     overdueRecurring,
     overdueRecurringTasks,
+    recurringDueToday,
+    recurringDueTodayCount,
     recurringDueSoon,
     // Recent activity
     recentActivity,
@@ -146,11 +151,29 @@ export default async function DashboardPage({
       orderBy: { nextDue: "asc" },
       take: 5,
     }),
-    // Recurring tasks due this week
+    // Recurring tasks due today
     prisma.recurringTask.findMany({
       where: {
         isArchived: false,
-        nextDue: { gte: today, lte: sevenDaysFromNow },
+        nextDue: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+      include: { owner: { select: { firstName: true, lastName: true } } },
+      orderBy: { nextDue: "asc" },
+      take: 5,
+    }),
+    prisma.recurringTask.count({
+      where: {
+        isArchived: false,
+        nextDue: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+    }),
+    // Recurring tasks due this week (excluding today)
+    prisma.recurringTask.findMany({
+      where: {
+        isArchived: false,
+        nextDue: { gte: tomorrow, lte: sevenDaysFromNow },
         ...taskOwnerFilter,
       },
       include: { owner: { select: { firstName: true, lastName: true } } },
@@ -275,6 +298,7 @@ export default async function DashboardPage({
   const alerts: { label: string; href: string; color: "red" | "amber" }[] = [];
   if (overdueTasks > 0) alerts.push({ label: `${overdueTasks} overdue task${overdueTasks !== 1 ? "s" : ""}`, href: "/tasks", color: "red" });
   if (overdueRecurring > 0) alerts.push({ label: `${overdueRecurring} overdue recurring`, href: "/tasks", color: "red" });
+  if (recurringDueTodayCount > 0) alerts.push({ label: `${recurringDueTodayCount} recurring due today`, href: "/tasks", color: "amber" });
   if (plantServiceOverdue.length > 0) alerts.push({ label: `${plantServiceOverdue.length} plant overdue`, href: "/plant", color: "red" });
   if (totalAccredIssues > 0) alerts.push({ label: `${totalAccredIssues} accreditation issue${totalAccredIssues !== 1 ? "s" : ""}`, href: "/training", color: "red" });
   if (expiringSoonAccredEmployees.length > 0) alerts.push({ label: `${expiringSoonAccredEmployees.length} accred. expiring soon`, href: "/training", color: "amber" });
@@ -361,7 +385,7 @@ export default async function DashboardPage({
               </div>
             </div>
             <div className="px-4 py-3">
-            {tasksDueSoon.length === 0 && recurringDueSoon.length === 0 && overdueRecurringTasks.length === 0 ? (
+            {tasksDueSoon.length === 0 && recurringDueSoon.length === 0 && overdueRecurringTasks.length === 0 && recurringDueToday.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No tasks due in the next 7 days</p>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -375,6 +399,18 @@ export default async function DashboardPage({
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
                       <span className="text-xs text-red-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
+                    </div>
+                  </div>
+                ))}
+                {/* Recurring tasks due today */}
+                {recurringDueToday.map((task) => (
+                  <div key={`rt-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-orange-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
                     </div>
                   </div>
                 ))}
@@ -524,10 +560,12 @@ export default async function DashboardPage({
 async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const staffTomorrow = new Date(today);
+  staffTomorrow.setDate(staffTomorrow.getDate() + 1);
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-  const [totalAssets, totalPlant, employee, overdueTasks, upcomingTasks, overdueRecurring, recurringDueSoon] = await Promise.all([
+  const [totalAssets, totalPlant, employee, overdueTasks, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),
     prisma.plant.count({ where: { isArchived: false } }),
     employeeId
@@ -595,14 +633,28 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
           take: 5,
         })
       : [],
-    // Recurring tasks due this week for this employee
+    // Recurring tasks due today for this employee
     employeeId
       ? prisma.recurringTask.findMany({
           where: {
             isArchived: false,
-            nextDue: { gte: today, lte: sevenDaysFromNow },
+            nextDue: { gte: today, lt: staffTomorrow },
             ownerId: employeeId,
           },
+          include: { owner: { select: { firstName: true, lastName: true } } },
+          orderBy: { nextDue: "asc" },
+          take: 5,
+        })
+      : [],
+    // Recurring tasks due this week (excluding today) for this employee
+    employeeId
+      ? prisma.recurringTask.findMany({
+          where: {
+            isArchived: false,
+            nextDue: { gte: staffTomorrow, lte: sevenDaysFromNow },
+            ownerId: employeeId,
+          },
+          include: { owner: { select: { firstName: true, lastName: true } } },
           orderBy: { nextDue: "asc" },
           take: 5,
         })
@@ -611,7 +663,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
 
   const pendingCount = employee?.accreditations.filter((a) => a.status === "PENDING").length ?? 0;
   const expiredCount = employee?.accreditations.filter((a) => a.status === "EXPIRED").length ?? 0;
-  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0;
+  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0 || recurringDueToday.length > 0;
 
   return (
     <div>
@@ -641,6 +693,15 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
             >
               <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
               {overdueRecurring.length} overdue recurring task{overdueRecurring.length !== 1 ? "s" : ""}
+            </Link>
+          )}
+          {recurringDueToday.length > 0 && (
+            <Link
+              href="/tasks"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              {recurringDueToday.length} recurring due today
             </Link>
           )}
           {expiredCount > 0 && (
@@ -674,7 +735,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
       {employeeId && (
         <div className="mb-5">
           <DashboardCard title="Your Tasks" href="/tasks" linkLabel="View all">
-            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 && recurringDueSoon.length === 0 ? (
+            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 && recurringDueToday.length === 0 && recurringDueSoon.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No tasks assigned to you</p>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -699,6 +760,16 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                       <span className="text-xs text-red-500">Recurring — overdue since {task.nextDue ? formatDate(task.nextDue) : ""}</span>
                     </div>
                     <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded shrink-0 ml-3">Overdue</span>
+                  </div>
+                ))}
+                {/* Recurring tasks due today */}
+                {recurringDueToday.map((task) => (
+                  <div key={`rt-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-orange-500">Recurring — due today</span>
+                    </div>
+                    <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded shrink-0 ml-3">Due Today</span>
                   </div>
                 ))}
                 {/* Upcoming regular tasks */}

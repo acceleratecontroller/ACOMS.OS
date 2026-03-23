@@ -12,6 +12,9 @@ export async function GET() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
   // Filter tasks to logged-in employee by default
   const employeeId = session.user.employeeId ?? null;
   const taskOwnerFilter = employeeId ? { ownerId: employeeId } : {};
@@ -22,6 +25,8 @@ export async function GET() {
     overdueTasks,
     overdueRecurringCount,
     overdueRecurringTasks,
+    dueTodayRecurringCount,
+    dueTodayRecurringTasks,
     upcomingTasks,
   ] = await Promise.all([
     prisma.task.count({
@@ -67,6 +72,25 @@ export async function GET() {
       orderBy: { nextDue: "asc" },
       take: 5,
     }),
+    prisma.recurringTask.count({
+      where: {
+        isArchived: false,
+        nextDue: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+    }),
+    prisma.recurringTask.findMany({
+      where: {
+        isArchived: false,
+        nextDue: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+      include: {
+        owner: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { nextDue: "asc" },
+      take: 5,
+    }),
     prisma.task.findMany({
       where: {
         isArchived: false,
@@ -88,6 +112,8 @@ export async function GET() {
     overdueRecurringCount,
     overdueTasks,
     overdueRecurringTasks,
+    dueTodayRecurringCount,
+    dueTodayRecurringTasks,
     upcomingTasks,
   });
 }

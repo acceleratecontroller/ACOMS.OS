@@ -4,6 +4,7 @@ import {
   RecurringTask,
   formatDate,
   isOverdue,
+  isDueToday,
   isDueSoon,
   ownerName,
   frequencyLabel,
@@ -25,7 +26,8 @@ export function RecurringTaskRow({
   onRestore: () => void;
 }) {
   const overdue = isOverdue(task.nextDue);
-  const soon = isDueSoon(task.nextDue) && !overdue;
+  const dueToday = isDueToday(task.nextDue);
+  const soon = isDueSoon(task.nextDue);
 
   let statusText = "On Track";
   let statusColor = "bg-green-100 text-green-700";
@@ -36,6 +38,9 @@ export function RecurringTaskRow({
     );
     statusText = `Overdue ${days}d`;
     statusColor = "bg-red-100 text-red-700";
+  } else if (dueToday) {
+    statusText = "Due Today";
+    statusColor = "bg-orange-100 text-orange-700";
   } else if (soon) {
     statusText = "Due Soon";
     statusColor = "bg-yellow-100 text-yellow-700";
@@ -47,7 +52,7 @@ export function RecurringTaskRow({
       <div
         onClick={onEdit}
         className={`hidden md:grid md:grid-cols-8 gap-2 px-4 py-3 items-center border-b last:border-b-0 transition-all cursor-pointer hover:bg-blue-50/60 ${
-          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : ""
+          overdue ? "bg-red-50 border-l-4 border-l-red-500" : dueToday ? "bg-orange-50 border-l-4 border-l-orange-500" : soon ? "bg-yellow-50" : ""
         }`}
       >
         <div className="col-span-2">
@@ -91,7 +96,7 @@ export function RecurringTaskRow({
       <div
         onClick={onEdit}
         className={`md:hidden rounded-md border px-3 py-2 mb-1 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${
-          overdue ? "bg-red-50 border-l-4 border-l-red-500" : soon ? "bg-yellow-50" : "bg-white"
+          overdue ? "bg-red-50 border-l-4 border-l-red-500" : dueToday ? "bg-orange-50 border-l-4 border-l-orange-500" : soon ? "bg-yellow-50" : "bg-white"
         }`}
       >
         <div className="flex items-start justify-between mb-2">

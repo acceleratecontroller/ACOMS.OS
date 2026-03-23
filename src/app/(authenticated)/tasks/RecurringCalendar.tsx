@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RecurringTask, formatDateISO, isOverdue, isDueSoon } from "./types";
+import { RecurringTask, formatDateISO, isOverdue, isDueToday, isDueSoon } from "./types";
 
 export function RecurringCalendar({ tasks }: { tasks: RecurringTask[] }) {
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -86,6 +86,7 @@ export function RecurringCalendar({ tasks }: { tasks: RecurringTask[] }) {
             <div className="text-xs text-gray-500 mb-1">{day.date.getDate()}</div>
             {day.tasks.map((t) => {
               const overdue = isOverdue(t.nextDue);
+              const today = isDueToday(t.nextDue);
               const soon = isDueSoon(t.nextDue);
               return (
                 <div
@@ -94,9 +95,11 @@ export function RecurringCalendar({ tasks }: { tasks: RecurringTask[] }) {
                   className={`text-[10px] px-1 py-0.5 mb-0.5 rounded truncate cursor-default ${
                     overdue
                       ? "bg-red-600 text-white"
-                      : soon
-                        ? "bg-yellow-400 text-black"
-                        : "bg-green-500 text-white"
+                      : today
+                        ? "bg-orange-500 text-white"
+                        : soon
+                          ? "bg-yellow-400 text-black"
+                          : "bg-green-500 text-white"
                   }`}
                 >
                   {t.title}

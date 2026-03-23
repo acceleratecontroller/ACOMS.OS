@@ -16,6 +16,7 @@ import {
   Task,
   RecurringTask,
   isOverdue,
+  isDueToday,
   isDueSoon,
   formatDateISO,
   getDateGroupLabel,
@@ -148,11 +149,14 @@ export default function TaskManagerPage() {
         case "overdue":
           match = isOverdue(t.nextDue);
           break;
+        case "due-today":
+          match = isDueToday(t.nextDue);
+          break;
         case "due-soon":
-          match = isDueSoon(t.nextDue) && !isOverdue(t.nextDue);
+          match = isDueSoon(t.nextDue) && !isDueToday(t.nextDue);
           break;
         case "on-track":
-          match = !isOverdue(t.nextDue) && !isDueSoon(t.nextDue);
+          match = !isOverdue(t.nextDue) && !isDueToday(t.nextDue) && !isDueSoon(t.nextDue);
           break;
       }
       if (recurringOwnerFilter && t.ownerId !== recurringOwnerFilter) match = false;
@@ -572,6 +576,7 @@ export default function TaskManagerPage() {
             {[
               { key: "all", label: "All Tasks" },
               { key: "overdue", label: "Overdue" },
+              { key: "due-today", label: "Due Today" },
               { key: "due-soon", label: "Due Soon" },
               { key: "on-track", label: "On Track" },
             ].map((f) => (

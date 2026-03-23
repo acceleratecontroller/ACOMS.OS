@@ -95,6 +95,15 @@ export function isOverdue(dateStr: string | null): boolean {
   return d < today;
 }
 
+export function isDueToday(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d.getTime() === today.getTime();
+}
+
 export function isDueSoon(dateStr: string | null): boolean {
   if (!dateStr) return false;
   const d = new Date(dateStr);
@@ -103,7 +112,7 @@ export function isDueSoon(dateStr: string | null): boolean {
   today.setHours(0, 0, 0, 0);
   const week = new Date(today);
   week.setDate(week.getDate() + 7);
-  return d >= today && d <= week;
+  return d > today && d <= week;
 }
 
 export function getDateGroupLabel(dateStr: string): string {
