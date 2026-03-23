@@ -330,282 +330,147 @@ export default async function DashboardPage({
   const typeMap: Record<string, number> = {};
   for (const g of employeesByType) typeMap[g.employmentType] = g._count;
 
-  // Collect priority items for the attention strip
-  const alerts: { label: string; href: string; color: "red" | "amber" }[] = [];
-  if (overdueTasks > 0) alerts.push({ label: `${overdueTasks} overdue task${overdueTasks !== 1 ? "s" : ""}`, href: "/tasks", color: "red" });
-  if (overdueRecurring > 0) alerts.push({ label: `${overdueRecurring} overdue recurring`, href: "/tasks", color: "red" });
+  // Compute counts
   const totalDueToday = tasksDueTodayCount + recurringDueTodayCount;
-  if (totalDueToday > 0) alerts.push({ label: `${totalDueToday} task${totalDueToday !== 1 ? "s" : ""} due today`, href: "/tasks", color: "amber" });
-  if (plantServiceOverdue.length > 0) alerts.push({ label: `${plantServiceOverdue.length} plant overdue`, href: "/plant", color: "red" });
-  if (totalAccredIssues > 0) alerts.push({ label: `${totalAccredIssues} accreditation issue${totalAccredIssues !== 1 ? "s" : ""}`, href: "/training", color: "red" });
-  if (expiringSoonAccredEmployees.length > 0) alerts.push({ label: `${expiringSoonAccredEmployees.length} accred. expiring soon`, href: "/training", color: "amber" });
-  if (plantServiceSoon.length > 0) alerts.push({ label: `${plantServiceSoon.length} plant service due`, href: "/plant", color: "amber" });
+  const totalDueSoon = tasksDueSoon.length + recurringDueSoon.length;
+  const totalRecurringDue = overdueRecurring + recurringDueTodayCount + recurringDueSoon.length;
+
+  // Build all task rows for the command centre
+  type TaskItem = { id: string; title: string; type: "task" | "recurring"; owner: string; priority?: string; date: Date | null; status: "overdue" | "due-today" | "due-soon"; dateLabel: string };
+  const allTaskItems: TaskItem[] = [
+    ...overdueTaskItems.map((t) => ({ id: t.id, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "overdue" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "" })),
+    ...overdueRecurringTasks.map((t) => ({ id: `r-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "overdue" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "" })),
+    ...tasksDueToday.map((t) => ({ id: `td-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "due-today" as const, dateLabel: "Today" })),
+    ...recurringDueToday.map((t) => ({ id: `rt-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "due-today" as const, dateLabel: "Today" })),
+    ...tasksDueSoon.map((t) => ({ id: `s-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, priority: t.priority, date: t.dueDate ? new Date(t.dueDate) : null, status: "due-soon" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "" })),
+    ...recurringDueSoon.map((t) => ({ id: `rs-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, date: t.nextDue ? new Date(t.nextDue) : null, status: "due-soon" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "" })),
+  ];
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Operations overview</p>
+      {/* ── Header + Status Chips ── */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-xs text-gray-500">Operations overview</p>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Link
+            href="/"
+            className={`px-2.5 py-1 rounded-md transition-colors ${!viewAll ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
+            Mine
+          </Link>
+          <Link
+            href="/?view=all"
+            className={`px-2.5 py-1 rounded-md transition-colors ${viewAll ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
+            All
+          </Link>
+        </div>
       </div>
 
-      {/* ── Priority alerts ── */}
-      {alerts.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {alerts.map((a, i) => (
-            <Link
-              key={i}
-              href={a.href}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                a.color === "red"
-                  ? "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
-                  : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${a.color === "red" ? "bg-red-500" : "bg-amber-500"}`} />
-              {a.label}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* ── Summary stats ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Employees" value={activeEmployees} sub={`${totalEmployees} total`} href="/employees" />
-        <StatCard label="Assets" value={totalAssets} sub={`${unassignedAssets} unassigned`} href="/assets" />
-        <StatCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
-        <StatCard
-          label={viewAll ? "All Tasks" : "My Tasks"}
-          value={activeTasks}
-          sub={totalOverdue > 0 ? `${totalOverdue} overdue` : `${highPriorityTasks} high priority`}
-          href="/tasks"
-          accent={totalOverdue > 0 ? "red" : undefined}
-        />
+      {/* ── Compact status chips ── */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <StatusChip count={totalOverdue} label="Overdue" color="red" href="/tasks" />
+        <StatusChip count={totalDueToday} label="Due Today" color="orange" href="/tasks" />
+        <StatusChip count={totalDueSoon} label="This Week" color="yellow" href="/tasks" />
+        <StatusChip count={totalRecurringDue} label="Recurring Due" color="blue" href="/tasks" />
+        {totalAccredIssues > 0 && <StatusChip count={totalAccredIssues} label="Accred. Issues" color="red" href="/training" />}
+        {plantServiceOverdue.length > 0 && <StatusChip count={plantServiceOverdue.length} label="Plant Overdue" color="red" href="/plant" />}
       </div>
 
-      {/* ── Main content — 2 columns ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-
-        {/* Left column — 2/3 width */}
-        <div className="lg:col-span-2 space-y-5">
-
-          {/* Tasks due this week */}
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">
-                {viewAll ? "All Tasks Due This Week" : "My Tasks Due This Week"}
-              </h2>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-xs">
-                  <Link
-                    href="/"
-                    className={`px-2 py-0.5 rounded transition-colors ${
-                      !viewAll
-                        ? "bg-blue-100 text-blue-700 font-medium"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    Mine
-                  </Link>
-                  <Link
-                    href="/?view=all"
-                    className={`px-2 py-0.5 rounded transition-colors ${
-                      viewAll
-                        ? "bg-blue-100 text-blue-700 font-medium"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    All
-                  </Link>
-                </div>
-                <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
-              </div>
-            </div>
-            <div className="px-4 py-3">
-            {overdueTaskItems.length === 0 && overdueRecurringTasks.length === 0 && tasksDueToday.length === 0 && recurringDueToday.length === 0 && tasksDueSoon.length === 0 && recurringDueSoon.length === 0 ? (
-              <p className="text-sm text-gray-400 py-2">No tasks due in the next 7 days</p>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {/* Overdue tasks */}
-                {overdueTaskItems.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">{task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
-                      <span className="text-xs text-red-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Overdue recurring tasks */}
-                {overdueRecurringTasks.map((task) => (
-                  <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
-                      <span className="text-xs text-red-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Tasks due today */}
-                {tasksDueToday.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-orange-500">{task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Recurring tasks due today */}
-                {recurringDueToday.map((task) => (
-                  <div key={`rt-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-orange-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Tasks due this week */}
-                {tasksDueSoon.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">{task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
-                      <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Recurring tasks due this week */}
-                {recurringDueSoon.map((task) => (
-                  <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
-                      <span className="text-xs text-gray-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
+      {/* ── Task Command Centre (primary) + Activity sidebar ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+        {/* Task centre — 3/4 */}
+        <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">
+              {viewAll ? "All Tasks" : "My Tasks"}
+            </h2>
+            <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
           </div>
 
-          {/* Asset & Plant overview — compact side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <DashboardCard title="Assets" href="/assets" linkLabel="Manage">
-              {Object.keys(assetStatusMap).length === 0 ? (
-                <p className="text-sm text-gray-400 py-2">No assets registered</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {Object.entries(assetStatusMap).map(([status, count]) => (
-                    <div key={status} className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1.5">
-                        <StatusDot status={status} />
-                        {formatEnum(status)}
-                      </span>
-                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </DashboardCard>
-
-            <DashboardCard title="Plant" href="/plant" linkLabel="Manage">
-              {Object.keys(plantStatusMap).length === 0 ? (
-                <p className="text-sm text-gray-400 py-2">No plant registered</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {Object.entries(plantStatusMap).map(([status, count]) => (
-                    <div key={status} className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1.5">
-                        <StatusDot status={status} />
-                        {formatEnum(status)}
-                      </span>
-                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Plant service inline */}
-              {plantServiceOverdue.length > 0 && (
-                <>
-                  <hr className="my-2.5 border-gray-100" />
-                  {plantServiceOverdue.map((p) => (
-                    <div key={p.id} className="flex justify-between text-xs py-0.5">
-                      <span className="text-red-600 font-medium">{p.plantNumber}</span>
-                      <span className="text-red-500">Overdue {formatDate(p.nextServiceDue)}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </DashboardCard>
+          {/* Tab filters */}
+          <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-50 bg-gray-50/50 overflow-x-auto">
+            <TabChip label="Overdue" count={overdueTaskItems.length + overdueRecurringTasks.length} active color="red" />
+            <TabChip label="Due Today" count={tasksDueToday.length + recurringDueToday.length} color="orange" />
+            <TabChip label="This Week" count={tasksDueSoon.length + recurringDueSoon.length} color="yellow" />
+            <TabChip label="All" count={allTaskItems.length} color="gray" />
           </div>
 
-          {/* Employees by location — compact */}
-          <DashboardCard title="Employees" href="/employees" linkLabel="View all">
-            {Object.keys(locationMap).length === 0 ? (
-              <p className="text-sm text-gray-400 py-2">No active employees</p>
+          {/* Task rows */}
+          <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+            {allTaskItems.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-gray-400">No tasks require attention</div>
             ) : (
-              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-                {Object.entries(locationMap)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([loc, count]) => (
-                    <div key={loc} className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-600">{formatEnum(loc)}</span>
-                      <span className="font-medium text-gray-900 tabular-nums">{count}</span>
-                    </div>
-                  ))}
-                {Object.entries(typeMap).length > 0 && (
-                  <div className="w-full mt-1.5 flex flex-wrap gap-2">
-                    {Object.entries(typeMap)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([type, count]) => (
-                        <span key={type} className="text-xs text-gray-500">
-                          {formatEnum(type)}: {count}
-                        </span>
-                      ))}
+              allTaskItems.map((task) => (
+                <div
+                  key={task.id}
+                  className={`grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_70px_80px_90px] items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-gray-50 ${
+                    task.status === "overdue" ? "bg-red-50/40" : task.status === "due-today" ? "bg-orange-50/40" : ""
+                  }`}
+                >
+                  {/* Title + type */}
+                  <div className="min-w-0">
+                    <span className={`font-medium truncate block ${
+                      task.status === "overdue" ? "text-red-700" : task.status === "due-today" ? "text-orange-700" : "text-gray-900"
+                    }`}>
+                      {task.title}
+                    </span>
+                    <span className="text-[11px] text-gray-400 md:hidden">
+                      {task.type === "recurring" ? "Recurring" : "Task"} &middot; {task.owner}
+                    </span>
                   </div>
-                )}
-              </div>
+                  {/* Type badge — desktop */}
+                  <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center ${
+                    task.type === "recurring" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
+                  }`}>
+                    {task.type === "recurring" ? "Recurring" : "Task"}
+                  </span>
+                  {/* Owner — desktop */}
+                  <span className="hidden md:block text-xs text-gray-500 truncate">{task.owner}</span>
+                  {/* Priority — desktop */}
+                  <span className="hidden md:block">
+                    {task.priority ? <PriorityBadge priority={task.priority} /> : <span className="text-[10px] text-gray-300">—</span>}
+                  </span>
+                  {/* Date */}
+                  <span className={`hidden md:block text-xs tabular-nums ${
+                    task.status === "overdue" ? "text-red-500 font-medium" : "text-gray-500"
+                  }`}>
+                    {task.dateLabel}
+                  </span>
+                  {/* Status badge */}
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full text-center whitespace-nowrap ${
+                    task.status === "overdue" ? "bg-red-100 text-red-700" :
+                    task.status === "due-today" ? "bg-orange-100 text-orange-700" :
+                    "bg-yellow-100 text-yellow-700"
+                  }`}>
+                    {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Due Today" : "Due Soon"}
+                  </span>
+                </div>
+              ))
             )}
-          </DashboardCard>
+          </div>
         </div>
 
-        {/* Right column — 1/3 width */}
-        <div className="space-y-5">
-
-          {/* Recent Activity */}
-          <DashboardCard title="Recent Activity" href="/activity-log" linkLabel="View all">
+        {/* Recent Activity — sidebar 1/4 */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+            <h2 className="text-xs font-semibold text-gray-900">Recent Activity</h2>
+            <Link href="/activity-log" className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
+          </div>
+          <div className="px-3 py-2 max-h-[420px] overflow-y-auto">
             {recentActivity.length === 0 ? (
-              <p className="text-sm text-gray-400 py-2">No recent activity</p>
+              <p className="text-xs text-gray-400 py-2">No recent activity</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {recentActivity.map((entry) => (
-                  <div key={entry.id} className="flex gap-2.5">
+                  <div key={entry.id} className="flex gap-2">
                     <ActionDot action={entry.action} />
                     <div className="min-w-0">
-                      <p className="text-sm text-gray-900 truncate">{entry.entityLabel}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-900 truncate leading-tight">{entry.entityLabel}</p>
+                      <p className="text-[10px] text-gray-400 leading-tight">
                         {entry.performedBy.name} &middot; {formatRelativeTime(entry.performedAt)}
                       </p>
                     </div>
@@ -613,8 +478,16 @@ export default async function DashboardPage({
                 ))}
               </div>
             )}
-          </DashboardCard>
+          </div>
         </div>
+      </div>
+
+      {/* ── Secondary: Resources row ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MiniCard label="Employees" value={activeEmployees} sub={`${totalEmployees} total`} href="/employees" />
+        <MiniCard label="Assets" value={totalAssets} sub={`${unassignedAssets} unassigned`} href="/assets" />
+        <MiniCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
+        <MiniCard label="Active Tasks" value={activeTasks} sub={`${highPriorityTasks} high priority`} href="/tasks" />
       </div>
     </div>
   );
@@ -969,14 +842,63 @@ function DashboardCard({ title, href, linkLabel, children }: {
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+        <h2 className="text-xs font-semibold text-gray-900">{title}</h2>
         {href && linkLabel && (
-          <Link href={href} className="text-xs text-gray-400 hover:text-blue-600 transition-colors">{linkLabel}</Link>
+          <Link href={href} className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors">{linkLabel}</Link>
         )}
       </div>
-      <div className="px-4 py-3">{children}</div>
+      <div className="px-3 py-2">{children}</div>
     </div>
+  );
+}
+
+function StatusChip({ count, label, color, href }: {
+  count: number;
+  label: string;
+  color: "red" | "orange" | "yellow" | "blue" | "gray";
+  href: string;
+}) {
+  if (count === 0 && color !== "yellow" && color !== "blue") return null;
+  const styles: Record<string, string> = {
+    red: "bg-red-50 text-red-700 border-red-200",
+    orange: "bg-orange-50 text-orange-700 border-orange-200",
+    yellow: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    gray: "bg-gray-50 text-gray-600 border-gray-200",
+  };
+  const dotStyles: Record<string, string> = {
+    red: "bg-red-500", orange: "bg-orange-500", yellow: "bg-yellow-500", blue: "bg-blue-500", gray: "bg-gray-400",
+  };
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors hover:opacity-80 ${styles[color]}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[color]}`} />
+      <span className="font-bold tabular-nums">{count}</span>
+      {label}
+    </Link>
+  );
+}
+
+function TabChip({ label, count, color, active }: {
+  label: string;
+  count: number;
+  color: "red" | "orange" | "yellow" | "gray";
+  active?: boolean;
+}) {
+  const styles: Record<string, string> = {
+    red: active ? "bg-red-600 text-white" : "bg-white text-red-700 border-red-200",
+    orange: "bg-white text-orange-700 border-orange-200",
+    yellow: "bg-white text-yellow-700 border-yellow-200",
+    gray: "bg-white text-gray-600 border-gray-200",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border whitespace-nowrap ${styles[color]}`}>
+      {label}
+      <span className="font-bold tabular-nums">{count}</span>
+    </span>
   );
 }
 
@@ -990,32 +912,50 @@ function StatCard({ label, value, sub, href, accent }: {
   return (
     <Link
       href={href}
-      className={`block px-4 py-3 rounded-lg border transition-all hover:shadow-sm ${
+      className={`block px-3 py-2.5 rounded-lg border transition-all hover:shadow-sm ${
         accent === "red"
           ? "border-red-200 bg-red-50/50 hover:border-red-300"
           : "border-gray-200 bg-white hover:border-blue-300"
       }`}
     >
-      <div className={`text-2xl font-bold tabular-nums ${accent === "red" ? "text-red-600" : "text-gray-900"}`}>
+      <div className={`text-lg font-bold tabular-nums ${accent === "red" ? "text-red-600" : "text-gray-900"}`}>
         {value}
       </div>
-      <div className="text-sm font-medium text-gray-700">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+      <div className="text-xs font-medium text-gray-700">{label}</div>
+      {sub && <div className="text-[10px] text-gray-400">{sub}</div>}
     </Link>
   );
 }
 
-function StatusDot({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    AVAILABLE: "bg-green-400",
-    IN_USE: "bg-blue-400",
-    MAINTENANCE: "bg-amber-400",
-    RETIRED: "bg-gray-400",
-    OPERATIONAL: "bg-green-400",
-    DECOMMISSIONED: "bg-gray-400",
-    STANDBY: "bg-amber-400",
+function MiniCard({ label, value, sub, href }: {
+  label: string;
+  value: number;
+  sub: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="block px-3 py-2.5 rounded-lg border border-gray-200 bg-white transition-all hover:shadow-sm hover:border-blue-300"
+    >
+      <div className="text-lg font-bold tabular-nums text-gray-900">{value}</div>
+      <div className="text-xs font-medium text-gray-700">{label}</div>
+      <div className="text-[10px] text-gray-400">{sub}</div>
+    </Link>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const styles: Record<string, string> = {
+    HIGH: "bg-red-100 text-red-600",
+    MEDIUM: "bg-amber-100 text-amber-600",
+    LOW: "bg-gray-100 text-gray-500",
   };
-  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] ?? "bg-gray-300"}`} />;
+  return (
+    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${styles[priority] ?? "bg-gray-100 text-gray-500"}`}>
+      {priority}
+    </span>
+  );
 }
 
 function PriorityDot({ priority }: { priority: string }) {
@@ -1036,8 +976,8 @@ function ActionDot({ action }: { action: string }) {
     COMPLETE: "bg-green-400",
   };
   return (
-    <div className="pt-1.5 shrink-0">
-      <span className={`inline-block w-2 h-2 rounded-full ${colors[action] ?? "bg-gray-300"}`} />
+    <div className="pt-0.5 shrink-0">
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${colors[action] ?? "bg-gray-300"}`} />
     </div>
   );
 }
