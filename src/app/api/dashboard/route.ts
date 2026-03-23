@@ -23,6 +23,8 @@ export async function GET() {
     activeTaskCount,
     overdueTaskCount,
     overdueTasks,
+    dueTodayTaskCount,
+    dueTodayTasks,
     overdueRecurringCount,
     overdueRecurringTasks,
     dueTodayRecurringCount,
@@ -45,6 +47,27 @@ export async function GET() {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { lt: today },
+        ...taskOwnerFilter,
+      },
+      include: {
+        owner: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+    }),
+    prisma.task.count({
+      where: {
+        isArchived: false,
+        status: { not: "COMPLETED" },
+        dueDate: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        isArchived: false,
+        status: { not: "COMPLETED" },
+        dueDate: { gte: today, lt: tomorrow },
         ...taskOwnerFilter,
       },
       include: {
@@ -112,6 +135,8 @@ export async function GET() {
     overdueRecurringCount,
     overdueTasks,
     overdueRecurringTasks,
+    dueTodayTaskCount,
+    dueTodayTasks,
     dueTodayRecurringCount,
     dueTodayRecurringTasks,
     upcomingTasks,

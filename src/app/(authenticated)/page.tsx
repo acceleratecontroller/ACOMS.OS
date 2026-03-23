@@ -52,7 +52,10 @@ export default async function DashboardPage({
     // Task stats
     activeTasks,
     overdueTasks,
+    overdueTaskItems,
     highPriorityTasks,
+    tasksDueToday,
+    tasksDueTodayCount,
     tasksDueSoon,
     overdueRecurring,
     overdueRecurringTasks,
@@ -122,6 +125,18 @@ export default async function DashboardPage({
         ...taskOwnerFilter,
       },
     }),
+    // Overdue task items
+    prisma.task.findMany({
+      where: {
+        isArchived: false,
+        status: { not: "COMPLETED" },
+        dueDate: { lt: today },
+        ...taskOwnerFilter,
+      },
+      include: { owner: { select: { firstName: true, lastName: true } } },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+    }),
     prisma.task.count({
       where: {
         isArchived: false,
@@ -130,11 +145,32 @@ export default async function DashboardPage({
         ...taskOwnerFilter,
       },
     }),
+    // Tasks due today
     prisma.task.findMany({
       where: {
         isArchived: false,
         status: { not: "COMPLETED" },
-        dueDate: { gte: today, lte: sevenDaysFromNow },
+        dueDate: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+      include: { owner: { select: { firstName: true, lastName: true } } },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+    }),
+    prisma.task.count({
+      where: {
+        isArchived: false,
+        status: { not: "COMPLETED" },
+        dueDate: { gte: today, lt: tomorrow },
+        ...taskOwnerFilter,
+      },
+    }),
+    // Tasks due this week (excluding today)
+    prisma.task.findMany({
+      where: {
+        isArchived: false,
+        status: { not: "COMPLETED" },
+        dueDate: { gte: tomorrow, lte: sevenDaysFromNow },
         ...taskOwnerFilter,
       },
       include: { owner: { select: { firstName: true, lastName: true } } },
@@ -298,7 +334,8 @@ export default async function DashboardPage({
   const alerts: { label: string; href: string; color: "red" | "amber" }[] = [];
   if (overdueTasks > 0) alerts.push({ label: `${overdueTasks} overdue task${overdueTasks !== 1 ? "s" : ""}`, href: "/tasks", color: "red" });
   if (overdueRecurring > 0) alerts.push({ label: `${overdueRecurring} overdue recurring`, href: "/tasks", color: "red" });
-  if (recurringDueTodayCount > 0) alerts.push({ label: `${recurringDueTodayCount} recurring due today`, href: "/tasks", color: "amber" });
+  const totalDueToday = tasksDueTodayCount + recurringDueTodayCount;
+  if (totalDueToday > 0) alerts.push({ label: `${totalDueToday} task${totalDueToday !== 1 ? "s" : ""} due today`, href: "/tasks", color: "amber" });
   if (plantServiceOverdue.length > 0) alerts.push({ label: `${plantServiceOverdue.length} plant overdue`, href: "/plant", color: "red" });
   if (totalAccredIssues > 0) alerts.push({ label: `${totalAccredIssues} accreditation issue${totalAccredIssues !== 1 ? "s" : ""}`, href: "/training", color: "red" });
   if (expiringSoonAccredEmployees.length > 0) alerts.push({ label: `${expiringSoonAccredEmployees.length} accred. expiring soon`, href: "/training", color: "amber" });
@@ -385,10 +422,24 @@ export default async function DashboardPage({
               </div>
             </div>
             <div className="px-4 py-3">
-            {tasksDueSoon.length === 0 && recurringDueSoon.length === 0 && overdueRecurringTasks.length === 0 && recurringDueToday.length === 0 ? (
+            {overdueTaskItems.length === 0 && overdueRecurringTasks.length === 0 && tasksDueToday.length === 0 && recurringDueToday.length === 0 && tasksDueSoon.length === 0 && recurringDueSoon.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No tasks due in the next 7 days</p>
             ) : (
               <div className="divide-y divide-gray-100">
+                {/* Overdue tasks */}
+                {overdueTaskItems.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-red-500">{task.owner.firstName} {task.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
+                      <span className="text-xs text-red-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                    </div>
+                  </div>
+                ))}
                 {/* Overdue recurring tasks */}
                 {overdueRecurringTasks.map((task) => (
                   <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
@@ -399,6 +450,19 @@ export default async function DashboardPage({
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
                       <span className="text-xs text-red-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
+                    </div>
+                  </div>
+                ))}
+                {/* Tasks due today */}
+                {tasksDueToday.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-orange-500">{task.owner.firstName} {task.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
                     </div>
                   </div>
                 ))}
@@ -414,7 +478,7 @@ export default async function DashboardPage({
                     </div>
                   </div>
                 ))}
-                {/* Regular tasks due this week */}
+                {/* Tasks due this week */}
                 {tasksDueSoon.map((task) => (
                   <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
@@ -423,6 +487,7 @@ export default async function DashboardPage({
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
                       <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
                     </div>
                   </div>
@@ -435,7 +500,7 @@ export default async function DashboardPage({
                       <span className="text-xs text-gray-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Recurring</span>
+                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
                       <span className="text-xs text-gray-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
                     </div>
                   </div>
@@ -565,7 +630,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-  const [totalAssets, totalPlant, employee, overdueTasks, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
+  const [totalAssets, totalPlant, employee, overdueTasks, tasksDueToday, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),
     prisma.plant.count({ where: { isArchived: false } }),
     employeeId
@@ -607,13 +672,27 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
           take: 5,
         })
       : [],
-    // Tasks due this week for this employee
+    // Tasks due today for this employee
     employeeId
       ? prisma.task.findMany({
           where: {
             isArchived: false,
             status: { not: "COMPLETED" },
-            dueDate: { gte: today, lte: sevenDaysFromNow },
+            dueDate: { gte: today, lt: staffTomorrow },
+            ownerId: employeeId,
+          },
+          include: { owner: { select: { firstName: true, lastName: true } } },
+          orderBy: { dueDate: "asc" },
+          take: 5,
+        })
+      : [],
+    // Tasks due this week (excluding today) for this employee
+    employeeId
+      ? prisma.task.findMany({
+          where: {
+            isArchived: false,
+            status: { not: "COMPLETED" },
+            dueDate: { gte: staffTomorrow, lte: sevenDaysFromNow },
             ownerId: employeeId,
           },
           include: { owner: { select: { firstName: true, lastName: true } } },
@@ -663,7 +742,8 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
 
   const pendingCount = employee?.accreditations.filter((a) => a.status === "PENDING").length ?? 0;
   const expiredCount = employee?.accreditations.filter((a) => a.status === "EXPIRED").length ?? 0;
-  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0 || recurringDueToday.length > 0;
+  const staffDueTodayTotal = tasksDueToday.length + recurringDueToday.length;
+  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0 || staffDueTodayTotal > 0;
 
   return (
     <div>
@@ -695,13 +775,13 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
               {overdueRecurring.length} overdue recurring task{overdueRecurring.length !== 1 ? "s" : ""}
             </Link>
           )}
-          {recurringDueToday.length > 0 && (
+          {staffDueTodayTotal > 0 && (
             <Link
               href="/tasks"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              {recurringDueToday.length} recurring due today
+              {staffDueTodayTotal} task{staffDueTodayTotal !== 1 ? "s" : ""} due today
             </Link>
           )}
           {expiredCount > 0 && (
@@ -735,7 +815,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
       {employeeId && (
         <div className="mb-5">
           <DashboardCard title="Your Tasks" href="/tasks" linkLabel="View all">
-            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 && recurringDueToday.length === 0 && recurringDueSoon.length === 0 ? (
+            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 && tasksDueToday.length === 0 && recurringDueToday.length === 0 && recurringDueSoon.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No tasks assigned to you</p>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -744,7 +824,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                   <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">Overdue — {task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                      <span className="text-xs text-red-500">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       <PriorityDot priority={task.priority} />
@@ -757,9 +837,22 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                   <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">Recurring — overdue since {task.nextDue ? formatDate(task.nextDue) : ""}</span>
+                      <span className="text-xs text-red-500">Recurring &middot; {task.nextDue ? formatDate(task.nextDue) : ""}</span>
                     </div>
                     <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded shrink-0 ml-3">Overdue</span>
+                  </div>
+                ))}
+                {/* Tasks due today */}
+                {tasksDueToday.map((task) => (
+                  <div key={`td-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-orange-500">{task.owner.firstName} {task.owner.lastName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
+                    </div>
                   </div>
                 ))}
                 {/* Recurring tasks due today */}
@@ -767,7 +860,7 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                   <div key={`rt-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-orange-500">Recurring — due today</span>
+                      <span className="text-xs text-orange-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
                     </div>
                     <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded shrink-0 ml-3">Due Today</span>
                   </div>
@@ -777,10 +870,11 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                   <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">Due {task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                      <span className="text-xs text-gray-500">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
                       <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
                       <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
                     </div>
                   </div>
@@ -790,10 +884,10 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
                   <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">Recurring — due {task.nextDue ? formatDate(task.nextDue) : ""}</span>
+                      <span className="text-xs text-gray-500">Recurring &middot; {task.nextDue ? formatDate(task.nextDue) : ""}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Recurring</span>
+                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
                       <span className="text-xs text-gray-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
                     </div>
                   </div>
