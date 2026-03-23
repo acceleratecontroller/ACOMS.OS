@@ -131,6 +131,12 @@ export default function TaskManagerPage() {
         case "overdue":
           match = t.status !== "COMPLETED" && isOverdue(t.dueDate);
           break;
+        case "due-today":
+          match = t.status !== "COMPLETED" && isDueToday(t.dueDate);
+          break;
+        case "due-soon":
+          match = t.status !== "COMPLETED" && isDueSoon(t.dueDate) && !isDueToday(t.dueDate);
+          break;
         case "high":
           match = t.priority === "HIGH";
           break;
@@ -468,9 +474,11 @@ export default function TaskManagerPage() {
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {[
               { key: "all", label: "All Tasks" },
+              { key: "overdue", label: "Overdue" },
+              { key: "due-today", label: "Due Today" },
+              { key: "due-soon", label: "Due Soon" },
               { key: "pending", label: "Pending" },
               { key: "completed", label: "Completed" },
-              { key: "overdue", label: "Overdue" },
               { key: "high", label: "High Priority" },
             ].map((f) => (
               <button
@@ -756,7 +764,7 @@ export default function TaskManagerPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Progress</label>
                 <select name="status" defaultValue={editingTask.status} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   {STATUS_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
