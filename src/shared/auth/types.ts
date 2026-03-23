@@ -7,6 +7,7 @@ declare module "next-auth" {
     role?: string;
     twoFactorEnabled?: boolean;
     employeeId?: string;
+    deviceTrusted?: boolean;
   }
 
   interface Session {

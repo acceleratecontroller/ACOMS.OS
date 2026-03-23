@@ -141,6 +141,24 @@ model User {
 
   // Backup codes for 2FA recovery
   backupCodes BackupCode[]
+
+  // Trusted devices (remember me for 2FA)
+  trustedDevices TrustedDevice[]
+}
+
+// ─── Trusted Device (Remember Me for 2FA) ─────────────────
+
+model TrustedDevice {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique  // SHA-256 hash of the device trust token
+  label       String?           // User-agent or device label for display
+  expiresAt   DateTime          // 30 days from creation
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ─── Backup Code (2FA Recovery) ───────────────────────────

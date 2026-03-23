@@ -1,7 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
+import { cookies } from "next/headers";
 import { prisma } from "@/shared/database/client";
+import { verifyDeviceToken } from "@/shared/auth/trusted-device";
+
+const TRUST_COOKIE_NAME = "acoms_trusted_device";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -34,11 +38,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Clear 2FA verification so this new session requires fresh verification
+        // Check if this device is trusted (remember me)
+        let deviceTrusted = false;
         if (user.twoFactorEnabled) {
+          try {
+            const cookieStore = await cookies();
+            const trustToken = cookieStore.get(TRUST_COOKIE_NAME)?.value;
+            if (trustToken) {
+              const device = await verifyDeviceToken(trustToken, user.id);
+              deviceTrusted = !!device;
+            }
+          } catch {
+            // cookies() may fail in some contexts — not critical
+          }
+        }
+
+        if (user.twoFactorEnabled && !deviceTrusted) {
+          // Clear 2FA verification so this new session requires fresh verification
           await prisma.user.update({
             where: { id: user.id },
             data: { twoFactorVerifiedAt: null },
+          });
+        } else if (user.twoFactorEnabled && deviceTrusted) {
+          // Device is trusted — auto-verify 2FA
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { twoFactorVerifiedAt: new Date() },
           });
         }
 
@@ -49,6 +74,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role,
           twoFactorEnabled: user.twoFactorEnabled,
           employeeId: user.employee?.id,
+          deviceTrusted,
         };
       },
     }),
@@ -59,8 +85,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as { role: string }).role;
         token.id = user.id;
         token.twoFactorEnabled = (user as { twoFactorEnabled?: boolean }).twoFactorEnabled ?? false;
-        // If 2FA is enabled, they haven't verified yet at login time
-        token.twoFactorVerified = !token.twoFactorEnabled;
+        const deviceTrusted = (user as { deviceTrusted?: boolean }).deviceTrusted ?? false;
+        // If 2FA is enabled and device is not trusted, they need to verify
+        token.twoFactorVerified = !token.twoFactorEnabled || deviceTrusted;
         token.employeeId = (user as { employeeId?: string }).employeeId;
       }
       // Re-validate user state on every request

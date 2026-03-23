@@ -2,12 +2,21 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deviceStatus, setDeviceStatus] = useState<{ trusted: boolean; daysRemaining?: number } | null>(null);
+
+  // Check if this device is trusted on mount
+  useEffect(() => {
+    fetch("/api/auth/two-factor/device-status")
+      .then((res) => res.json())
+      .then((data) => setDeviceStatus(data))
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,6 +59,13 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mb-6">
           Sign in to access the operations platform.
         </p>
+
+        {deviceStatus?.trusted && deviceStatus.daysRemaining !== undefined && (
+          <div className="mb-4 rounded bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+            This device is remembered — {deviceStatus.daysRemaining}{" "}
+            {deviceStatus.daysRemaining === 1 ? "day" : "days"} until 2FA is required again.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
