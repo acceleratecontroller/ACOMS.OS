@@ -87,7 +87,10 @@ export async function PUT(
     String(data.lastCompleted || "") !== String(before.lastCompleted?.toISOString().slice(0, 10) || "");
 
   if (freqTypeChanged || freqValueChanged || schedTypeChanged || lastCompletedChanged) {
-    nextDue = calculateNextDue(freqType, freqValue, schedType, lastCompleted, before.nextDue);
+    // When editing, always recalculate from lastCompleted (not from currentNextDue).
+    // The FIXED vs FLOATING distinction only matters when completing a task —
+    // here we just need lastCompleted + frequency.
+    nextDue = calculateNextDue(freqType, freqValue, schedType, lastCompleted, null);
   }
 
   const { result: task, error } = await withPrismaError("Failed to update recurring task", () =>
