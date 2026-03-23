@@ -163,40 +163,13 @@ export const ACCREDITATION_STATUS_LABELS: Record<string, string> = Object.fromEn
   ACCREDITATION_STATUS_OPTIONS.map((o) => [o.value, o.label]),
 );
 
-// ─── Task constants ──────────────────────────────────────
+// ─── Task constants (canonical source: @/modules/tasks/constants) ─────
+// Re-exported here for backward compatibility with existing imports.
 
-export const TASK_STATUS_OPTIONS: SelectOption[] = [
-  { value: "NOT_STARTED", label: "Not Started" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "STUCK", label: "Stuck" },
-  { value: "AWAITING_RESPONSE", label: "Awaiting Response" },
-  { value: "COMPLETED", label: "Completed" },
-];
-
-export const PRIORITY_OPTIONS: SelectOption[] = [
-  { value: "LOW", label: "Low" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "HIGH", label: "High" },
-];
-
-export const FREQUENCY_OPTIONS: SelectOption[] = [
-  { value: "DAILY", label: "Daily (Mon–Fri)" },
-  { value: "WEEKLY", label: "Weekly" },
-  { value: "FORTNIGHTLY", label: "Fortnightly" },
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "QUARTERLY", label: "Quarterly" },
-  { value: "YEARLY", label: "Yearly" },
-];
-
-export const SCHEDULE_OPTIONS: SelectOption[] = [
-  { value: "FLOATING", label: "Floating (from completion date)" },
-  { value: "FIXED", label: "Fixed (anchored schedule)" },
-];
-
-export const RECURRING_CATEGORY_OPTIONS: SelectOption[] = [
-  { value: "Task", label: "Task" },
-  { value: "Meeting", label: "Meeting" },
-  { value: "Report", label: "Report" },
-  { value: "Inspection", label: "Inspection" },
-  { value: "Maintenance", label: "Maintenance" },
-];
+export {
+  TASK_STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+  FREQUENCY_OPTIONS,
+  SCHEDULE_OPTIONS,
+  RECURRING_CATEGORY_OPTIONS,
+} from "@/modules/tasks/constants";

@@ -1,7 +1,7 @@
 import {
   TASK_STATUS_OPTIONS,
   FREQUENCY_OPTIONS,
-} from "@/config/constants";
+} from "@/modules/tasks/constants";
 
 // ─── Types ────────────────────────────────────────────────
 
