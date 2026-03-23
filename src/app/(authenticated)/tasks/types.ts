@@ -67,19 +67,33 @@ export const PRIORITY_BADGE_COLORS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────
 
+/**
+ * Parse a date string and return midnight in the user's local timezone,
+ * preserving the calendar date the user sees (not the UTC date portion).
+ */
+function toDateOnly(dateStr: string): Date {
+  const d = new Date(dateStr);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function todayDateOnly(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 export function formatStatusLabel(status: string): string {
   return TASK_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 }
 
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
+  const d = toDateOnly(dateStr);
   return d.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 export function formatDateISO(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
+  const d = toDateOnly(dateStr);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -88,38 +102,26 @@ export function formatDateISO(dateStr: string | null | undefined): string {
 
 export function isOverdue(dateStr: string | null): boolean {
   if (!dateStr) return false;
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return d < today;
+  return toDateOnly(dateStr) < todayDateOnly();
 }
 
 export function isDueToday(dateStr: string | null): boolean {
   if (!dateStr) return false;
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return d.getTime() === today.getTime();
+  return toDateOnly(dateStr).getTime() === todayDateOnly().getTime();
 }
 
 export function isDueSoon(dateStr: string | null): boolean {
   if (!dateStr) return false;
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const d = toDateOnly(dateStr);
+  const today = todayDateOnly();
   const week = new Date(today);
   week.setDate(week.getDate() + 7);
   return d > today && d <= week;
 }
 
 export function getDateGroupLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const d = toDateOnly(dateStr);
+  const today = todayDateOnly();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const yesterday = new Date(today);
@@ -132,7 +134,8 @@ export function getDateGroupLabel(dateStr: string): string {
 }
 
 export function tomorrowISO(): string {
-  const d = new Date();
+  const today = todayDateOnly();
+  const d = new Date(today);
   d.setDate(d.getDate() + 1);
   return formatDateISO(d.toISOString());
 }

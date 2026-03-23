@@ -32,10 +32,10 @@ export function RecurringTaskRow({
   let statusText = "On Track";
   let statusColor = "bg-green-100 text-green-700";
   if (overdue) {
-    const days = Math.floor(
-      (new Date().setHours(0, 0, 0, 0) - new Date(task.nextDue!).setHours(0, 0, 0, 0)) /
-        (24 * 60 * 60 * 1000),
-    );
+    const todayMs = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+    const [y, m, d] = task.nextDue!.substring(0, 10).split("-").map(Number);
+    const dueMs = new Date(y, m - 1, d).getTime();
+    const days = Math.floor((todayMs - dueMs) / (24 * 60 * 60 * 1000));
     statusText = `Overdue ${days}d`;
     statusColor = "bg-red-100 text-red-700";
   } else if (dueToday) {

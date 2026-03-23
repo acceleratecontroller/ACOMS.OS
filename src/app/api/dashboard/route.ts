@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { getDateBoundaries } from "@/shared/date-utils";
 
 // GET /api/dashboard — Dashboard summary stats
 export async function GET() {
@@ -9,11 +10,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
+  const { today, tomorrow } = getDateBoundaries();
 
   // Filter tasks to logged-in employee by default
   const employeeId = session.user.employeeId ?? null;

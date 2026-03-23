@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
+import { getDateBoundaries } from "@/shared/date-utils";
 import { DashboardTaskCentre } from "./DashboardTaskCentre";
 import type { DashboardTaskItem, DashboardEmployee } from "./DashboardTaskCentre";
 
@@ -23,17 +24,8 @@ export default async function DashboardPage({
   // Filter tasks to logged-in employee unless "all" view is selected
   const taskOwnerFilter = !viewAll && employeeId ? { ownerId: employeeId } : {};
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-
-  const thirtyDaysFromNow = new Date(today);
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
+  const { today, tomorrow, sevenDays: sevenDaysFromNow, thirtyDays: thirtyDaysFromNow } = getDateBoundaries();
 
   // Parallel fetch all dashboard data
   const [
@@ -436,12 +428,8 @@ export default async function DashboardPage({
 /* ─── Staff Dashboard ───────────────────────────────── */
 
 async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const staffTomorrow = new Date(today);
-  staffTomorrow.setDate(staffTomorrow.getDate() + 1);
-  const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
+  const { today, tomorrow: staffTomorrow, sevenDays: sevenDaysFromNow } = getDateBoundaries();
 
   const [totalAssets, totalPlant, employee, overdueTasks, tasksDueToday, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),
