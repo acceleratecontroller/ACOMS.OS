@@ -63,7 +63,7 @@ export function DashboardTaskCentre({
   viewAll: boolean;
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>("overdue");
+  const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [editingTask, setEditingTask] = useState<DashboardTaskItem | null>(null);
   const [confirmComplete, setConfirmComplete] = useState<DashboardTaskItem | null>(null);
   const [saving, setSaving] = useState(false);
@@ -171,11 +171,11 @@ export function DashboardTaskCentre({
 
   // Tab config
   const tabs: { key: TabKey; label: string; color: string; activeColor: string }[] = [
+    { key: "all", label: "All", color: "text-gray-600 border-gray-200 bg-white", activeColor: "bg-gray-700 text-white border-gray-700" },
     { key: "overdue", label: "Overdue", color: "text-red-700 border-red-200 bg-white", activeColor: "bg-red-600 text-white border-red-600" },
     { key: "due-today", label: "Due Today", color: "text-orange-700 border-orange-200 bg-white", activeColor: "bg-orange-500 text-white border-orange-500" },
     { key: "this-week", label: "This Week", color: "text-yellow-700 border-yellow-200 bg-white", activeColor: "bg-yellow-500 text-white border-yellow-500" },
     { key: "recurring", label: "Recurring", color: "text-blue-700 border-blue-200 bg-white", activeColor: "bg-blue-600 text-white border-blue-600" },
-    { key: "all", label: "All", color: "text-gray-600 border-gray-200 bg-white", activeColor: "bg-gray-700 text-white border-gray-700" },
   ];
 
   return (
@@ -265,13 +265,15 @@ export function DashboardTaskCentre({
                     }
                   }}
                   disabled={completing === task.id}
-                  className="hidden md:inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  className="hidden md:flex items-center justify-center w-6 h-6 rounded-full border border-gray-300 text-gray-400 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50 shrink-0"
                   title="Mark complete"
                 >
                   {completing === task.id ? (
-                    <span className="w-3 h-3 border-2 border-green-300 border-t-green-600 rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
                   ) : (
-                    <>&#10003; Done</>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
                   )}
                 </button>
               </div>
