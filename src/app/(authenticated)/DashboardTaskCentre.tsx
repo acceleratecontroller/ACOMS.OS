@@ -87,6 +87,7 @@ export function DashboardTaskCentre({
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [showAddTask, setShowAddTask] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
 
@@ -264,6 +265,42 @@ export function DashboardTaskCentre({
     }
   }, [editingTask, router]);
 
+  // ─── Create task handler ──────────────────────────────
+
+  const handleCreateTask = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const fd = new FormData(e.currentTarget);
+    try {
+      const body = {
+        title: fd.get("title"),
+        ownerId: fd.get("ownerId"),
+        projectId: fd.get("projectId") || null,
+        status: fd.get("status") || "NOT_STARTED",
+        priority: fd.get("priority") || "MEDIUM",
+        dueDate: fd.get("dueDate") || null,
+        label: fd.get("label") || "",
+        notes: fd.get("notes") || null,
+      };
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to create task");
+      }
+      setShowAddTask(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create task");
+    } finally {
+      setSaving(false);
+    }
+  }, [router]);
+
   return (
     <>
       <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col">
@@ -343,15 +380,15 @@ export function DashboardTaskCentre({
               {/* Spacer */}
               <div className="flex-1" />
               {/* Add Task */}
-              <Link
-                href="/tasks"
+              <button
+                onClick={() => { setShowAddTask(true); setError(""); }}
                 className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-50 hover:border-gray-300 transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Task
-              </Link>
+              </button>
             </div>
 
             {/* Filter Chips */}
@@ -568,6 +605,74 @@ export function DashboardTaskCentre({
           </>
         )}
       </div>
+
+      {/* ─── Add Task Modal ────────────────────────────────── */}
+      {showAddTask && (
+        <Modal isOpen onClose={() => { setShowAddTask(false); setError(""); }}>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Add Quick Task</h2>
+          <form onSubmit={handleCreateTask} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task Title *</label>
+              <input name="title" required autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Owner *</label>
+                <select name="ownerId" required className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
+                <input name="projectId" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select name="priority" defaultValue="MEDIUM" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {PRIORITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input name="dueDate" type="date" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Progress</label>
+                <select name="status" defaultValue="NOT_STARTED" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+                <input name="label" className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea name="notes" rows={2} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <div className="flex gap-3 pt-2">
+              <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "Creating..." : "Create Task"}
+              </button>
+              <button type="button" onClick={() => { setShowAddTask(false); setError(""); }} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* ─── Edit Task Modal ───────────────────────────────── */}
       {editingTask && editingTask.type === "task" && (
