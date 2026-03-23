@@ -10,7 +10,7 @@ import {
   FREQUENCY_OPTIONS,
   SCHEDULE_OPTIONS,
   RECURRING_CATEGORY_OPTIONS,
-} from "@/config/constants";
+} from "@/modules/tasks/constants";
 import {
   Employee,
   Task,
