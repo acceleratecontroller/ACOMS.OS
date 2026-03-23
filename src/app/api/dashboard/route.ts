@@ -9,11 +9,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
+  // Use UTC midnight boundaries to match how Prisma stores dates
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
   // Filter tasks to logged-in employee by default
   const employeeId = session.user.employeeId ?? null;

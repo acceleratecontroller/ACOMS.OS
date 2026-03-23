@@ -23,17 +23,19 @@ export default async function DashboardPage({
   // Filter tasks to logged-in employee unless "all" view is selected
   const taskOwnerFilter = !viewAll && employeeId ? { ownerId: employeeId } : {};
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use UTC midnight boundaries to match how Prisma stores dates,
+  // avoiding timezone-shift bugs (e.g. yesterday showing as "Due Today").
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
   const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+  sevenDaysFromNow.setUTCDate(sevenDaysFromNow.getUTCDate() + 7);
 
   const thirtyDaysFromNow = new Date(today);
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  thirtyDaysFromNow.setUTCDate(thirtyDaysFromNow.getUTCDate() + 30);
 
   // Parallel fetch all dashboard data
   const [
@@ -436,12 +438,14 @@ export default async function DashboardPage({
 /* ─── Staff Dashboard ───────────────────────────────── */
 
 async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use UTC midnight boundaries to match how Prisma stores dates,
+  // avoiding timezone-shift bugs (e.g. yesterday showing as "Due Today").
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const staffTomorrow = new Date(today);
-  staffTomorrow.setDate(staffTomorrow.getDate() + 1);
+  staffTomorrow.setUTCDate(staffTomorrow.getUTCDate() + 1);
   const sevenDaysFromNow = new Date(today);
-  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+  sevenDaysFromNow.setUTCDate(sevenDaysFromNow.getUTCDate() + 7);
 
   const [totalAssets, totalPlant, employee, overdueTasks, tasksDueToday, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),

@@ -14,8 +14,8 @@ export function RecurringCalendar({ tasks }: { tasks: RecurringTask[] }) {
     startDate.setDate(startDate.getDate() - firstDay.getDay());
 
     const days: { date: Date; isCurrentMonth: boolean; isToday: boolean; tasks: RecurringTask[] }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const nowCal = new Date();
+    const today = new Date(nowCal.getFullYear(), nowCal.getMonth(), nowCal.getDate());
 
     for (let i = 0; i < 42; i++) {
       const d = new Date(startDate);
