@@ -358,59 +358,59 @@ export default async function DashboardPage({
   return (
     <div>
       {/* ── Header + Status Chips ── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-xs text-gray-500">Operations overview</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">Dashboard</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Operations overview</p>
+          </div>
+          <div className="flex items-center gap-1 ml-2">
+            <Link
+              href="/"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${!viewAll ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >
+              Mine
+            </Link>
+            <Link
+              href="/?view=all"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewAll ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >
+              All
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <Link
-            href="/"
-            className={`px-2.5 py-1 rounded-md transition-colors ${!viewAll ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-          >
-            Mine
-          </Link>
-          <Link
-            href="/?view=all"
-            className={`px-2.5 py-1 rounded-md transition-colors ${viewAll ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-          >
-            All
-          </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusChip count={totalOverdue} label="Overdue" color="red" href="/tasks" />
+          <StatusChip count={totalDueToday} label="Due Today" color="orange" href="/tasks" />
+          <StatusChip count={totalDueSoon} label="This Week" color="yellow" href="/tasks" />
+          <StatusChip count={totalRecurringDue} label="Recurring Due" color="blue" href="/tasks" />
+          {totalAccredIssues > 0 && <StatusChip count={totalAccredIssues} label="Accred. Issues" color="red" href="/training" />}
+          {plantServiceOverdue.length > 0 && <StatusChip count={plantServiceOverdue.length} label="Plant Overdue" color="red" href="/plant" />}
         </div>
-      </div>
-
-      {/* ── Compact status chips ── */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        <StatusChip count={totalOverdue} label="Overdue" color="red" href="/tasks" />
-        <StatusChip count={totalDueToday} label="Due Today" color="orange" href="/tasks" />
-        <StatusChip count={totalDueSoon} label="This Week" color="yellow" href="/tasks" />
-        <StatusChip count={totalRecurringDue} label="Recurring Due" color="blue" href="/tasks" />
-        {totalAccredIssues > 0 && <StatusChip count={totalAccredIssues} label="Accred. Issues" color="red" href="/training" />}
-        {plantServiceOverdue.length > 0 && <StatusChip count={plantServiceOverdue.length} label="Plant Overdue" color="red" href="/plant" />}
       </div>
 
       {/* ── Task Command Centre (primary) + Activity sidebar ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-5">
         {/* Task centre — 3/4 (client component with complete + edit) */}
         <DashboardTaskCentre tasks={allTaskItems} employees={employeesList} viewAll={viewAll} />
 
         {/* Recent Activity — sidebar 1/4 */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-            <h2 className="text-xs font-semibold text-gray-900">Recent Activity</h2>
-            <Link href="/activity-log" className="text-[10px] text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
+            <Link href="/activity-log" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
           </div>
-          <div className="px-3 py-2 max-h-[420px] overflow-y-auto">
+          <div className="px-4 py-3 max-h-[480px] overflow-y-auto flex-1">
             {recentActivity.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">No recent activity</p>
+              <p className="text-sm text-gray-400 py-3">No recent activity</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {recentActivity.map((entry) => (
-                  <div key={entry.id} className="flex gap-2">
+                  <div key={entry.id} className="flex gap-2.5 items-start">
                     <ActionDot action={entry.action} />
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-900 truncate leading-tight">{entry.entityLabel}</p>
-                      <p className="text-[10px] text-gray-400 leading-tight">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-gray-900 truncate leading-snug">{entry.entityLabel}</p>
+                      <p className="text-xs text-gray-400 leading-snug mt-0.5">
                         {entry.performedBy.name} &middot; {formatRelativeTime(entry.performedAt)}
                       </p>
                     </div>
@@ -813,7 +813,7 @@ function StatusChip({ count, label, color, href }: {
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors hover:opacity-80 ${styles[color]}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors hover:opacity-80 ${styles[color]}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[color]}`} />
       <span className="font-bold tabular-nums">{count}</span>
@@ -856,11 +856,13 @@ function MiniCard({ label, value, sub, href }: {
   return (
     <Link
       href={href}
-      className="block px-3 py-2.5 rounded-lg border border-gray-200 bg-white transition-all hover:shadow-sm hover:border-blue-300"
+      className="block px-3.5 py-2.5 rounded-lg border border-gray-200 bg-white transition-all hover:shadow-sm hover:border-gray-300"
     >
-      <div className="text-lg font-bold tabular-nums text-gray-900">{value}</div>
-      <div className="text-xs font-medium text-gray-700">{label}</div>
-      <div className="text-[10px] text-gray-400">{sub}</div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-xl font-bold tabular-nums text-gray-900">{value}</span>
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+      </div>
+      <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
     </Link>
   );
 }
@@ -883,8 +885,8 @@ function ActionDot({ action }: { action: string }) {
     COMPLETE: "bg-green-400",
   };
   return (
-    <div className="pt-0.5 shrink-0">
-      <span className={`inline-block w-1.5 h-1.5 rounded-full ${colors[action] ?? "bg-gray-300"}`} />
+    <div className="pt-1 shrink-0">
+      <span className={`inline-block w-2 h-2 rounded-full ${colors[action] ?? "bg-gray-300"}`} />
     </div>
   );
 }

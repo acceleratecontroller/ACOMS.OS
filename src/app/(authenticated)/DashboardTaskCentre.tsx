@@ -304,19 +304,19 @@ export function DashboardTaskCentre({
   return (
     <>
       <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col">
-        {/* ─── Compact Header ─────────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+        {/* ─── Header ─────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold text-gray-900 tracking-tight">
+            <h2 className="text-base font-semibold text-gray-900">
               Task Manager
             </h2>
-            <span className="text-[11px] text-gray-400">{viewAll ? "All team tasks" : "Your assigned tasks"}</span>
+            <span className="text-xs text-gray-400">{viewAll ? "All team tasks" : "Your assigned tasks"}</span>
           </div>
-          <Link href="/tasks" className="text-[11px] text-gray-400 hover:text-blue-600 transition-colors">Open full view</Link>
+          <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">Open full view</Link>
         </div>
 
         {/* ─── View Tabs ──────────────────────────────────── */}
-        <div className="flex items-center gap-0 px-4 border-b border-gray-200">
+        <div className="flex items-center gap-0 px-5 border-b border-gray-200">
           {([
             { key: "all" as ViewMode, label: "All", count: tasks.length },
             { key: "quick" as ViewMode, label: "Quick Tasks", count: quickTasks.length },
@@ -325,15 +325,15 @@ export function DashboardTaskCentre({
             <button
               key={tab.key}
               onClick={() => { setViewMode(tab.key); setActiveFilter("all"); }}
-              className={`relative px-3 py-2 text-xs font-medium transition-colors ${
+              className={`relative px-3.5 py-2.5 text-sm font-medium transition-colors ${
                 viewMode === tab.key
                   ? "text-gray-900"
                   : "text-gray-400 hover:text-gray-600"
               }`}
             >
               {tab.label}
-              <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{tab.count}</span>
-              {viewMode === tab.key && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
+              <span className="ml-1.5 text-xs tabular-nums text-gray-400">{tab.count}</span>
+              {viewMode === tab.key && <span className="absolute bottom-0 left-3.5 right-3.5 h-[2px] bg-gray-900 rounded-full" />}
             </button>
           ))}
         </div>
@@ -342,10 +342,10 @@ export function DashboardTaskCentre({
         {(viewMode === "quick" || viewMode === "all") && (
           <>
             {/* Command Bar */}
-            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+            <div className="flex items-center gap-2.5 px-5 py-2.5 border-b border-gray-100 bg-gray-50/50">
               {/* Search */}
-              <div className="relative flex-1 max-w-[200px]">
-                <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="relative flex-1 max-w-[220px]">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -353,14 +353,14 @@ export function DashboardTaskCentre({
                   placeholder="Search tasks..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-7 pr-2 py-1 text-[11px] bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 placeholder:text-gray-400"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 placeholder:text-gray-400"
                 />
               </div>
               {/* Owner filter */}
               <select
                 value={ownerFilter}
                 onChange={(e) => setOwnerFilter(e.target.value)}
-                className="text-[11px] bg-white border border-gray-200 rounded px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300 max-w-[130px]"
+                className="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300 max-w-[150px]"
               >
                 <option value="all">All owners</option>
                 {ownerOptions.map(([id, name]) => (
@@ -371,7 +371,7 @@ export function DashboardTaskCentre({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortKey)}
-                className="text-[11px] bg-white border border-gray-200 rounded px-2 py-1 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                className="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300"
               >
                 {SORT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>Sort: {o.label}</option>
@@ -382,9 +382,9 @@ export function DashboardTaskCentre({
               {/* Add Task */}
               <button
                 onClick={() => { setShowAddTask(true); setError(""); }}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-gray-800 rounded-md px-3 py-1.5 hover:bg-gray-700 transition-colors"
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Task
@@ -392,30 +392,28 @@ export function DashboardTaskCentre({
             </div>
 
             {/* Filter Chips */}
-            <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-100 overflow-x-auto">
-              {/* Time-based filters */}
+            <div className="flex items-center gap-1.5 px-5 py-2 border-b border-gray-100 overflow-x-auto">
               <FilterChip label="All" count={filterCounts.all} active={activeFilter === "all"} onClick={() => setActiveFilter("all")} />
               <span className="w-px h-4 bg-gray-200 mx-0.5" />
               <FilterChip label="Overdue" count={filterCounts.overdue} active={activeFilter === "overdue"} onClick={() => setActiveFilter("overdue")} variant="red" />
               <FilterChip label="Due Today" count={filterCounts["due-today"]} active={activeFilter === "due-today"} onClick={() => setActiveFilter("due-today")} variant="orange" />
               <FilterChip label="Due Soon" count={filterCounts["due-soon"]} active={activeFilter === "due-soon"} onClick={() => setActiveFilter("due-soon")} variant="blue" />
               <span className="w-px h-4 bg-gray-200 mx-0.5" />
-              {/* Workflow filters */}
               <FilterChip label="Not Started" count={filterCounts["not-started"]} active={activeFilter === "not-started"} onClick={() => setActiveFilter("not-started")} />
               <FilterChip label="In Progress" count={filterCounts["in-progress"]} active={activeFilter === "in-progress"} onClick={() => setActiveFilter("in-progress")} />
               <FilterChip label="Stuck" count={filterCounts.stuck} active={activeFilter === "stuck"} onClick={() => setActiveFilter("stuck")} variant="red" />
               <span className="w-px h-4 bg-gray-200 mx-0.5" />
-              <FilterChip label="High Priority" count={filterCounts.high} active={activeFilter === "high"} onClick={() => setActiveFilter("high")} variant="orange" />
+              <FilterChip label="High" count={filterCounts.high} active={activeFilter === "high"} onClick={() => setActiveFilter("high")} variant="orange" />
             </div>
 
             {/* Table Header */}
-            <div className={`hidden md:grid items-center gap-0 px-3 py-1 border-b border-gray-200 bg-gray-50/80 text-[10px] font-medium text-gray-400 uppercase tracking-wider ${
+            <div className={`hidden md:grid items-center gap-0 px-5 py-2 border-b border-gray-200 bg-gray-50/80 text-[11px] font-medium text-gray-400 uppercase tracking-wide ${
               viewMode === "all"
-                ? "grid-cols-[3px_1fr_56px_90px_70px_72px_80px_72px_68px]"
-                : "grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px]"
+                ? "grid-cols-[3px_1fr_52px_100px_72px_80px_88px_80px_68px]"
+                : "grid-cols-[3px_1fr_100px_72px_80px_88px_80px_68px]"
             }`}>
               <span />
-              <span className="pl-2">Task</span>
+              <span className="pl-3">Task</span>
               {viewMode === "all" && <span>Type</span>}
               <span>Owner</span>
               <span>Priority</span>
@@ -426,14 +424,14 @@ export function DashboardTaskCentre({
             </div>
 
             {/* Task Rows */}
-            <div className="flex-1 overflow-y-auto max-h-[380px]">
+            <div className="flex-1 overflow-y-auto max-h-[420px]">
               {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <svg className="w-8 h-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="flex flex-col items-center justify-center py-14 text-center">
+                  <svg className="w-10 h-10 text-gray-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
-                  <p className="text-xs text-gray-400 font-medium">No tasks match your filters</p>
-                  <p className="text-[11px] text-gray-300 mt-0.5">Try adjusting your search or filter criteria</p>
+                  <p className="text-sm text-gray-400 font-medium">No tasks match your filters</p>
+                  <p className="text-xs text-gray-300 mt-1">Try adjusting your search or filter criteria</p>
                 </div>
               ) : (
                 filtered.map((task) => {
@@ -442,101 +440,99 @@ export function DashboardTaskCentre({
                   return (
                     <div
                       key={task.id}
-                      className={`group grid grid-cols-[3px_1fr_auto] items-center gap-0 px-3 py-0 border-b border-gray-100 hover:bg-gray-50/80 cursor-pointer transition-colors ${
+                      className={`group grid grid-cols-[3px_1fr_auto] items-center gap-0 px-5 border-b border-gray-50 hover:bg-gray-50/80 cursor-pointer transition-colors ${
                         viewMode === "all"
-                          ? "md:grid-cols-[3px_1fr_56px_90px_70px_72px_80px_72px_68px]"
-                          : "md:grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px]"
+                          ? "md:grid-cols-[3px_1fr_52px_100px_72px_80px_88px_80px_68px]"
+                          : "md:grid-cols-[3px_1fr_100px_72px_80px_88px_80px_68px]"
                       }`}
                       onClick={() => setEditingTask(task)}
                     >
                       {/* Left accent */}
-                      <span className={`w-[3px] h-7 rounded-full ${accentColor}`} />
+                      <span className={`w-[3px] h-8 rounded-full ${accentColor}`} />
 
                       {/* Title */}
-                      <div className="min-w-0 pl-2 py-1.5">
-                        <span className={`text-[13px] font-medium truncate block leading-tight ${
+                      <div className="min-w-0 pl-3 py-2.5">
+                        <span className={`text-sm font-medium truncate block leading-snug ${
                           isStuck ? "text-red-600" : task.status === "overdue" ? "text-gray-900" : "text-gray-800"
                         }`}>
                           {task.title}
                         </span>
-                        <span className="text-[10px] text-gray-400 md:hidden">
+                        <span className="text-xs text-gray-400 md:hidden">
                           {task.owner} &middot; {task.dateLabel}
                         </span>
                       </div>
 
                       {/* Type (all view only) */}
                       {viewMode === "all" && (
-                        <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center ${
-                          task.type === "recurring" ? "bg-violet-50 text-violet-600" : "bg-gray-100 text-gray-500"
+                        <span className={`hidden md:inline-block text-[11px] font-medium px-1.5 py-0.5 rounded text-center ${
+                          task.type === "recurring" ? "bg-violet-50 text-violet-600" : "bg-gray-50 text-gray-400"
                         }`}>
-                          {task.type === "recurring" ? "Recurring" : "Task"}
+                          {task.type === "recurring" ? "Rec." : "Task"}
                         </span>
                       )}
 
                       {/* Owner */}
-                      <span className="hidden md:block text-[11px] text-gray-500 truncate pr-1">{task.owner}</span>
+                      <span className="hidden md:block text-xs text-gray-500 truncate pr-2">{task.owner}</span>
 
                       {/* Priority */}
                       <span className="hidden md:block">
-                        {task.priority ? <PriorityDot priority={task.priority} /> : <span className="text-[10px] text-gray-300">&mdash;</span>}
+                        {task.priority ? <PriorityDot priority={task.priority} /> : <span className="text-xs text-gray-300">&mdash;</span>}
                       </span>
 
                       {/* Due */}
-                      <span className={`hidden md:block text-[11px] tabular-nums ${
+                      <span className={`hidden md:block text-xs tabular-nums ${
                         task.status === "overdue" ? "text-red-600 font-semibold" : task.status === "due-today" ? "text-orange-600 font-medium" : "text-gray-500"
                       }`}>
                         {task.dateLabel}
                       </span>
 
                       {/* Status badge */}
-                      <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center whitespace-nowrap ${
+                      <span className={`hidden md:inline-block text-[11px] font-medium px-2 py-0.5 rounded text-center whitespace-nowrap ${
                         task.status === "overdue" ? "bg-red-50 text-red-700" :
                         task.status === "due-today" ? "bg-orange-50 text-orange-700" :
-                        "bg-blue-50 text-blue-600"
+                        "bg-gray-100 text-gray-500"
                       }`}>
                         {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Today" : "Soon"}
                       </span>
 
                       {/* Progress */}
                       <span className="hidden md:block">
-                        {task.taskStatus ? <ProgressBadge status={task.taskStatus} /> : <span className="text-[10px] text-gray-300">&mdash;</span>}
+                        {task.taskStatus ? <ProgressBadge status={task.taskStatus} /> : <span className="text-xs text-gray-300">&mdash;</span>}
                       </span>
 
                       {/* Actions */}
                       <div className="hidden md:flex items-center justify-center gap-1 relative" onClick={(e) => e.stopPropagation()}>
-                        {/* Complete */}
                         <button
                           onClick={() => task.type === "recurring" ? setConfirmComplete(task) : handleComplete(task)}
                           disabled={completing === task.id}
-                          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                          className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
                           title="Complete"
                         >
                           {completing === task.id ? (
-                            <span className="w-3 h-3 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                            <span className="w-3.5 h-3.5 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
                           ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           )}
                         </button>
-                        {/* More menu */}
                         <button
                           onClick={() => setActionMenuId(actionMenuId === task.id ? null : task.id)}
-                          className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="More actions"
                         >
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <circle cx="12" cy="5" r="1.5" />
                             <circle cx="12" cy="12" r="1.5" />
                             <circle cx="12" cy="19" r="1.5" />
                           </svg>
                         </button>
                         {actionMenuId === task.id && (
-                          <div ref={actionMenuRef} className="absolute right-0 top-6 z-20 bg-white border border-gray-200 rounded-md shadow-lg py-0.5 min-w-[120px]">
-                            <button onClick={() => { setEditingTask(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-[11px] text-gray-700 hover:bg-gray-50">
+                          <div ref={actionMenuRef} className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[130px]">
+                            <button onClick={() => { setEditingTask(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
                               Edit task
                             </button>
-                            <button onClick={() => { setConfirmArchive(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-[11px] text-red-600 hover:bg-red-50">
+                            <button onClick={() => { setConfirmArchive(task); setActionMenuId(null); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">
                               Archive
                             </button>
                           </div>
@@ -550,7 +546,7 @@ export function DashboardTaskCentre({
 
             {/* Footer summary */}
             {filtered.length > 0 && (
-              <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50/40 text-[10px] text-gray-400">
+              <div className="px-5 py-2 border-t border-gray-100 bg-gray-50/40 text-xs text-gray-400">
                 {filtered.length} task{filtered.length !== 1 ? "s" : ""}{activeFilter !== "all" || ownerFilter !== "all" || search ? " (filtered)" : ""} &middot; {filterCounts.overdue} overdue &middot; {filterCounts["due-today"]} due today
               </div>
             )}
@@ -560,40 +556,40 @@ export function DashboardTaskCentre({
         {/* ─── Recurring View (unchanged — placeholder passthrough) ── */}
         {viewMode === "recurring" && (
           <>
-            <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+            <div className="divide-y divide-gray-50 max-h-[460px] overflow-y-auto">
               {recurringTasks.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-gray-400">No recurring tasks due</div>
+                <div className="px-5 py-10 text-center text-sm text-gray-400">No recurring tasks due</div>
               ) : (
                 recurringTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => setEditingTask(task)}
                   >
-                    <span className={`w-[3px] h-6 rounded-full ${
+                    <span className={`w-[3px] h-8 rounded-full shrink-0 ${
                       task.status === "overdue" ? "bg-red-500" : task.status === "due-today" ? "bg-orange-400" : "bg-blue-400"
                     }`} />
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-900 truncate block text-[13px]">{task.title}</span>
-                      <span className="text-[10px] text-gray-400">{task.owner} &middot; {task.dateLabel}</span>
+                      <span className="font-medium text-gray-900 truncate block text-sm">{task.title}</span>
+                      <span className="text-xs text-gray-400">{task.owner} &middot; {task.dateLabel}</span>
                     </div>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${
                       task.status === "overdue" ? "bg-red-50 text-red-700" :
                       task.status === "due-today" ? "bg-orange-50 text-orange-700" :
-                      "bg-blue-50 text-blue-600"
+                      "bg-gray-100 text-gray-500"
                     }`}>
                       {task.status === "overdue" ? "Overdue" : task.status === "due-today" ? "Today" : "Soon"}
                     </span>
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmComplete(task); }}
                       disabled={completing === task.id}
-                      className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                      className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
                       title="Complete"
                     >
                       {completing === task.id ? (
-                        <span className="w-3 h-3 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                        <span className="w-3.5 h-3.5 border-[1.5px] border-gray-300 border-t-gray-600 rounded-full animate-spin" />
                       ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
@@ -858,7 +854,7 @@ function FilterChip({ label, count, active, onClick, variant }: {
   onClick: () => void;
   variant?: "red" | "orange" | "blue";
 }) {
-  const base = "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap transition-all cursor-pointer";
+  const base = "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-all cursor-pointer";
   const activeStyle = variant === "red" ? "bg-red-600 text-white"
     : variant === "orange" ? "bg-orange-500 text-white"
     : variant === "blue" ? "bg-blue-600 text-white"
@@ -882,9 +878,9 @@ function PriorityDot({ priority }: { priority: string }) {
   };
   const c = cfg[priority] ?? cfg.LOW;
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className={`w-1.5 h-1.5 rounded-full ${c.color}`} />
-      <span className="text-[10px] text-gray-500">{c.label}</span>
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full ${c.color}`} />
+      <span className="text-xs text-gray-500">{c.label}</span>
     </span>
   );
 }
@@ -907,7 +903,7 @@ function ProgressBadge({ status }: { status: string }) {
     COMPLETED: "Done",
   };
   return (
-    <span className={`text-[10px] ${styles[status] ?? "text-gray-400"}`}>
+    <span className={`text-xs ${styles[status] ?? "text-gray-400"}`}>
       {labels[status] ?? status}
     </span>
   );
