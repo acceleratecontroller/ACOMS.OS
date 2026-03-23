@@ -180,6 +180,7 @@ export const PRIORITY_OPTIONS: SelectOption[] = [
 ];
 
 export const FREQUENCY_OPTIONS: SelectOption[] = [
+  { value: "DAILY", label: "Daily (Mon–Fri)" },
   { value: "WEEKLY", label: "Weekly" },
   { value: "FORTNIGHTLY", label: "Fortnightly" },
   { value: "MONTHLY", label: "Monthly" },

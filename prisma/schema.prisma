@@ -265,6 +265,7 @@ enum TaskPriority {
 }
 
 enum RecurringFrequency {
+  DAILY
   WEEKLY
   FORTNIGHTLY
   MONTHLY

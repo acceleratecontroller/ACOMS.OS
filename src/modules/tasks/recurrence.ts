@@ -25,6 +25,17 @@ export function calculateNextDue(
   return advanceDate(baseDate, frequencyType, frequencyValue);
 }
 
+/**
+ * Skip to the next weekday (Mon–Fri). If the date is already a weekday,
+ * return it unchanged.
+ */
+function skipToNextWeekday(d: Date): Date {
+  const day = d.getDay(); // 0 = Sun, 6 = Sat
+  if (day === 6) d.setDate(d.getDate() + 2); // Sat → Mon
+  else if (day === 0) d.setDate(d.getDate() + 1); // Sun → Mon
+  return d;
+}
+
 export function advanceDate(
   date: Date,
   frequencyType: string,
@@ -33,6 +44,13 @@ export function advanceDate(
   const result = new Date(date);
 
   switch (frequencyType) {
+    case "DAILY":
+      // Advance by frequencyValue weekdays (skip Sat/Sun)
+      for (let i = 0; i < frequencyValue; i++) {
+        result.setDate(result.getDate() + 1);
+        skipToNextWeekday(result);
+      }
+      break;
     case "WEEKLY":
       result.setDate(result.getDate() + 7 * frequencyValue);
       break;

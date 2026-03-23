@@ -22,7 +22,7 @@ export const createRecurringTaskSchema = z.object({
   description: optionalString,
   category: z.string().default("Task"),
   frequencyType: z
-    .enum(["WEEKLY", "FORTNIGHTLY", "MONTHLY", "QUARTERLY", "YEARLY"])
+    .enum(["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "QUARTERLY", "YEARLY"])
     .default("WEEKLY"),
   frequencyValue: z.number().int().min(1).default(1),
   scheduleType: z.enum(["FIXED", "FLOATING"]).default("FLOATING"),
