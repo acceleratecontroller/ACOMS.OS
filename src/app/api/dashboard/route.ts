@@ -12,6 +12,10 @@ export async function GET() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Filter tasks to logged-in employee by default
+  const employeeId = session.user.employeeId ?? null;
+  const taskOwnerFilter = employeeId ? { ownerId: employeeId } : {};
+
   const [
     activeTaskCount,
     overdueTaskCount,
@@ -21,13 +25,14 @@ export async function GET() {
     upcomingTasks,
   ] = await Promise.all([
     prisma.task.count({
-      where: { isArchived: false, status: { not: "COMPLETED" } },
+      where: { isArchived: false, status: { not: "COMPLETED" }, ...taskOwnerFilter },
     }),
     prisma.task.count({
       where: {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { lt: today },
+        ...taskOwnerFilter,
       },
     }),
     prisma.task.findMany({
@@ -35,6 +40,7 @@ export async function GET() {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { lt: today },
+        ...taskOwnerFilter,
       },
       include: {
         owner: { select: { firstName: true, lastName: true } },
@@ -46,12 +52,14 @@ export async function GET() {
       where: {
         isArchived: false,
         nextDue: { lt: today },
+        ...taskOwnerFilter,
       },
     }),
     prisma.recurringTask.findMany({
       where: {
         isArchived: false,
         nextDue: { lt: today },
+        ...taskOwnerFilter,
       },
       include: {
         owner: { select: { firstName: true, lastName: true } },
@@ -64,6 +72,7 @@ export async function GET() {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { gte: today },
+        ...taskOwnerFilter,
       },
       include: {
         owner: { select: { firstName: true, lastName: true } },

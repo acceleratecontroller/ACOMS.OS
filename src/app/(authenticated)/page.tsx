@@ -2,14 +2,25 @@ import Link from "next/link";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
+  const employeeId = session?.user?.employeeId ?? null;
 
   // STAFF dashboard — show own info, training status, and read-only asset/plant counts
   if (!isAdmin) {
-    return <StaffDashboard employeeId={session?.user?.employeeId} />;
+    return <StaffDashboard employeeId={employeeId} />;
   }
+
+  const params = await searchParams;
+  const viewAll = params.view === "all";
+  // Filter tasks to logged-in employee unless "all" view is selected
+  const taskOwnerFilter = !viewAll && employeeId ? { ownerId: employeeId } : {};
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -92,15 +103,16 @@ export default async function DashboardPage() {
       orderBy: { nextServiceDue: "asc" },
       take: 5,
     }),
-    // Tasks
+    // Tasks (filtered to logged-in employee by default)
     prisma.task.count({
-      where: { isArchived: false, status: { not: "COMPLETED" } },
+      where: { isArchived: false, status: { not: "COMPLETED" }, ...taskOwnerFilter },
     }),
     prisma.task.count({
       where: {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { lt: today },
+        ...taskOwnerFilter,
       },
     }),
     prisma.task.count({
@@ -108,6 +120,7 @@ export default async function DashboardPage() {
         isArchived: false,
         status: { not: "COMPLETED" },
         priority: "HIGH",
+        ...taskOwnerFilter,
       },
     }),
     prisma.task.findMany({
@@ -115,13 +128,14 @@ export default async function DashboardPage() {
         isArchived: false,
         status: { not: "COMPLETED" },
         dueDate: { gte: today, lte: sevenDaysFromNow },
+        ...taskOwnerFilter,
       },
       include: { owner: { select: { firstName: true, lastName: true } } },
       orderBy: { dueDate: "asc" },
       take: 5,
     }),
     prisma.recurringTask.count({
-      where: { isArchived: false, nextDue: { lt: today } },
+      where: { isArchived: false, nextDue: { lt: today }, ...taskOwnerFilter },
     }),
     // Recent activity
     prisma.auditLog.findMany({
@@ -280,7 +294,7 @@ export default async function DashboardPage() {
         <StatCard label="Assets" value={totalAssets} sub={`${unassignedAssets} unassigned`} href="/assets" />
         <StatCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
         <StatCard
-          label="Tasks"
+          label={viewAll ? "All Tasks" : "My Tasks"}
           value={activeTasks}
           sub={totalOverdue > 0 ? `${totalOverdue} overdue` : `${highPriorityTasks} high priority`}
           href="/tasks"
@@ -295,7 +309,38 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Tasks due this week */}
-          <DashboardCard title="Tasks Due This Week" href="/tasks" linkLabel="View all">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">
+                {viewAll ? "All Tasks Due This Week" : "My Tasks Due This Week"}
+              </h2>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-xs">
+                  <Link
+                    href="/"
+                    className={`px-2 py-0.5 rounded transition-colors ${
+                      !viewAll
+                        ? "bg-blue-100 text-blue-700 font-medium"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Mine
+                  </Link>
+                  <Link
+                    href="/?view=all"
+                    className={`px-2 py-0.5 rounded transition-colors ${
+                      viewAll
+                        ? "bg-blue-100 text-blue-700 font-medium"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    All
+                  </Link>
+                </div>
+                <Link href="/tasks" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">View all</Link>
+              </div>
+            </div>
+            <div className="px-4 py-3">
             {tasksDueSoon.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No tasks due in the next 7 days</p>
             ) : (
@@ -314,7 +359,8 @@ export default async function DashboardPage() {
                 ))}
               </div>
             )}
-          </DashboardCard>
+            </div>
+          </div>
 
           {/* Asset & Plant overview — compact side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -428,8 +474,13 @@ export default async function DashboardPage() {
 
 /* ─── Staff Dashboard ───────────────────────────────── */
 
-async function StaffDashboard({ employeeId }: { employeeId?: string }) {
-  const [totalAssets, totalPlant, employee] = await Promise.all([
+async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sevenDaysFromNow = new Date(today);
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  const [totalAssets, totalPlant, employee, overdueTasks, upcomingTasks, overdueRecurring] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),
     prisma.plant.count({ where: { isArchived: false } }),
     employeeId
@@ -457,10 +508,51 @@ async function StaffDashboard({ employeeId }: { employeeId?: string }) {
           },
         })
       : null,
+    // Overdue tasks for this employee
+    employeeId
+      ? prisma.task.findMany({
+          where: {
+            isArchived: false,
+            status: { not: "COMPLETED" },
+            dueDate: { lt: today },
+            ownerId: employeeId,
+          },
+          include: { owner: { select: { firstName: true, lastName: true } } },
+          orderBy: { dueDate: "asc" },
+          take: 5,
+        })
+      : [],
+    // Tasks due this week for this employee
+    employeeId
+      ? prisma.task.findMany({
+          where: {
+            isArchived: false,
+            status: { not: "COMPLETED" },
+            dueDate: { gte: today, lte: sevenDaysFromNow },
+            ownerId: employeeId,
+          },
+          include: { owner: { select: { firstName: true, lastName: true } } },
+          orderBy: { dueDate: "asc" },
+          take: 5,
+        })
+      : [],
+    // Overdue recurring tasks for this employee
+    employeeId
+      ? prisma.recurringTask.findMany({
+          where: {
+            isArchived: false,
+            nextDue: { lt: today },
+            ownerId: employeeId,
+          },
+          orderBy: { nextDue: "asc" },
+          take: 5,
+        })
+      : [],
   ]);
 
   const pendingCount = employee?.accreditations.filter((a) => a.status === "PENDING").length ?? 0;
   const expiredCount = employee?.accreditations.filter((a) => a.status === "EXPIRED").length ?? 0;
+  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0;
 
   return (
     <div>
@@ -471,9 +563,27 @@ async function StaffDashboard({ employeeId }: { employeeId?: string }) {
         </p>
       </div>
 
-      {/* Training alerts for own record */}
-      {(pendingCount > 0 || expiredCount > 0) && (
+      {/* Alerts for own record */}
+      {(pendingCount > 0 || expiredCount > 0 || hasTaskAlerts) && (
         <div className="flex flex-wrap gap-2 mb-6">
+          {overdueTasks.length > 0 && (
+            <Link
+              href="/tasks"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              {overdueTasks.length} overdue task{overdueTasks.length !== 1 ? "s" : ""}
+            </Link>
+          )}
+          {overdueRecurring.length > 0 && (
+            <Link
+              href="/tasks"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              {overdueRecurring.length} overdue recurring task{overdueRecurring.length !== 1 ? "s" : ""}
+            </Link>
+          )}
           {expiredCount > 0 && (
             <Link
               href="/training"
@@ -500,6 +610,53 @@ async function StaffDashboard({ employeeId }: { employeeId?: string }) {
         <StatCard label="Assets" value={totalAssets} href="/assets" />
         <StatCard label="Plant" value={totalPlant} href="/plant" />
       </div>
+
+      {/* Your Tasks */}
+      {employeeId && (
+        <div className="mb-5">
+          <DashboardCard title="Your Tasks" href="/tasks" linkLabel="View all">
+            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No tasks assigned to you</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {overdueTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-red-500">Overdue — {task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
+                    </div>
+                  </div>
+                ))}
+                {overdueRecurring.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
+                      <span className="text-xs text-red-500">Recurring — overdue since {task.nextDue ? formatDate(task.nextDue) : ""}</span>
+                    </div>
+                    <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded shrink-0 ml-3">Overdue</span>
+                  </div>
+                ))}
+                {upcomingTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
+                      <span className="text-xs text-gray-500">Due {task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DashboardCard>
+        </div>
+      )}
 
       {/* Employee info + training */}
       {employee && (
