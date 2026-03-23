@@ -47,7 +47,7 @@ export interface DashboardTaskItem {
   nextDue?: string | null;
 }
 
-type ViewMode = "quick" | "recurring";
+type ViewMode = "all" | "quick" | "recurring";
 type FilterKey = "all" | "overdue" | "due-today" | "due-soon" | "not-started" | "in-progress" | "stuck" | "completed" | "high";
 type SortKey = "due-date" | "priority" | "owner" | "status" | "title";
 
@@ -76,7 +76,7 @@ export function DashboardTaskCentre({
   viewAll: boolean;
 }) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("quick");
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("due-date");
@@ -104,11 +104,11 @@ export function DashboardTaskCentre({
   // Split tasks by view mode
   const quickTasks = useMemo(() => tasks.filter((t) => t.type === "task"), [tasks]);
   const recurringTasks = useMemo(() => tasks.filter((t) => t.type === "recurring"), [tasks]);
-  const baseTasks = viewMode === "quick" ? quickTasks : recurringTasks;
+  const baseTasks = viewMode === "quick" ? quickTasks : viewMode === "recurring" ? recurringTasks : tasks;
 
-  // Filter counts (computed on baseTasks for quick view)
+  // Filter counts (computed on baseTasks for current view)
   const filterCounts = useMemo((): Record<FilterKey, number> => {
-    const t: DashboardTaskItem[] = quickTasks;
+    const t: DashboardTaskItem[] = baseTasks;
     return {
       all: t.length,
       overdue: t.filter((x: DashboardTaskItem) => x.status === "overdue").length,
@@ -120,7 +120,7 @@ export function DashboardTaskCentre({
       completed: t.filter((x: DashboardTaskItem) => x.taskStatus === "COMPLETED").length,
       high: t.filter((x: DashboardTaskItem) => x.priority === "HIGH").length,
     };
-  }, [quickTasks]);
+  }, [baseTasks]);
 
   // Unique owners for filter
   const ownerOptions = useMemo(() => {
@@ -280,34 +280,29 @@ export function DashboardTaskCentre({
 
         {/* ─── View Tabs ──────────────────────────────────── */}
         <div className="flex items-center gap-0 px-4 border-b border-gray-200">
-          <button
-            onClick={() => { setViewMode("quick"); setActiveFilter("all"); }}
-            className={`relative px-3 py-2 text-xs font-medium transition-colors ${
-              viewMode === "quick"
-                ? "text-gray-900"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            Quick Tasks
-            <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{quickTasks.length}</span>
-            {viewMode === "quick" && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
-          </button>
-          <button
-            onClick={() => { setViewMode("recurring"); setActiveFilter("all"); }}
-            className={`relative px-3 py-2 text-xs font-medium transition-colors ${
-              viewMode === "recurring"
-                ? "text-gray-900"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            Recurring
-            <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{recurringTasks.length}</span>
-            {viewMode === "recurring" && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
-          </button>
+          {([
+            { key: "all" as ViewMode, label: "All", count: tasks.length },
+            { key: "quick" as ViewMode, label: "Quick Tasks", count: quickTasks.length },
+            { key: "recurring" as ViewMode, label: "Recurring", count: recurringTasks.length },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setViewMode(tab.key); setActiveFilter("all"); }}
+              className={`relative px-3 py-2 text-xs font-medium transition-colors ${
+                viewMode === tab.key
+                  ? "text-gray-900"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {tab.label}
+              <span className="ml-1.5 text-[10px] tabular-nums text-gray-400">{tab.count}</span>
+              {viewMode === tab.key && <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gray-900 rounded-full" />}
+            </button>
+          ))}
         </div>
 
-        {/* ─── Quick Tasks View ───────────────────────────── */}
-        {viewMode === "quick" && (
+        {/* ─── Quick Tasks / All View ─────────────────────── */}
+        {(viewMode === "quick" || viewMode === "all") && (
           <>
             {/* Command Bar */}
             <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
@@ -377,9 +372,14 @@ export function DashboardTaskCentre({
             </div>
 
             {/* Table Header */}
-            <div className="hidden md:grid grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px] items-center gap-0 px-3 py-1 border-b border-gray-200 bg-gray-50/80 text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+            <div className={`hidden md:grid items-center gap-0 px-3 py-1 border-b border-gray-200 bg-gray-50/80 text-[10px] font-medium text-gray-400 uppercase tracking-wider ${
+              viewMode === "all"
+                ? "grid-cols-[3px_1fr_56px_90px_70px_72px_80px_72px_68px]"
+                : "grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px]"
+            }`}>
               <span />
               <span className="pl-2">Task</span>
+              {viewMode === "all" && <span>Type</span>}
               <span>Owner</span>
               <span>Priority</span>
               <span>Due</span>
@@ -405,7 +405,11 @@ export function DashboardTaskCentre({
                   return (
                     <div
                       key={task.id}
-                      className="group grid grid-cols-[3px_1fr_auto] md:grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px] items-center gap-0 px-3 py-0 border-b border-gray-100 hover:bg-gray-50/80 cursor-pointer transition-colors"
+                      className={`group grid grid-cols-[3px_1fr_auto] items-center gap-0 px-3 py-0 border-b border-gray-100 hover:bg-gray-50/80 cursor-pointer transition-colors ${
+                        viewMode === "all"
+                          ? "md:grid-cols-[3px_1fr_56px_90px_70px_72px_80px_72px_68px]"
+                          : "md:grid-cols-[3px_1fr_90px_70px_72px_80px_72px_68px]"
+                      }`}
                       onClick={() => setEditingTask(task)}
                     >
                       {/* Left accent */}
@@ -422,6 +426,15 @@ export function DashboardTaskCentre({
                           {task.owner} &middot; {task.dateLabel}
                         </span>
                       </div>
+
+                      {/* Type (all view only) */}
+                      {viewMode === "all" && (
+                        <span className={`hidden md:inline-block text-[10px] font-medium px-1.5 py-0.5 rounded text-center ${
+                          task.type === "recurring" ? "bg-violet-50 text-violet-600" : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {task.type === "recurring" ? "Recurring" : "Task"}
+                        </span>
+                      )}
 
                       {/* Owner */}
                       <span className="hidden md:block text-[11px] text-gray-500 truncate pr-1">{task.owner}</span>
