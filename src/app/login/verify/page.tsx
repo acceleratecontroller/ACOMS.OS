@@ -12,6 +12,7 @@ export default function TwoFactorVerifyPage() {
   const [loading, setLoading] = useState(false);
   const [verified, setVerified] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function TwoFactorVerifyPage() {
         body: JSON.stringify({
           code: code.trim(),
           isBackupCode: useBackupCode,
+          rememberDevice,
         }),
       });
 
@@ -92,6 +94,19 @@ export default function TwoFactorVerifyPage() {
               onChange={(e) => setCode(useBackupCode ? e.target.value : e.target.value.replace(/\D/g, ""))}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center text-lg tracking-widest"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="rememberDevice"
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="rememberDevice" className="text-sm text-gray-600">
+              Remember this device for 30 days
+            </label>
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}

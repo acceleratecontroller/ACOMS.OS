@@ -5,6 +5,10 @@ import { verifyTotpCode } from "@/shared/auth/totp";
 import { decrypt } from "@/shared/auth/encryption";
 import { verifyBackupCode } from "@/shared/auth/backup-codes";
 import { checkRateLimit, recordFailedAttempt, clearAttempts } from "@/shared/auth/rate-limit";
+import { trustDevice } from "@/shared/auth/trusted-device";
+
+const TRUST_COOKIE_NAME = "acoms_trusted_device";
+const TRUST_DURATION_DAYS = 30;
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -26,6 +30,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const code = body?.code as string | undefined;
   const isBackupCode = body?.isBackupCode as boolean | undefined;
+  const rememberDevice = body?.rememberDevice as boolean | undefined;
 
   if (!code) {
     return NextResponse.json({ error: "Verification code is required" }, { status: 400 });
@@ -65,5 +70,21 @@ export async function POST(request: Request) {
     data: { twoFactorVerifiedAt: new Date() },
   });
 
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+
+  // If user chose to remember this device, create a trust token and set cookie
+  if (rememberDevice) {
+    const userAgent = request.headers.get("user-agent") || undefined;
+    const token = await trustDevice(session.user.id, userAgent);
+
+    response.cookies.set(TRUST_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: TRUST_DURATION_DAYS * 24 * 60 * 60,
+    });
+  }
+
+  return response;
 }

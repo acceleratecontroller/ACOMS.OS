@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid password or verification code" }, { status: 400 });
   }
 
-  // Disable 2FA and clean up
+  // Disable 2FA and clean up (including trusted devices)
   await prisma.$transaction([
     prisma.user.update({
       where: { id: session.user.id },
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       },
     }),
     prisma.backupCode.deleteMany({ where: { userId: session.user.id } }),
+    prisma.trustedDevice.deleteMany({ where: { userId: session.user.id } }),
   ]);
 
   return NextResponse.json({
