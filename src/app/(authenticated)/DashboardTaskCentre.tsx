@@ -66,6 +66,7 @@ export function DashboardTaskCentre({
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [editingTask, setEditingTask] = useState<DashboardTaskItem | null>(null);
   const [confirmComplete, setConfirmComplete] = useState<DashboardTaskItem | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState<DashboardTaskItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -105,6 +106,24 @@ export function DashboardTaskCentre({
     } finally {
       setCompleting(null);
       setConfirmComplete(null);
+    }
+  }, [router]);
+
+  // ─── Archive handler ──────────────────────────────────
+
+  const handleArchive = useCallback(async (task: DashboardTaskItem) => {
+    try {
+      const realId = task.id.replace(/^(r-|td-|rt-|s-|rs-)/, "");
+      const url = task.type === "recurring"
+        ? `/api/recurring-tasks/${realId}`
+        : `/api/tasks/${realId}`;
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to archive");
+      setConfirmArchive(null);
+      setEditingTask(null);
+      router.refresh();
+    } catch {
+      // silently fail
     }
   }, [router]);
 
@@ -338,12 +357,17 @@ export function DashboardTaskCentre({
               <textarea name="notes" rows={2} defaultValue={editingTask.notes || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             {error && <p className="text-red-500 text-sm">{error}</p>}
-            <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-              <button type="button" onClick={() => { setEditingTask(null); setError(""); }} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-                Cancel
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex gap-3">
+                <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button type="button" onClick={() => { setEditingTask(null); setError(""); }} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  Cancel
+                </button>
+              </div>
+              <button type="button" onClick={() => setConfirmArchive(editingTask)} className="text-red-600 hover:text-red-700 text-sm font-medium hover:bg-red-50 px-3 py-2 rounded-lg transition-colors">
+                Archive
               </button>
             </div>
           </form>
@@ -408,17 +432,33 @@ export function DashboardTaskCentre({
               <textarea name="description" rows={2} defaultValue={editingTask.description || ""} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             {error && <p className="text-red-500 text-sm">{error}</p>}
-            <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-              <button type="button" onClick={() => { setEditingTask(null); setError(""); }} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-                Cancel
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex gap-3">
+                <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button type="button" onClick={() => { setEditingTask(null); setError(""); }} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  Cancel
+                </button>
+              </div>
+              <button type="button" onClick={() => setConfirmArchive(editingTask)} className="text-red-600 hover:text-red-700 text-sm font-medium hover:bg-red-50 px-3 py-2 rounded-lg transition-colors">
+                Archive
               </button>
             </div>
           </form>
         </Modal>
       )}
+
+      {/* ─── Confirm Archive ───────────────────────────────── */}
+      <ConfirmDialog
+        isOpen={!!confirmArchive}
+        title="Archive Task"
+        message={`Archive "${confirmArchive?.title}"? It will be moved to the archived list.`}
+        confirmLabel="Archive"
+        confirmVariant="danger"
+        onConfirm={() => confirmArchive && handleArchive(confirmArchive)}
+        onCancel={() => setConfirmArchive(null)}
+      />
 
       {/* ─── Confirm Complete (Recurring) ──────────────────── */}
       <ConfirmDialog
