@@ -67,7 +67,7 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Recalculate nextDue if frequency or lastCompleted changed
+  // Recalculate nextDue only if frequency, schedule type, or lastCompleted actually changed
   let nextDue: Date | null | undefined;
   const freqType = data.frequencyType ?? before.frequencyType;
   const freqValue = data.frequencyValue ?? before.frequencyValue;
@@ -79,13 +79,18 @@ export async function PUT(
         : null
       : before.lastCompleted;
 
-  if (
-    data.frequencyType !== undefined ||
-    data.frequencyValue !== undefined ||
-    data.scheduleType !== undefined ||
-    data.lastCompleted !== undefined
-  ) {
-    nextDue = calculateNextDue(freqType, freqValue, schedType, lastCompleted, before.nextDue);
+  const freqTypeChanged = data.frequencyType !== undefined && data.frequencyType !== before.frequencyType;
+  const freqValueChanged = data.frequencyValue !== undefined && data.frequencyValue !== before.frequencyValue;
+  const schedTypeChanged = data.scheduleType !== undefined && data.scheduleType !== before.scheduleType;
+  const lastCompletedChanged =
+    data.lastCompleted !== undefined &&
+    String(data.lastCompleted || "") !== String(before.lastCompleted?.toISOString().slice(0, 10) || "");
+
+  if (freqTypeChanged || freqValueChanged || schedTypeChanged || lastCompletedChanged) {
+    // When editing, always recalculate from lastCompleted (not from currentNextDue).
+    // The FIXED vs FLOATING distinction only matters when completing a task —
+    // here we just need lastCompleted + frequency.
+    nextDue = calculateNextDue(freqType, freqValue, schedType, lastCompleted, null);
   }
 
   const { result: task, error } = await withPrismaError("Failed to update recurring task", () =>

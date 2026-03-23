@@ -8,8 +8,26 @@ import {
   formatStatusLabel,
   formatDate,
   isOverdue,
+  isDueToday,
+  isDueSoon,
   ownerName,
 } from "./types";
+
+function getTimelineStatus(task: Task): { text: string; color: string } {
+  if (task.status === "COMPLETED") {
+    return { text: "Completed", color: "bg-green-100 text-green-700" };
+  }
+  if (isOverdue(task.dueDate)) {
+    return { text: "Overdue", color: "bg-red-100 text-red-700" };
+  }
+  if (isDueToday(task.dueDate)) {
+    return { text: "Due Today", color: "bg-orange-100 text-orange-700" };
+  }
+  if (isDueSoon(task.dueDate)) {
+    return { text: "Due Soon", color: "bg-yellow-100 text-yellow-700" };
+  }
+  return { text: "On Track", color: "bg-green-100 text-green-700" };
+}
 
 export function TaskRow({
   task,
@@ -27,7 +45,9 @@ export function TaskRow({
   onRestore: () => void;
 }) {
   const overdue = task.status !== "COMPLETED" && isOverdue(task.dueDate);
+  const dueToday = task.status !== "COMPLETED" && isDueToday(task.dueDate);
   const completed = task.status === "COMPLETED";
+  const timeline = getTimelineStatus(task);
 
   const borderColor = PRIORITY_COLORS[task.priority] || "border-l-gray-300";
 
@@ -36,7 +56,7 @@ export function TaskRow({
       {/* Desktop layout */}
       <div
         onClick={onEdit}
-        className={`hidden md:flex items-center gap-3 px-4 py-3 border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm cursor-pointer hover:bg-blue-50/60 ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
+        className={`hidden md:flex items-center gap-3 px-4 py-3 border rounded-lg mb-2 border-l-4 transition-all hover:shadow-sm cursor-pointer hover:bg-blue-50/60 ${borderColor} ${overdue ? "bg-red-50" : dueToday ? "bg-orange-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -58,6 +78,9 @@ export function TaskRow({
         <div className={`text-xs w-20 ${overdue ? "text-red-600 font-bold" : "text-gray-600"}`}>
           {formatDate(task.dueDate) || "No date"}
         </div>
+        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full w-24 text-center ${timeline.color}`}>
+          {timeline.text}
+        </span>
         <span className={`text-[11px] font-semibold px-2 py-1 rounded-full w-28 text-center ${STATUS_COLORS[task.status] || ""}`}>
           {formatStatusLabel(task.status)}
         </span>
@@ -97,21 +120,21 @@ export function TaskRow({
       {/* Mobile layout */}
       <div
         onClick={onEdit}
-        className={`md:hidden border rounded-lg mb-2 border-l-4 px-3 py-2 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${borderColor} ${overdue ? "bg-red-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
+        className={`md:hidden border rounded-lg mb-2 border-l-4 px-3 py-2 transition-shadow cursor-pointer active:bg-blue-50 hover:shadow-md ${borderColor} ${overdue ? "bg-red-50" : dueToday ? "bg-orange-50" : "bg-white"} ${completed ? "opacity-60" : ""}`}
       >
         <div className="flex items-start justify-between mb-2">
           <span className={`font-semibold text-sm text-gray-900 flex-1 ${completed ? "line-through" : ""}`}>
             {task.title}
           </span>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ml-2 ${PRIORITY_BADGE_COLORS[task.priority] || ""}`}>
-            {task.priority}
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ml-2 ${timeline.color}`}>
+            {timeline.text}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-1 text-xs mb-2">
           <div><span className="text-gray-400">Owner:</span> <span className="font-medium text-gray-700">{ownerName(task.owner)}</span></div>
           <div><span className="text-gray-400">Due:</span> <span className={`font-medium ${overdue ? "text-red-600" : "text-gray-700"}`}>{formatDate(task.dueDate) || "None"}</span></div>
           {task.projectId && <div><span className="text-gray-400">Project:</span> <span className="font-medium text-gray-700">{task.projectId}</span></div>}
-          <div><span className="text-gray-400">Status:</span> <span className="font-medium text-gray-700">{formatStatusLabel(task.status)}</span></div>
+          <div><span className="text-gray-400">Progress:</span> <span className="font-medium text-gray-700">{formatStatusLabel(task.status)}</span></div>
         </div>
         {task.notes && <p className="text-xs text-gray-500 italic bg-gray-50 rounded p-2 mb-2">{task.notes}</p>}
       </div>
