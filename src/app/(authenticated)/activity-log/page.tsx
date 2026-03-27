@@ -10,7 +10,7 @@ interface AuditEntry {
   action: string;
   entityLabel: string;
   changes: Record<string, { from: unknown; to: unknown }> | null;
-  performedBy: { id: string; name: string; email: string };
+  performedById: string;
   performedAt: string;
 }
 
@@ -370,7 +370,7 @@ export default function ActivityLogPage() {
                 </span>
                 <span className="text-sm font-medium text-gray-900">{log.entityLabel}</span>
                 <span className="text-xs text-gray-400 ml-auto flex-shrink-0">
-                  {log.performedBy.name} &middot; {timeAgo(log.performedAt)}
+                  {timeAgo(log.performedAt)}
                 </span>
                 {log.changes && (
                   <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded.has(log.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

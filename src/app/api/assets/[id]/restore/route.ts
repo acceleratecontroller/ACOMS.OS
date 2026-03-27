@@ -37,7 +37,7 @@ export async function POST(
     entityId: asset.id,
     action: "RESTORE",
     entityLabel: `${asset.name} (${asset.assetNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(asset);

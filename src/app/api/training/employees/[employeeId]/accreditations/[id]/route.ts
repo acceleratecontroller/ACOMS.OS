@@ -56,7 +56,7 @@ export async function PUT(
     entityId: ea.id,
     action: "UPDATE",
     entityLabel: `${ea.accreditation.name} for employee`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes,
   });
 
@@ -91,7 +91,7 @@ export async function DELETE(
     entityId: ea.id,
     action: "DELETE",
     entityLabel: `${ea.accreditation.name} removed from employee`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json({ success: true });

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     ...(keyword && {
       OR: [
         { entityLabel: { contains: keyword, mode: "insensitive" as const } },
-        { performedBy: { name: { contains: keyword, mode: "insensitive" as const } } },
+        { performedById: { contains: keyword, mode: "insensitive" as const } },
       ],
     }),
   };
@@ -33,9 +33,6 @@ export async function GET(request: NextRequest) {
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where,
-      include: {
-        performedBy: { select: { id: true, name: true, email: true } },
-      },
       orderBy: { performedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,

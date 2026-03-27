@@ -28,7 +28,7 @@ export async function POST(
     entityId: skill.id,
     action: "RESTORE",
     entityLabel: `${skill.name} (${skill.skillNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(skill);

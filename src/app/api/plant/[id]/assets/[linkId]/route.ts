@@ -41,7 +41,7 @@ export async function DELETE(
     entityId: plantId,
     action: "UPDATE",
     entityLabel: `${link.plant.plantNumber}`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes: { unlinkedAsset: { from: `${link.asset.name} (${link.asset.assetNumber})`, to: null } },
   });
 

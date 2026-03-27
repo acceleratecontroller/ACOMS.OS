@@ -33,7 +33,7 @@ export async function POST(
     entityId: task.id,
     action: "RESTORE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(task);

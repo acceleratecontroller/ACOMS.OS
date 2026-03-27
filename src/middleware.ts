@@ -1,19 +1,18 @@
+// src/middleware.ts — Simplified: no more 2FA logic, login pages, or TwoFactorGuard
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { decode } from "next-auth/jwt";
 
-// Routes that STAFF users cannot access
+export const runtime = "nodejs";
+
 const ADMIN_ONLY_ROUTES = ["/tasks", "/activity-log"];
 const ADMIN_ONLY_API_ROUTES = ["/api/tasks", "/api/recurring-tasks", "/api/activity-log"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow access to login page, auth API, and static files
+  // Allow auth routes and static files
   if (
-    pathname === "/login" ||
-    pathname === "/login/verify" ||
-    pathname === "/login/setup-2fa" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
@@ -21,59 +20,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for the NextAuth session token cookie
-  const tokenCookie =
+  // Check for session token
+  const sessionCookie =
     request.cookies.get("authjs.session-token") ||
     request.cookies.get("__Secure-authjs.session-token");
 
-  // No session token = not logged in, redirect to login
-  if (!tokenCookie) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Decode the JWT to check role for route-level access control
-  const secret = process.env.AUTH_SECRET;
-  if (secret) {
-    try {
-      const token = await decode({
-        token: tokenCookie.value,
-        secret,
-        salt: tokenCookie.name,
-      });
-
-      // If user has been revoked, clear cookies and redirect to login
-      if (token?.isRevoked) {
-        const response = NextResponse.redirect(new URL("/login", request.url));
-        response.cookies.delete("authjs.session-token");
-        response.cookies.delete("__Secure-authjs.session-token");
-        return response;
-      }
-
-      if (token?.role && token.role !== "ADMIN") {
-        // Check if STAFF user is trying to access admin-only page routes
-        const isAdminOnlyPage = ADMIN_ONLY_ROUTES.some(
-          (route) => pathname === route || pathname.startsWith(route + "/")
-        );
-        if (isAdminOnlyPage) {
-          return NextResponse.redirect(new URL("/", request.url));
-        }
-
-        // Check if STAFF user is trying to access admin-only API routes
-        const isAdminOnlyApi = ADMIN_ONLY_API_ROUTES.some(
-          (route) => pathname === route || pathname.startsWith(route + "/")
-        );
-        if (isAdminOnlyApi) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-      }
-    } catch {
-      // If token decode fails, allow through — API routes will re-check auth
-    }
+  if (!sessionCookie) {
+    // No session → redirect to NextAuth sign-in (which redirects to ACOMS.Auth)
+    return NextResponse.redirect(new URL("/api/auth/signin", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

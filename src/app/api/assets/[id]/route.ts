@@ -91,7 +91,7 @@ export async function PUT(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
-        ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.id }),
+        ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.identityId }),
       },
     }),
   );
@@ -104,7 +104,7 @@ export async function PUT(
     entityId: asset.id,
     action: "UPDATE",
     entityLabel: `${asset.name} (${asset.assetNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes,
   });
 
@@ -142,7 +142,7 @@ export async function DELETE(
       data: {
         isArchived: true,
         archivedAt: new Date(),
-        archivedById: session.user.id,
+        archivedById: session.user.identityId,
       },
     }),
   );
@@ -153,7 +153,7 @@ export async function DELETE(
     entityId: asset.id,
     action: "ARCHIVE",
     entityLabel: `${asset.name} (${asset.assetNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(asset);

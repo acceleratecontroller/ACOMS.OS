@@ -108,7 +108,7 @@ export async function POST(
     entityId: employeeRole.id,
     action: "CREATE",
     entityLabel: `${employeeRole.role.name} assigned to employee ${employeeId}`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(employeeRole, { status: 201 });

@@ -83,7 +83,7 @@ export async function PUT(
     entityId: skill.id,
     action: "UPDATE",
     entityLabel: `${skill.name} (${skill.skillNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes,
   });
 
@@ -107,7 +107,7 @@ export async function DELETE(
       data: {
         isArchived: true,
         archivedAt: new Date(),
-        archivedById: session.user.id,
+        archivedById: session.user.identityId,
       },
     }),
   );
@@ -118,7 +118,7 @@ export async function DELETE(
     entityId: skill.id,
     action: "ARCHIVE",
     entityLabel: `${skill.name} (${skill.skillNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(skill);

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         lastCompleted,
         nextDue,
         ownerId: data.ownerId,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     entityId: task.id,
     action: "CREATE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(task, { status: 201 });

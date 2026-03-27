@@ -2,9 +2,10 @@
 // This is the single source of truth for the database structure.
 //
 // BUSINESS DISTINCTION:
-//   User     = A login/account record for accessing the system.
 //   Employee = A real person / business record in the company.
-//              Not every employee will have a login (User).
+//              Not every employee will have login access.
+//              Login access is managed via ACOMS.Auth (external SSO).
+//              The identityId field links to the ACOMS.Auth identity UUID.
 //
 //   Asset    = Smaller, portable, or general company items.
 //              Examples: drills, tools, phones, laptops, PPE.
@@ -90,90 +91,6 @@ enum AccreditationStatus {
   EXEMPT
 }
 
-// ─── User (Login / Account) ─────────────────────────────
-
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(STAFF)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Two-Factor Authentication
-  twoFactorEnabled    Boolean   @default(false)
-  twoFactorSecret     String?              // AES-256-GCM encrypted TOTP secret
-  twoFactorPending    Boolean   @default(false) // True during setup, before first code confirmation
-  twoFactorRequired   Boolean   @default(false) // Admin-enforced: user must enable 2FA
-  twoFactorVerifiedAt DateTime?            // Set when user passes 2FA check; cleared on new login
-
-  // Records this user created
-  createdEmployees  Employee[] @relation("EmployeeCreatedBy")
-  createdAssets     Asset[]    @relation("AssetCreatedBy")
-  createdPlant      Plant[]    @relation("PlantCreatedBy")
-
-  // Records this user archived
-  archivedEmployees Employee[] @relation("EmployeeArchivedBy")
-  archivedAssets    Asset[]    @relation("AssetArchivedBy")
-  archivedPlant     Plant[]    @relation("PlantArchivedBy")
-
-  // Task relations
-  createdTasks          Task[]          @relation("TaskCreatedBy")
-  archivedTasks         Task[]          @relation("TaskArchivedBy")
-  createdRecurringTasks RecurringTask[] @relation("RecurringTaskCreatedBy")
-  archivedRecurringTasks RecurringTask[] @relation("RecurringTaskArchivedBy")
-
-  // Training matrix records
-  createdTrainingRoles    TrainingRole[]   @relation("TrainingRoleCreatedBy")
-  archivedTrainingRoles   TrainingRole[]   @relation("TrainingRoleArchivedBy")
-  createdTrainingSkills   TrainingSkill[]  @relation("TrainingSkillCreatedBy")
-  archivedTrainingSkills  TrainingSkill[]  @relation("TrainingSkillArchivedBy")
-  createdAccreditations   Accreditation[]  @relation("AccreditationCreatedBy")
-  archivedAccreditations  Accreditation[]  @relation("AccreditationArchivedBy")
-
-  // Linked employee record (optional one-to-one)
-  employee  Employee? @relation("EmployeeUser")
-
-  // Audit log entries performed by this user
-  auditLogs AuditLog[]
-
-  // Backup codes for 2FA recovery
-  backupCodes BackupCode[]
-
-  // Trusted devices (remember me for 2FA)
-  trustedDevices TrustedDevice[]
-}
-
-// ─── Trusted Device (Remember Me for 2FA) ─────────────────
-
-model TrustedDevice {
-  id          String   @id @default(uuid())
-  userId      String
-  tokenHash   String   @unique  // SHA-256 hash of the device trust token
-  label       String?           // User-agent or device label for display
-  expiresAt   DateTime          // 30 days from creation
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-// ─── Backup Code (2FA Recovery) ───────────────────────────
-
-model BackupCode {
-  id        String   @id @default(uuid())
-  userId    String
-  codeHash  String   // bcrypt-hashed one-time-use backup code
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
 // ─── Audit Log ──────────────────────────────────────────
 
 model AuditLog {
@@ -183,8 +100,7 @@ model AuditLog {
   action       String   // "CREATE", "UPDATE", "ARCHIVE", "RESTORE"
   entityLabel  String   // Human-readable label, e.g. "John Smith (E0012)"
   changes      Json?    // { field: { from: old, to: new } } — null for CREATE/ARCHIVE/RESTORE
-  performedBy  User     @relation(fields: [performedById], references: [id])
-  performedById String
+  performedById String  // ACOMS.Auth identity ID (no local FK)
   performedAt  DateTime @default(now())
 
   @@index([entityType, entityId])
@@ -199,9 +115,8 @@ model Employee {
   firstName      String
   lastName       String
 
-  // Optional link to a User for login access
-  userId         String?        @unique
-  user           User?          @relation("EmployeeUser", fields: [userId], references: [id])
+  // Optional link to ACOMS.Auth identity for login access
+  identityId     String?        @unique
   email          String?                   // Work email
   personalEmail  String?                   // Personal email
   phone          String?
@@ -227,13 +142,11 @@ model Employee {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("EmployeeArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   // Reverse relations: items assigned to this employee
   assignedAssets Asset[] @relation("AssetAssignedToEmployee")
@@ -295,13 +208,11 @@ model Task {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("TaskCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("TaskArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   @@index([status])
   @@index([dueDate])
@@ -326,13 +237,11 @@ model RecurringTask {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("RecurringTaskCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("RecurringTaskArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   @@index([nextDue])
   @@index([ownerId])
@@ -377,8 +286,7 @@ model Asset {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("AssetCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   // Optional assignment to an Employee
   assignedTo   Employee? @relation("AssetAssignedToEmployee", fields: [assignedToId], references: [id])
@@ -386,8 +294,7 @@ model Asset {
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("AssetArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   // Plant links — assets linked to plant items
   plantLinks   PlantAssetLink[]
@@ -426,16 +333,14 @@ model Plant {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("PlantCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   // Optional assignment to an Employee
   assignedTo   Employee? @relation("PlantAssignedToEmployee", fields: [assignedToId], references: [id])
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("PlantArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   // Linked assets (e.g. first aid kit, fire extinguisher)
   assetLinks   PlantAssetLink[]
@@ -454,13 +359,11 @@ model TrainingRole {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("TrainingRoleCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("TrainingRoleArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   skillLinks   RoleSkillLink[]
   employees    EmployeeRole[]
@@ -474,13 +377,11 @@ model TrainingSkill {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("TrainingSkillCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("TrainingSkillArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   roleLinks           RoleSkillLink[]
   accreditationLinks  SkillAccreditationLink[]
@@ -500,13 +401,11 @@ model Accreditation {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  createdBy    User     @relation("AccreditationCreatedBy", fields: [createdById], references: [id])
-  createdById  String
+  createdById  String   // ACOMS.Auth identity ID
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
-  archivedBy   User?    @relation("AccreditationArchivedBy", fields: [archivedById], references: [id])
-  archivedById String?
+  archivedById String?  // ACOMS.Auth identity ID
 
   skillLinks  SkillAccreditationLink[]
   employees   EmployeeAccreditation[]

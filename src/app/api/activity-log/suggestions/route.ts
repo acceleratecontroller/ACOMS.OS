@@ -14,23 +14,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([]);
   }
 
-  // Search entity labels and performer names in audit logs
-  const [byLabel, byPerformer] = await Promise.all([
-    prisma.auditLog.findMany({
-      where: { entityLabel: { contains: q, mode: "insensitive" } },
-      select: { entityLabel: true, entityType: true },
-      distinct: ["entityLabel"],
-      take: 8,
-      orderBy: { performedAt: "desc" },
-    }),
-    prisma.auditLog.findMany({
-      where: { performedBy: { name: { contains: q, mode: "insensitive" } } },
-      select: { performedBy: { select: { name: true } } },
-      distinct: ["performedById"],
-      take: 5,
-      orderBy: { performedAt: "desc" },
-    }),
-  ]);
+  // Search entity labels in audit logs (performer name lookup removed — identities live in ACOMS.Auth)
+  const byLabel = await prisma.auditLog.findMany({
+    where: { entityLabel: { contains: q, mode: "insensitive" } },
+    select: { entityLabel: true, entityType: true },
+    distinct: ["entityLabel"],
+    take: 10,
+    orderBy: { performedAt: "desc" },
+  });
 
   const suggestions: { label: string; type: string }[] = [];
   const seen = new Set<string>();
@@ -39,13 +30,6 @@ export async function GET(request: NextRequest) {
     if (!seen.has(row.entityLabel)) {
       seen.add(row.entityLabel);
       suggestions.push({ label: row.entityLabel, type: row.entityType });
-    }
-  }
-  for (const row of byPerformer) {
-    const name = row.performedBy.name;
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      suggestions.push({ label: name, type: "User" });
     }
   }
 

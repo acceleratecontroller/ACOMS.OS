@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         emergencyRelation: data.emergencyRelation || null,
         emergencyPhone: data.emergencyPhone || null,
         emergencyPhoneAlt: data.emergencyPhoneAlt || null,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
         trainingRoles: data.roleIds.length > 0
           ? { create: data.roleIds.map((roleId: string) => ({ roleId })) }
           : undefined,
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     entityId: employee.id,
     action: "CREATE",
     entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(employee, { status: 201 });

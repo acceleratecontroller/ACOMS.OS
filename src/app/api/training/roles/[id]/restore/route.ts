@@ -28,7 +28,7 @@ export async function POST(
     entityId: role.id,
     action: "RESTORE",
     entityLabel: `${role.name} (${role.roleNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(role);

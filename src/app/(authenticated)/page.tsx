@@ -214,7 +214,6 @@ export default async function DashboardPage({
     }),
     // Recent activity
     prisma.auditLog.findMany({
-      include: { performedBy: { select: { name: true } } },
       orderBy: { performedAt: "desc" },
       take: 8,
     }),
@@ -403,7 +402,7 @@ export default async function DashboardPage({
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-gray-900 truncate leading-snug">{entry.entityLabel}</p>
                       <p className="text-xs text-gray-400 leading-snug mt-0.5">
-                        {entry.performedBy.name} &middot; {formatRelativeTime(entry.performedAt)}
+                        {formatRelativeTime(entry.performedAt)}
                       </p>
                     </div>
                   </div>

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         skillNumber,
         name: data.name,
         description: data.description || null,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
     }),
   );
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     entityId: skill.id,
     action: "CREATE",
     entityLabel: `${skill.name} (${skill.skillNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(skill, { status: 201 });

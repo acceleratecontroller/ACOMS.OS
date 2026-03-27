@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         expires: data.expires,
         renewalMonths: data.renewalMonths ?? null,
         renewalNotes: data.renewalNotes || null,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
     }),
   );
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     entityId: accreditation.id,
     action: "CREATE",
     entityLabel: `${accreditation.name} (${accreditation.accreditationNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(accreditation, { status: 201 });

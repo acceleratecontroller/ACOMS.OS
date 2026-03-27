@@ -87,7 +87,7 @@ export async function POST(
     entityId: ea.id,
     action: "CREATE",
     entityLabel: `${ea.accreditation.name} assigned to employee ${employeeId}`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(ea, { status: 201 });

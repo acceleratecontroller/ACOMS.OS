@@ -33,7 +33,7 @@ export async function POST(
     entityId: employee.id,
     action: "RESTORE",
     entityLabel: `${employee.firstName} ${employee.lastName} (${employee.employeeNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(employee);

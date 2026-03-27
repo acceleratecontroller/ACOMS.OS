@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
@@ -27,6 +28,7 @@ interface Employee {
   employeeNumber: string;
   firstName: string;
   lastName: string;
+  identityId: string | null;
   email: string | null;
   personalEmail: string | null;
   phone: string | null;
@@ -46,15 +48,15 @@ interface Employee {
 }
 
 interface AccessInfo {
-  id: string;
+  identityId: string;
   email: string;
-  role: string;
-  isActive: boolean;
 }
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const session = useSession();
+  const isAdmin = session.data?.user?.role === "ADMIN";
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,12 +66,8 @@ export default function EmployeeDetailPage() {
   const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
-  // Login access state — isAdmin is detected by whether the access API returns 403
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [access, setAccess] = useState<AccessInfo | null>(null);
-  const [accessLoaded, setAccessLoaded] = useState(false);
+  // Login access state
   const [showGrantForm, setShowGrantForm] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [accessError, setAccessError] = useState("");
   const [accessSaving, setAccessSaving] = useState(false);
 
@@ -84,28 +82,6 @@ export default function EmployeeDetailPage() {
     fetch("/api/training/roles")
       .then((r) => r.ok ? r.json() : [])
       .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
-    // Try to load access info — if 403, user is not admin
-    fetch(`/api/employees/${id}/access`)
-      .then((r) => {
-        if (r.status === 403) {
-          setIsAdmin(false);
-          setAccessLoaded(true);
-          return null;
-        }
-        if (r.ok) {
-          setIsAdmin(true);
-          return r.json();
-        }
-        setAccessLoaded(true);
-        return null;
-      })
-      .then((data) => {
-        if (data) {
-          setAccess(data.access ?? null);
-        }
-        setAccessLoaded(true);
-      })
-      .catch(() => setAccessLoaded(true));
   }, [id]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -178,7 +154,9 @@ export default function EmployeeDetailPage() {
 
     if (res.ok) {
       const data = await res.json();
-      setAccess(data);
+      // Refresh employee to get updated identityId
+      const empRes = await fetch(`/api/employees/${id}`);
+      if (empRes.ok) setEmployee(await empRes.json());
       setShowGrantForm(false);
     } else {
       const data = await res.json();
@@ -192,55 +170,9 @@ export default function EmployeeDetailPage() {
     setAccessSaving(true);
     const res = await fetch(`/api/employees/${id}/access`, { method: "DELETE" });
     if (res.ok) {
-      setAccess((prev) => prev ? { ...prev, isActive: false } : null);
-    }
-    setAccessSaving(false);
-  }
-
-  async function handleReactivateAccess() {
-    setAccessSaving(true);
-    const res = await fetch(`/api/employees/${id}/access`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: true }),
-    });
-    if (res.ok) {
-      setAccess((prev) => prev ? { ...prev, isActive: true } : null);
-    }
-    setAccessSaving(false);
-  }
-
-  async function handleChangeRole(newRole: string) {
-    setAccessSaving(true);
-    const res = await fetch(`/api/employees/${id}/access`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setAccess(data);
-    }
-    setAccessSaving(false);
-  }
-
-  async function handleResetPassword(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setAccessError("");
-    setAccessSaving(true);
-
-    const form = new FormData(e.currentTarget);
-    const res = await fetch(`/api/employees/${id}/access`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: form.get("newPassword") }),
-    });
-
-    if (res.ok) {
-      setShowPasswordReset(false);
-    } else {
-      const data = await res.json();
-      setAccessError(data.error || "Failed to reset password.");
+      // Refresh employee to reflect revoked access
+      const empRes = await fetch(`/api/employees/${id}`);
+      if (empRes.ok) setEmployee(await empRes.json());
     }
     setAccessSaving(false);
   }
@@ -293,11 +225,11 @@ export default function EmployeeDetailPage() {
         </div>
 
         {/* Login Access Section — Admin only */}
-        {isAdmin && accessLoaded && (
+        {isAdmin && (
           <div className="max-w-2xl mt-6 bg-white rounded border p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Login Access</h2>
 
-            {!access && !showGrantForm && (
+            {!employee.identityId && !showGrantForm && (
               <div>
                 <p className="text-sm text-gray-500 mb-3">This employee does not have login access.</p>
                 <button
@@ -357,78 +289,17 @@ export default function EmployeeDetailPage() {
               </form>
             )}
 
-            {access && (
+            {employee.identityId && !showGrantForm && (
               <div>
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
-                  <div>
-                    <dt className="text-gray-500">Login Email</dt>
-                    <dd className="font-medium">{access.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Status</dt>
-                    <dd>
-                      <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${access.isActive ? "text-green-700" : "text-red-600"}`}>
-                        <span className={`w-2 h-2 rounded-full ${access.isActive ? "bg-green-500" : "bg-red-500"}`} />
-                        {access.isActive ? "Active" : "Revoked"}
-                      </span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Role</dt>
-                    <dd className="font-medium flex items-center gap-2">
-                      {access.role}
-                      <select
-                        value={access.role}
-                        onChange={(e) => handleChangeRole(e.target.value)}
-                        disabled={accessSaving}
-                        className="ml-2 text-xs border border-gray-300 rounded px-1 py-0.5"
-                      >
-                        <option value="STAFF">STAFF</option>
-                        <option value="ADMIN">ADMIN</option>
-                      </select>
-                    </dd>
-                  </div>
-                </dl>
-
-                {showPasswordReset ? (
-                  <form onSubmit={handleResetPassword} className="mb-3 space-y-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                      <input
-                        name="newPassword"
-                        type="text"
-                        required
-                        minLength={6}
-                        className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Min. 6 characters"
-                      />
-                    </div>
-                    {accessError && <p className="text-sm text-red-500">{accessError}</p>}
-                    <div className="flex gap-2">
-                      <button type="submit" disabled={accessSaving} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                        {accessSaving ? "Resetting..." : "Reset Password"}
-                      </button>
-                      <button type="button" onClick={() => { setShowPasswordReset(false); setAccessError(""); }} className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-50">
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="flex gap-2">
-                    <button onClick={() => setShowPasswordReset(true)} className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-50">
-                      Reset Password
-                    </button>
-                    {access.isActive ? (
-                      <button onClick={handleRevokeAccess} disabled={accessSaving} className="border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50">
-                        Revoke Access
-                      </button>
-                    ) : (
-                      <button onClick={handleReactivateAccess} disabled={accessSaving} className="border border-green-300 text-green-700 px-3 py-1.5 rounded text-sm hover:bg-green-50 disabled:opacity-50">
-                        Reactivate Access
-                      </button>
-                    )}
-                  </div>
-                )}
+                <p className="text-sm text-green-700 mb-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    Login access granted (managed via ACOMS.Auth)
+                  </span>
+                </p>
+                <button onClick={handleRevokeAccess} disabled={accessSaving} className="border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50">
+                  Revoke Access
+                </button>
               </div>
             )}
           </div>

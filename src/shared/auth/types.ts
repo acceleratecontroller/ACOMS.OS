@@ -1,24 +1,21 @@
+// src/shared/auth/types.ts — ACOMS.Auth OIDC session types
+
 import "next-auth";
 import "@auth/core/jwt";
 
-// Extend the default NextAuth types to include our custom fields
 declare module "next-auth" {
   interface User {
     role?: string;
-    twoFactorEnabled?: boolean;
-    employeeId?: string;
-    deviceTrusted?: boolean;
   }
 
   interface Session {
     user: {
       id: string;
+      identityId: string;  // ACOMS.Auth identity UUID (the "sub" claim)
       email: string;
       name: string;
-      role: string;
-      twoFactorEnabled: boolean;
-      twoFactorVerified: boolean;
-      employeeId?: string;
+      role: string;        // Portal-specific role from OIDC claims
+      employeeId?: string; // Looked up from portal DB
     };
   }
 }
@@ -26,10 +23,7 @@ declare module "next-auth" {
 declare module "@auth/core/jwt" {
   interface JWT {
     role?: string;
-    id?: string;
-    twoFactorEnabled?: boolean;
-    twoFactorVerified?: boolean;
+    identityId?: string;
     employeeId?: string;
-    isRevoked?: boolean;
   }
 }

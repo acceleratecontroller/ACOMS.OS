@@ -39,7 +39,7 @@ export async function POST(
     entityId: task.id,
     action: "UPDATE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes: { status: { from: task.status, to: newStatus } },
   });
 

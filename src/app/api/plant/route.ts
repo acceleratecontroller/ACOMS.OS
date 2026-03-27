@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null,
         status: data.status,
         condition: data.condition || null,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
     }),
   );
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     entityId: plant.id,
     action: "CREATE",
     entityLabel: `${plant.plantNumber}`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(plant, { status: 201 });

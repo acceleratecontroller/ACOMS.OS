@@ -97,7 +97,7 @@ export async function PUT(
     entityId: task.id,
     action: "UPDATE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes,
   });
 
@@ -122,7 +122,7 @@ export async function DELETE(
       data: {
         isArchived: true,
         archivedAt: new Date(),
-        archivedById: session.user.id,
+        archivedById: session.user.identityId,
       },
     }),
   );
@@ -133,7 +133,7 @@ export async function DELETE(
     entityId: task.id,
     action: "ARCHIVE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(task);

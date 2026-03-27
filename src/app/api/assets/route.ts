@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         status: data.status,
         condition: data.condition || null,
         notes: data.notes || null,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
     }),
   );
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     entityId: asset.id,
     action: "CREATE",
     entityLabel: `${asset.name} (${asset.assetNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(asset, { status: 201 });

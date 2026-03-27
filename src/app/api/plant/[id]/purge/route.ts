@@ -40,7 +40,7 @@ export async function POST(
     entityId: id,
     action: "DELETE",
     entityLabel: `${plant.plantNumber}`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json({ success: true });

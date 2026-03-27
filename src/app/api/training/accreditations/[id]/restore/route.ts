@@ -28,7 +28,7 @@ export async function POST(
     entityId: accreditation.id,
     action: "RESTORE",
     entityLabel: `${accreditation.name} (${accreditation.accreditationNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(accreditation);

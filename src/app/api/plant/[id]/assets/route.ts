@@ -110,7 +110,7 @@ export async function POST(
       entityId: plantId,
       action: "UPDATE",
       entityLabel: `${plant.plantNumber}`,
-      performedById: session.user.id,
+      performedById: session.user.identityId,
       changes: { linkedAsset: { from: null, to: `${asset.name} (${asset.assetNumber})` } },
     });
 
@@ -155,7 +155,7 @@ export async function POST(
             condition: (createData.condition as "NEW" | "GOOD" | "FAIR" | "POOR") || null,
             location: (createData.location as string) || null,
             notes: (createData.notes as string) || null,
-            createdById: session.user.id,
+            createdById: session.user.identityId,
           },
         });
 
@@ -178,7 +178,7 @@ export async function POST(
       entityId: result.asset.id,
       action: "CREATE",
       entityLabel: `${result.asset.name} (${result.asset.assetNumber})`,
-      performedById: session.user.id,
+      performedById: session.user.identityId,
     });
 
     audit({
@@ -186,7 +186,7 @@ export async function POST(
       entityId: plantId,
       action: "UPDATE",
       entityLabel: `${plant.plantNumber}`,
-      performedById: session.user.id,
+      performedById: session.user.identityId,
       changes: { linkedAsset: { from: null, to: `${result.asset.name} (${result.asset.assetNumber})` } },
     });
 

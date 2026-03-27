@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         name: data.name,
         description: data.description || null,
         category: data.category,
-        createdById: session.user.id,
+        createdById: session.user.identityId,
       },
     }),
   );
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     entityId: role.id,
     action: "CREATE",
     entityLabel: `${role.name} (${role.roleNumber})`,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
   });
 
   return NextResponse.json(role, { status: 201 });

@@ -52,7 +52,7 @@ export async function POST(
     entityId: task.id,
     action: "UPDATE",
     entityLabel: task.title,
-    performedById: session.user.id,
+    performedById: session.user.identityId,
     changes: {
       lastCompleted: { from: task.lastCompleted, to: now },
       nextDue: { from: task.nextDue, to: nextDue },
