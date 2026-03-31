@@ -16,6 +16,6 @@ export async function GET() {
   // then come back to ACOMS.OS login
   const returnUrl = encodeURIComponent(`${process.env.NEXTAUTH_URL}/login`);
   return NextResponse.redirect(
-    `${process.env.ACOMS_AUTH_URL}/logout?returnTo=${returnUrl}`
+    `${process.env.ACOMS_AUTH_URL}/api/auth/logout?returnTo=${returnUrl}`
   );
 }
