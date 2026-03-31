@@ -52,6 +52,24 @@ interface AccessInfo {
   email: string;
 }
 
+interface Portal {
+  clientId: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface PortalRoleAssignment {
+  clientId: string;
+  role: string;
+  enabled: boolean;
+}
+
+interface IdentityRole {
+  clientId: string;
+  portalName: string;
+  role: string;
+}
+
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -70,6 +88,10 @@ export default function EmployeeDetailPage() {
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [accessError, setAccessError] = useState("");
   const [accessSaving, setAccessSaving] = useState(false);
+  const [portals, setPortals] = useState<Portal[]>([]);
+  const [portalRoles, setPortalRoles] = useState<PortalRoleAssignment[]>([]);
+  const [identityRoles, setIdentityRoles] = useState<IdentityRole[]>([]);
+  const [showManageRoles, setShowManageRoles] = useState(false);
 
   useEffect(() => {
     fetch(`/api/employees/${id}`)
@@ -83,6 +105,36 @@ export default function EmployeeDetailPage() {
       .then((r) => r.ok ? r.json() : [])
       .then((data: TrainingRoleRef[]) => setTrainingRoles(data));
   }, [id]);
+
+  // Fetch portals from Auth when admin opens grant form or manage roles
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/portals")
+      .then((r) => r.ok ? r.json() : { portals: [] })
+      .then((data: { portals: Portal[] }) => {
+        const activePortals = (data.portals || []).filter((p) => p.isActive);
+        setPortals(activePortals);
+        setPortalRoles(activePortals.map((p) => ({ clientId: p.clientId, role: "STAFF", enabled: false })));
+      });
+  }, [isAdmin]);
+
+  // Fetch identity roles when employee has access
+  useEffect(() => {
+    if (!employee?.identityId || !isAdmin) return;
+    fetch(`/api/employees/${id}/access`)
+      .then((r) => r.ok ? r.json() : { roles: [] })
+      .then((data: { roles: IdentityRole[] }) => {
+        const roles = data.roles || [];
+        setIdentityRoles(roles);
+        // Pre-populate portal role checkboxes with existing assignments
+        setPortalRoles((prev) =>
+          prev.map((pr) => {
+            const existing = roles.find((r) => r.clientId === pr.clientId);
+            return existing ? { ...pr, enabled: true, role: existing.role } : { ...pr, enabled: false };
+          })
+        );
+      });
+  }, [employee?.identityId, isAdmin, id]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -142,18 +194,21 @@ export default function EmployeeDetailPage() {
     setAccessSaving(true);
 
     const form = new FormData(e.currentTarget);
+    const enabledPortalRoles = portalRoles
+      .filter((pr) => pr.enabled)
+      .map((pr) => ({ clientId: pr.clientId, role: pr.role }));
+
     const res = await fetch(`/api/employees/${id}/access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: form.get("accessEmail"),
         password: form.get("accessPassword"),
-        role: form.get("accessRole"),
+        portalRoles: enabledPortalRoles,
       }),
     });
 
     if (res.ok) {
-      const data = await res.json();
       // Refresh employee to get updated identityId
       const empRes = await fetch(`/api/employees/${id}`);
       if (empRes.ok) setEmployee(await empRes.json());
@@ -161,6 +216,35 @@ export default function EmployeeDetailPage() {
     } else {
       const data = await res.json();
       setAccessError(data.error || "Failed to grant access.");
+    }
+    setAccessSaving(false);
+  }
+
+  async function handleUpdateRoles() {
+    setAccessError("");
+    setAccessSaving(true);
+
+    const res = await fetch(`/api/employees/${id}/access`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portalRoles: portalRoles
+          .filter((pr) => pr.enabled)
+          .map((pr) => ({ clientId: pr.clientId, role: pr.role })),
+      }),
+    });
+
+    if (res.ok) {
+      // Refresh identity roles
+      const rolesRes = await fetch(`/api/employees/${id}/access`);
+      if (rolesRes.ok) {
+        const data = await rolesRes.json();
+        setIdentityRoles(data.roles || []);
+      }
+      setShowManageRoles(false);
+    } else {
+      const data = await res.json();
+      setAccessError(data.error || "Failed to update roles.");
     }
     setAccessSaving(false);
   }
@@ -267,19 +351,53 @@ export default function EmployeeDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select
-                    name="accessRole"
-                    defaultValue="STAFF"
-                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="STAFF">Staff (limited access)</option>
-                    <option value="ADMIN">Admin (full access)</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Portal Access</label>
+                  <div className="border border-gray-300 rounded-lg p-3 space-y-2">
+                    {portals.length === 0 && <p className="text-xs text-gray-400">Loading portals...</p>}
+                    {portals.map((portal) => {
+                      const assignment = portalRoles.find((pr) => pr.clientId === portal.clientId);
+                      return (
+                        <div key={portal.clientId} className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 min-w-[160px] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={assignment?.enabled || false}
+                              onChange={(e) => {
+                                setPortalRoles((prev) =>
+                                  prev.map((pr) =>
+                                    pr.clientId === portal.clientId ? { ...pr, enabled: e.target.checked } : pr
+                                  )
+                                );
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{portal.name}</span>
+                          </label>
+                          {assignment?.enabled && (
+                            <select
+                              value={assignment.role}
+                              onChange={(e) => {
+                                setPortalRoles((prev) =>
+                                  prev.map((pr) =>
+                                    pr.clientId === portal.clientId ? { ...pr, role: e.target.value } : pr
+                                  )
+                                );
+                              }}
+                              className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="STAFF">Staff</option>
+                              <option value="MANAGER">Manager</option>
+                              <option value="ADMIN">Admin</option>
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 {accessError && <p className="text-sm text-red-500">{accessError}</p>}
                 <div className="flex gap-3">
-                  <button type="submit" disabled={accessSaving} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  <button type="submit" disabled={accessSaving || portalRoles.filter((pr) => pr.enabled).length === 0} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {accessSaving ? "Granting..." : "Grant Access"}
                   </button>
                   <button type="button" onClick={() => { setShowGrantForm(false); setAccessError(""); }} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">
@@ -297,9 +415,88 @@ export default function EmployeeDetailPage() {
                     Login access granted (managed via ACOMS.Auth)
                   </span>
                 </p>
-                <button onClick={handleRevokeAccess} disabled={accessSaving} className="border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50">
-                  Revoke Access
-                </button>
+                {identityRoles.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1.5">Portal Roles</p>
+                    <div className="space-y-1">
+                      {identityRoles.map((r) => (
+                        <div key={r.clientId} className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-700">{r.portalName}</span>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{r.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => setShowManageRoles(true)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50">
+                    Manage Portal Roles
+                  </button>
+                  <button onClick={handleRevokeAccess} disabled={accessSaving} className="border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50">
+                    Revoke Access
+                  </button>
+                </div>
+                {showManageRoles && (
+                  <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Update Portal Roles</p>
+                    {portals.map((portal) => {
+                      const existing = identityRoles.find((r) => r.clientId === portal.clientId);
+                      const assignment = portalRoles.find((pr) => pr.clientId === portal.clientId);
+                      return (
+                        <div key={portal.clientId} className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 min-w-[160px] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={assignment?.enabled || false}
+                              onChange={(e) => {
+                                setPortalRoles((prev) =>
+                                  prev.map((pr) =>
+                                    pr.clientId === portal.clientId ? { ...pr, enabled: e.target.checked } : pr
+                                  )
+                                );
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{portal.name}</span>
+                          </label>
+                          {assignment?.enabled && (
+                            <select
+                              value={assignment.role}
+                              onChange={(e) => {
+                                setPortalRoles((prev) =>
+                                  prev.map((pr) =>
+                                    pr.clientId === portal.clientId ? { ...pr, role: e.target.value } : pr
+                                  )
+                                );
+                              }}
+                              className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            >
+                              <option value="STAFF">Staff</option>
+                              <option value="MANAGER">Manager</option>
+                              <option value="ADMIN">Admin</option>
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {accessError && <p className="text-sm text-red-500">{accessError}</p>}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={handleUpdateRoles}
+                        disabled={accessSaving}
+                        className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {accessSaving ? "Saving..." : "Save Roles"}
+                      </button>
+                      <button
+                        onClick={() => { setShowManageRoles(false); setAccessError(""); }}
+                        className="border border-gray-300 px-3 py-1.5 rounded text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
