@@ -1,34 +1,47 @@
-// src/shared/auth/auth.ts — OIDC provider pointing to ACOMS.Auth
+// src/shared/auth/auth.ts — OAuth provider pointing to ACOMS.Auth
 
 import NextAuth from "next-auth";
+import type { OAuthConfig } from "next-auth/providers";
 import { prisma } from "@/shared/database/client";
 import "@/shared/auth/types";
 
+interface AcomsAuthProfile {
+  sub: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+const AcomsAuthProvider: OAuthConfig<AcomsAuthProfile> = {
+  id: "acoms-auth",
+  name: "ACOMS.Auth",
+  type: "oidc",
+  // Skip discovery — specify everything explicitly
+  issuer: process.env.ACOMS_AUTH_URL,
+  wellKnown: `${process.env.ACOMS_AUTH_URL}/.well-known/openid-configuration`,
+  clientId: process.env.ACOMS_AUTH_CLIENT_ID!,
+  clientSecret: process.env.ACOMS_AUTH_CLIENT_SECRET!,
+  authorization: {
+    url: `${process.env.ACOMS_AUTH_URL}/oauth/authorize`,
+    params: {
+      scope: "openid profile email roles",
+    },
+  },
+  token: `${process.env.ACOMS_AUTH_URL}/api/oauth/token`,
+  userinfo: `${process.env.ACOMS_AUTH_URL}/api/oauth/userinfo`,
+  profile(profile) {
+    return {
+      id: profile.sub,
+      email: profile.email,
+      name: profile.name,
+      role: profile.role,
+    };
+  },
+};
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   debug: true,
-  providers: [
-    {
-      id: "acoms-auth",
-      name: "ACOMS.Auth",
-      type: "oidc",
-      issuer: process.env.ACOMS_AUTH_URL,
-      clientId: process.env.ACOMS_AUTH_CLIENT_ID,
-      clientSecret: process.env.ACOMS_AUTH_CLIENT_SECRET,
-      authorization: {
-        params: {
-          scope: "openid profile email roles",
-        },
-      },
-      profile(profile) {
-        return {
-          id: profile.sub,
-          email: profile.email as string,
-          name: profile.name as string,
-          role: profile.role as string,
-        };
-      },
-    },
-  ],
+  providers: [AcomsAuthProvider],
   callbacks: {
     async jwt({ token, profile }) {
       if (profile) {
