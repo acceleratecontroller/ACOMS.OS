@@ -41,7 +41,6 @@ const AcomsAuthProvider: OAuthConfig<AcomsAuthProfile> = {
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  debug: true,
   providers: [AcomsAuthProvider],
   callbacks: {
     async jwt({ token, profile }) {

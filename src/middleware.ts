@@ -14,7 +14,6 @@ export async function middleware(request: NextRequest) {
   // Allow auth routes and static files
   if (
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/debug") ||
     pathname === "/login" ||
     pathname === "/logout" ||
     pathname.startsWith("/_next") ||
