@@ -29,7 +29,7 @@ const AcomsAuthProvider: OAuthConfig<AcomsAuthProfile> = {
   },
   token: `${process.env.ACOMS_AUTH_URL}/api/oauth/token`,
   userinfo: `${process.env.ACOMS_AUTH_URL}/api/oauth/userinfo`,
-  checks: ["pkce", "state"],
+  checks: ["state"],
   profile(profile) {
     return {
       id: profile.sub,
