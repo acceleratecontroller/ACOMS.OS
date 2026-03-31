@@ -1,3 +1,7 @@
+// ⚠️  IMPORTANT: This page contains a Login Access section (grant/revoke/manage portal roles).
+// A duplicate of this section also exists in employees/page.tsx (list page side panel).
+// If you change the login access UI or logic here, update the list page too (and vice versa).
+
 "use client";
 
 import { useEffect, useState } from "react";
