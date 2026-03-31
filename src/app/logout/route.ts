@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -12,5 +12,10 @@ export async function GET() {
   cookieStore.delete("authjs.csrf-token");
   cookieStore.delete("__Host-authjs.csrf-token");
 
-  redirect("/login");
+  // Redirect to ACOMS.Auth logout to clear the SSO session too,
+  // then come back to ACOMS.OS login
+  const returnUrl = encodeURIComponent(`${process.env.NEXTAUTH_URL}/login`);
+  return NextResponse.redirect(
+    `${process.env.ACOMS_AUTH_URL}/logout?returnTo=${returnUrl}`
+  );
 }
