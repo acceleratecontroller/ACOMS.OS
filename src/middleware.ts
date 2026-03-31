@@ -26,8 +26,9 @@ export async function middleware(request: NextRequest) {
     request.cookies.get("__Secure-authjs.session-token");
 
   if (!sessionCookie) {
-    // No session → redirect to NextAuth sign-in (which redirects to ACOMS.Auth)
-    return NextResponse.redirect(new URL("/api/auth/signin", request.url));
+    // No session → redirect to NextAuth sign-in page for acoms-auth provider
+    const signInUrl = new URL("/api/auth/signin/acoms-auth", request.url);
+    return NextResponse.redirect(signInUrl);
   }
 
   return NextResponse.next();
