@@ -5,6 +5,7 @@ import { prisma } from "@/shared/database/client";
 import "@/shared/auth/types";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  debug: true,
   providers: [
     {
       id: "acoms-auth",
@@ -14,14 +15,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.ACOMS_AUTH_CLIENT_ID,
       clientSecret: process.env.ACOMS_AUTH_CLIENT_SECRET,
       authorization: {
-        url: `${process.env.ACOMS_AUTH_URL}/oauth/authorize`,
         params: {
           scope: "openid profile email roles",
         },
       },
-      token: `${process.env.ACOMS_AUTH_URL}/api/oauth/token`,
-      userinfo: `${process.env.ACOMS_AUTH_URL}/api/oauth/userinfo`,
-      jwks_endpoint: `${process.env.ACOMS_AUTH_URL}/.well-known/jwks.json`,
       profile(profile) {
         return {
           id: profile.sub,
@@ -35,7 +32,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, profile }) {
       if (profile) {
-        // Initial sign-in: populate from OIDC claims
         token.role = profile.role as string;
         token.identityId = profile.sub as string;
       }
@@ -46,7 +42,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role as string;
         session.user.identityId = token.identityId as string;
 
-        // Look up employee record linked to this identity
         const employee = await prisma.employee.findUnique({
           where: { identityId: token.identityId as string },
           select: { id: true },
