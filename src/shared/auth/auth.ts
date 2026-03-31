@@ -14,10 +14,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.ACOMS_AUTH_CLIENT_ID,
       clientSecret: process.env.ACOMS_AUTH_CLIENT_SECRET,
       authorization: {
+        url: `${process.env.ACOMS_AUTH_URL}/oauth/authorize`,
         params: {
           scope: "openid profile email roles",
         },
       },
+      token: `${process.env.ACOMS_AUTH_URL}/api/oauth/token`,
+      userinfo: `${process.env.ACOMS_AUTH_URL}/api/oauth/userinfo`,
+      jwks_endpoint: `${process.env.ACOMS_AUTH_URL}/.well-known/jwks.json`,
       profile(profile) {
         return {
           id: profile.sub,
