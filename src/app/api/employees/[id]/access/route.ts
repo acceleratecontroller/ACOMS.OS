@@ -99,24 +99,72 @@ export async function POST(
     }
   );
 
-  if (!authResponse.ok) {
+  let identityId: string;
+
+  if (authResponse.status === 409) {
+    // Identity already exists — reactivate it, update password, and assign roles
+    const data = await authResponse.json();
+    const existingId = data.existingIdentity?.id;
+    if (!existingId) {
+      return NextResponse.json({ error: "Identity exists but could not retrieve ID" }, { status: 500 });
+    }
+
+    // Reactivate and update password
+    const reactivateRes = await fetch(
+      `${process.env.ACOMS_AUTH_URL}/api/admin/identities/${existingId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.ACOMS_AUTH_SERVICE_TOKEN}`,
+        },
+        body: JSON.stringify({ isActive: true, password }),
+      }
+    );
+
+    if (!reactivateRes.ok) {
+      const err = await reactivateRes.json();
+      return NextResponse.json(
+        { error: err.error || "Failed to reactivate identity" },
+        { status: reactivateRes.status }
+      );
+    }
+
+    // Assign portal roles
+    for (const pr of portalRoles) {
+      await fetch(
+        `${process.env.ACOMS_AUTH_URL}/api/admin/identities/${existingId}/roles`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.ACOMS_AUTH_SERVICE_TOKEN}`,
+          },
+          body: JSON.stringify({ clientId: pr.clientId, role: pr.role }),
+        }
+      );
+    }
+
+    identityId = existingId;
+  } else if (!authResponse.ok) {
     const error = await authResponse.json();
     return NextResponse.json(
       { error: error.error || "Failed to create identity" },
       { status: authResponse.status }
     );
+  } else {
+    const identity = await authResponse.json();
+    identityId = identity.id;
   }
-
-  const identity = await authResponse.json();
 
   // Link the identity to the employee in ACOMS.OS database
   await prisma.employee.update({
     where: { id },
-    data: { identityId: identity.id },
+    data: { identityId },
   });
 
   return NextResponse.json(
-    { identityId: identity.id, email },
+    { identityId, email },
     { status: 201 }
   );
 }
