@@ -593,7 +593,7 @@ function EmployeesContent() {
 
               {/* Login Access — Admin only */}
               {isAdmin && (
-                <DetailSection title="Login Access">
+                <DetailSection title="Login Access (v2 — Multi-Portal)">
                   {!selected.identityId && !showGrantForm && (
                     <div>
                       <p className="text-sm text-gray-400 mb-3">No login access.</p>
