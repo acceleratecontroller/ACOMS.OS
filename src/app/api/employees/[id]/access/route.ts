@@ -149,7 +149,7 @@ export async function POST(
   } else if (!authResponse.ok) {
     const error = await authResponse.json();
     return NextResponse.json(
-      { error: `[v2] ${error.error || "Failed to create identity"}` },
+      { error: error.error || "Failed to create identity" },
       { status: authResponse.status }
     );
   } else {
