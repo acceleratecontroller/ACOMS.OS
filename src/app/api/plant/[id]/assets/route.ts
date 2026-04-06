@@ -4,13 +4,13 @@ import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
-// GET /api/plant/[id]/assets — List active linked assets for a plant item
+// GET /api/plant/[id]/assets — List active linked assets for a plant item (admin only)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

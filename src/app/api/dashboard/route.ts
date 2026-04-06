@@ -3,10 +3,10 @@ import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { getDateBoundaries } from "@/shared/date-utils";
 
-// GET /api/dashboard — Dashboard summary stats
+// GET /api/dashboard — Dashboard summary stats (admin only)
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

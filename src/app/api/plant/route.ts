@@ -5,10 +5,10 @@ import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
 import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
-// GET /api/plant — List all active (non-archived) plant items
+// GET /api/plant — List all active (non-archived) plant items (admin only)
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

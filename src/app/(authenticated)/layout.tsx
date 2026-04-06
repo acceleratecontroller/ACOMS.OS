@@ -1,12 +1,19 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/shared/auth/auth";
 import { Sidebar } from "@/shared/components/Sidebar";
 import { GlobalSearch } from "@/shared/components/GlobalSearch";
 import { LogoutButton } from "@/shared/components/LogoutButton";
 
-export default function AuthenticatedLayout({
+export default async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // STAFF users must use the staff portal — block access to admin views
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    redirect("/staff");
+  }
   return (
     <div className="flex min-h-screen">
       <Sidebar />

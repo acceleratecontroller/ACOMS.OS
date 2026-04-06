@@ -5,13 +5,13 @@ import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
 import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
 
-// GET /api/plant/[id] — Get a single plant item
+// GET /api/plant/[id] — Get a single plant item (admin only)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
