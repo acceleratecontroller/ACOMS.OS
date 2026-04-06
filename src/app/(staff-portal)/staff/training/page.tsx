@@ -29,7 +29,7 @@ export default async function StaffTrainingPage() {
           },
         },
       },
-      orderBy: { role: { name: "asc" } },
+      orderBy: { assignedAt: "desc" },
     }),
     prisma.employeeAccreditation.findMany({
       where: { employeeId },
@@ -51,11 +51,11 @@ export default async function StaffTrainingPage() {
           },
         },
       },
-      orderBy: { accreditation: { name: "asc" } },
+      orderBy: { accreditationId: "asc" },
     }),
   ]);
 
-  const formatDate = (d: Date | null) =>
+  const formatDate = (d: Date | string | null) =>
     d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
   // Determine effective status for display
@@ -64,8 +64,9 @@ export default async function StaffTrainingPage() {
     if (a.status === "PENDING") return "PENDING";
     if (a.status === "EXEMPT") return "EXEMPT";
     if (a.status === "VERIFIED" && a.accreditation.expires && a.expiryDate) {
-      if (a.expiryDate <= now) return "EXPIRED";
-      if (a.expiryDate <= ninetyDaysFromNow) return "EXPIRING_SOON";
+      const expiry = new Date(a.expiryDate);
+      if (expiry <= now) return "EXPIRED";
+      if (expiry <= ninetyDaysFromNow) return "EXPIRING_SOON";
     }
     return "VERIFIED";
   }
