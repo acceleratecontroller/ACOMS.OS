@@ -22,3 +22,12 @@ export const navigationItems: NavItem[] = [
 // { label: "WIP Tracker", href: "/wip", icon: "W" },
 // { label: "Jobs", href: "/jobs", icon: "J" },
 // { label: "Corrective Actions", href: "/corrective-actions", icon: "C" },
+
+// Staff portal navigation — shown to STAFF users in /staff route group
+export const staffNavigationItems: NavItem[] = [
+  { label: "Dashboard", href: "/staff", icon: "D" },
+  { label: "My Profile", href: "/staff/profile", icon: "P" },
+  { label: "My Training", href: "/staff/training", icon: "T" },
+  { label: "My Assets & Plant", href: "/staff/assets-plant", icon: "A" },
+  { label: "Forms & Requests", href: "/staff/forms", icon: "F" },
+];
