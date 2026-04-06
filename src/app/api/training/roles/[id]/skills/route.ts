@@ -3,13 +3,13 @@ import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 
-// GET /api/training/roles/[id]/skills — List skills linked to this role
+// GET /api/training/roles/[id]/skills — List skills linked to this role (admin only)
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

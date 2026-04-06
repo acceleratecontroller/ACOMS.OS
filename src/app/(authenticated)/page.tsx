@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { getDateBoundaries } from "@/shared/date-utils";
@@ -14,9 +15,9 @@ export default async function DashboardPage({
   const isAdmin = session?.user?.role === "ADMIN";
   const employeeId = session?.user?.employeeId ?? null;
 
-  // STAFF dashboard — show own info, training status, and read-only asset/plant counts
+  // STAFF users → redirect to the dedicated staff portal
   if (!isAdmin) {
-    return <StaffDashboard employeeId={employeeId} />;
+    redirect("/staff");
   }
 
   const params = await searchParams;

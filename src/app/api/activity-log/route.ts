@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 
-// GET /api/activity-log — Paginated audit log with optional filters
+// GET /api/activity-log — Paginated audit log with optional filters (admin only)
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

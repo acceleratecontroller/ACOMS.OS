@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 
-// GET /api/search?q=searchterm — Search across employees, assets, and plant
-// STAFF: excludes tasks, activity log, and other employees (only own record)
+// GET /api/search?q=searchterm — Search across employees, assets, and plant (admin only)
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

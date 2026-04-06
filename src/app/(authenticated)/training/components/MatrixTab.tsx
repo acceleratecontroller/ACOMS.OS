@@ -208,8 +208,8 @@ export function MatrixTab() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
 
-  const loadData = useCallback((v: View) => {
-    setLoading(true);
+  const loadData = useCallback((v: View, showSpinner = true) => {
+    if (showSpinner) setLoading(true);
     fetch(`/api/training/matrix?view=${v}`)
       .then((r) => r.json())
       .then((d) => {
@@ -224,7 +224,7 @@ export function MatrixTab() {
 
   function handleModalClose() {
     setSelectedEmployee(null);
-    if (view === "employees") loadData("employees");
+    if (view === "employees") loadData("employees", false);
   }
 
   function toggleFilter(f: ComplianceFilter) {
