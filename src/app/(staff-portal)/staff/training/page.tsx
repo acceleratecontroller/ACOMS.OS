@@ -4,6 +4,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function StaffTrainingPage() {
   const session = await auth();
   if (!session?.user?.employeeId) {
@@ -14,8 +16,11 @@ export default async function StaffTrainingPage() {
   const now = new Date();
   const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-  const [roles, accreditations] = await Promise.all([
-    prisma.employeeRole.findMany({
+  let roles: Awaited<ReturnType<typeof fetchRoles>> = [];
+  let accreditations: Awaited<ReturnType<typeof fetchAccreditations>> = [];
+
+  async function fetchRoles() {
+    return prisma.employeeRole.findMany({
       where: { employeeId },
       select: {
         id: true,
@@ -30,8 +35,11 @@ export default async function StaffTrainingPage() {
         },
       },
       orderBy: { assignedAt: "desc" },
-    }),
-    prisma.employeeAccreditation.findMany({
+    });
+  }
+
+  async function fetchAccreditations() {
+    return prisma.employeeAccreditation.findMany({
       where: { employeeId },
       select: {
         id: true,
@@ -52,8 +60,24 @@ export default async function StaffTrainingPage() {
         },
       },
       orderBy: { accreditationId: "asc" },
-    }),
-  ]);
+    });
+  }
+
+  try {
+    [roles, accreditations] = await Promise.all([
+      fetchRoles(),
+      fetchAccreditations(),
+    ]);
+  } catch {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <PageHeader title="My Training" description="Unable to load training data. Please try refreshing the page." />
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <p className="text-sm text-red-700">There was an error loading your training data. Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
 
   const formatDate = (d: Date | string | null) =>
     d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "—";
