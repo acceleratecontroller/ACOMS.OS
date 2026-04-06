@@ -4,6 +4,8 @@ import { prisma } from "@/shared/database/client";
 import { StatusBadge } from "@/shared/components/StatusBadge";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function StaffDashboardPage() {
   const session = await auth();
   if (!session?.user?.employeeId) {

@@ -4,6 +4,8 @@ import { Sidebar } from "@/shared/components/Sidebar";
 import { GlobalSearch } from "@/shared/components/GlobalSearch";
 import { LogoutButton } from "@/shared/components/LogoutButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function AuthenticatedLayout({
   children,
 }: {

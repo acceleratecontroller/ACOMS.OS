@@ -1,6 +1,8 @@
 import { StaffSidebar } from "@/shared/components/StaffSidebar";
 import { LogoutButton } from "@/shared/components/LogoutButton";
 
+export const dynamic = "force-dynamic";
+
 export default function StaffPortalLayout({
   children,
 }: {

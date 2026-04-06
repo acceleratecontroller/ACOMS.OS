@@ -4,6 +4,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function StaffAssetsPlantPage() {
   const session = await auth();
   if (!session?.user?.employeeId) {
