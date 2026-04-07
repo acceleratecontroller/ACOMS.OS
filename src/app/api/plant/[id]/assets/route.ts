@@ -58,7 +58,7 @@ export async function POST(
   // Verify plant exists
   const plant = await prisma.plant.findUnique({
     where: { id: plantId },
-    select: { id: true, plantNumber: true, isArchived: true, assignedToId: true },
+    select: { id: true, plantNumber: true, isArchived: true, assignedToId: true, location: true },
   });
   if (!plant) {
     return NextResponse.json({ error: "Plant not found" }, { status: 404 });
@@ -105,11 +105,14 @@ export async function POST(
     );
     if (error) return error;
 
-    // Auto-assign the asset to the same person as the plant
-    if (plant.assignedToId) {
+    // Auto-assign the asset to the same person and location as the plant
+    if (plant.assignedToId || plant.location) {
       await prisma.asset.update({
         where: { id: assetId },
-        data: { assignedToId: plant.assignedToId },
+        data: {
+          ...(plant.assignedToId && { assignedToId: plant.assignedToId }),
+          ...(plant.location && { location: plant.location }),
+        },
       });
     }
 
@@ -161,7 +164,7 @@ export async function POST(
             serialNumber: (createData.serialNumber as string) || null,
             status: (createData.status as "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "RETIRED" | "EXPIRED") || "IN_USE",
             condition: (createData.condition as "NEW" | "GOOD" | "FAIR" | "POOR") || null,
-            location: (createData.location as string) || null,
+            location: (createData.location as string) || plant.location || null,
             notes: (createData.notes as string) || null,
             assignedToId: plant.assignedToId || null,
             createdById: session.user.identityId,
