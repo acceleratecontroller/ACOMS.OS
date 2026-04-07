@@ -72,6 +72,15 @@ export async function PUT(
 
   const before = await prisma.asset.findUnique({ where: { id } });
 
+  // Check if asset is linked to any active plant — lock assignedToId and location
+  const hasActivePlantLink = await prisma.plantAssetLink.findFirst({
+    where: { assetId: id, unlinkedAt: null },
+  });
+  if (hasActivePlantLink) {
+    delete data.assignedToId;
+    delete data.location;
+  }
+
   // Retiring an asset also archives it
   const isRetiring = data.status === "RETIRED";
 

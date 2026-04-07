@@ -279,6 +279,8 @@ function AssetsContent() {
     const defaultExpDate = defaults?.expirationDate
       ? formatDate(defaults.expirationDate)
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const isLinkedToPlant = (defaults?.plantLinks?.length ?? 0) > 0;
+    const linkedPlantHint = isLinkedToPlant ? "Managed by linked plant" : undefined;
 
     return (
       <form onSubmit={onSubmit} className="space-y-3">
@@ -304,8 +306,8 @@ function AssetsContent() {
           <FormField label="Purchase Cost" name="purchaseCost" type="number" placeholder="0.00" defaultValue={defaults?.purchaseCost?.toString() || ""} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} />
-          <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
+          <SelectField label="Location" name="location" defaultValue={defaults?.location || ""} options={LOCATION_OPTIONS} disabled={isLinkedToPlant} hint={linkedPlantHint} />
+          <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} disabled={isLinkedToPlant} hint={linkedPlantHint} />
         </div>
         <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
         {/* Expiration toggle */}
