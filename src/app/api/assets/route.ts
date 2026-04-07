@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
   const showArchived = request.nextUrl.searchParams.get("archived") === "true";
 
   // Auto-expire assets whose expiration date has passed
-  await withPrismaError("Failed to auto-expire assets", () =>
-    prisma.asset.updateMany({
+  try {
+    await prisma.asset.updateMany({
       where: {
         expires: true,
         expirationDate: { lt: new Date() },
@@ -24,8 +24,10 @@ export async function GET(request: NextRequest) {
         isArchived: false,
       },
       data: { status: "EXPIRED" },
-    }),
-  );
+    });
+  } catch {
+    // Silently skip if migration hasn't run yet
+  }
 
   const { result: assets, error } = await withPrismaError("Failed to list assets", () =>
     prisma.asset.findMany({

@@ -103,7 +103,7 @@ export default async function DashboardPage({
       prisma.asset.count({
         where: { isArchived: false, expires: true, status: "EXPIRED" },
       }),
-    ),
+    ).catch(() => 0),
     // Assets expiring within 30 days
     prisma.asset.count({
       where: {
@@ -112,7 +112,7 @@ export default async function DashboardPage({
         expirationDate: { gte: today, lte: thirtyDaysFromNow },
         status: { not: "EXPIRED" },
       },
-    }),
+    }).catch(() => 0),
     // Plant
     prisma.plant.count({ where: { isArchived: false } }),
     prisma.plant.groupBy({
