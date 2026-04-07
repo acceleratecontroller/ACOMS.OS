@@ -164,13 +164,3 @@ export const ACCREDITATION_STATUS_LABELS: Record<string, string> = Object.fromEn
   ACCREDITATION_STATUS_OPTIONS.map((o) => [o.value, o.label]),
 );
 
-// ─── Task constants (canonical source: @/modules/tasks/constants) ─────
-// Re-exported here for backward compatibility with existing imports.
-
-export {
-  TASK_STATUS_OPTIONS,
-  PRIORITY_OPTIONS,
-  FREQUENCY_OPTIONS,
-  SCHEDULE_OPTIONS,
-  RECURRING_CATEGORY_OPTIONS,
-} from "@/modules/tasks/constants";

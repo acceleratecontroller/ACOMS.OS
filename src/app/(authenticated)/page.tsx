@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { getDateBoundaries } from "@/shared/date-utils";
-import { DashboardTaskCentre } from "./DashboardTaskCentre";
-import type { DashboardTaskItem, DashboardEmployee } from "./DashboardTaskCentre";
+import { ControllerEmbed } from "@/shared/components/ControllerEmbed";
 
 export default async function DashboardPage({
   searchParams,
@@ -13,28 +12,20 @@ export default async function DashboardPage({
 }) {
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
-  const employeeId = session?.user?.employeeId ?? null;
 
   // STAFF users → redirect to the dedicated staff portal
   if (!isAdmin) {
     redirect("/staff");
   }
 
-  const params = await searchParams;
-  const viewAll = params.view === "all";
-  // Filter tasks to logged-in employee unless "all" view is selected
-  const taskOwnerFilter = !viewAll && employeeId ? { ownerId: employeeId } : {};
-
   // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
-  const { today, tomorrow, sevenDays: sevenDaysFromNow, thirtyDays: thirtyDaysFromNow } = getDateBoundaries();
+  const { today, thirtyDays: thirtyDaysFromNow } = getDateBoundaries();
 
-  // Parallel fetch all dashboard data
+  // Parallel fetch all dashboard data (excluding tasks — now in ACOMS.Controller)
   const [
     // Employee stats
     activeEmployees,
     totalEmployees,
-    employeesByLocation,
-    employeesByType,
     // Asset stats
     totalAssets,
     assetsByStatus,
@@ -45,20 +36,6 @@ export default async function DashboardPage({
     totalPlant,
     plantByStatus,
     plantServiceOverdue,
-    plantServiceSoon,
-    // Task stats
-    activeTasks,
-    overdueTasks,
-    overdueTaskItems,
-    highPriorityTasks,
-    tasksDueToday,
-    tasksDueTodayCount,
-    tasksDueSoon,
-    overdueRecurring,
-    overdueRecurringTasks,
-    recurringDueToday,
-    recurringDueTodayCount,
-    recurringDueSoon,
     // Recent activity
     recentActivity,
     // Training compliance
@@ -66,22 +43,10 @@ export default async function DashboardPage({
     expiringSoonAccredEmployees,
     pendingAccredEmployees,
     employeesWithTrainingRoles,
-    // Employee list for task edit forms
-    employeesList,
   ] = await Promise.all([
     // Employees
     prisma.employee.count({ where: { isArchived: false, status: "ACTIVE" } }),
     prisma.employee.count({ where: { isArchived: false } }),
-    prisma.employee.groupBy({
-      by: ["location"],
-      where: { isArchived: false, status: "ACTIVE" },
-      _count: true,
-    }),
-    prisma.employee.groupBy({
-      by: ["employmentType"],
-      where: { isArchived: false, status: "ACTIVE" },
-      _count: true,
-    }),
     // Assets
     prisma.asset.count({ where: { isArchived: false } }),
     prisma.asset.groupBy({
@@ -124,118 +89,6 @@ export default async function DashboardPage({
       where: { isArchived: false, nextServiceDue: { lt: today } },
       select: { id: true, plantNumber: true, make: true, model: true, nextServiceDue: true },
       orderBy: { nextServiceDue: "asc" },
-      take: 5,
-    }),
-    prisma.plant.findMany({
-      where: {
-        isArchived: false,
-        nextServiceDue: { gte: today, lte: sevenDaysFromNow },
-      },
-      select: { id: true, plantNumber: true, make: true, model: true, nextServiceDue: true },
-      orderBy: { nextServiceDue: "asc" },
-      take: 5,
-    }),
-    // Tasks (filtered to logged-in employee by default)
-    prisma.task.count({
-      where: { isArchived: false, status: { not: "COMPLETED" }, ...taskOwnerFilter },
-    }),
-    prisma.task.count({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        dueDate: { lt: today },
-        ...taskOwnerFilter,
-      },
-    }),
-    // Overdue task items
-    prisma.task.findMany({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        dueDate: { lt: today },
-        ...taskOwnerFilter,
-      },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-    }),
-    prisma.task.count({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        priority: "HIGH",
-        ...taskOwnerFilter,
-      },
-    }),
-    // Tasks due today
-    prisma.task.findMany({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        dueDate: { gte: today, lt: tomorrow },
-        ...taskOwnerFilter,
-      },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-    }),
-    prisma.task.count({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        dueDate: { gte: today, lt: tomorrow },
-        ...taskOwnerFilter,
-      },
-    }),
-    // Tasks due this week (excluding today)
-    prisma.task.findMany({
-      where: {
-        isArchived: false,
-        status: { not: "COMPLETED" },
-        dueDate: { gte: tomorrow, lte: sevenDaysFromNow },
-        ...taskOwnerFilter,
-      },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { dueDate: "asc" },
-      take: 5,
-    }),
-    prisma.recurringTask.count({
-      where: { isArchived: false, nextDue: { lt: today }, ...taskOwnerFilter },
-    }),
-    // Overdue recurring tasks (actual items)
-    prisma.recurringTask.findMany({
-      where: { isArchived: false, nextDue: { lt: today }, ...taskOwnerFilter },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { nextDue: "asc" },
-      take: 5,
-    }),
-    // Recurring tasks due today
-    prisma.recurringTask.findMany({
-      where: {
-        isArchived: false,
-        nextDue: { gte: today, lt: tomorrow },
-        ...taskOwnerFilter,
-      },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { nextDue: "asc" },
-      take: 5,
-    }),
-    prisma.recurringTask.count({
-      where: {
-        isArchived: false,
-        nextDue: { gte: today, lt: tomorrow },
-        ...taskOwnerFilter,
-      },
-    }),
-    // Recurring tasks due this week (excluding today)
-    prisma.recurringTask.findMany({
-      where: {
-        isArchived: false,
-        nextDue: { gte: tomorrow, lte: sevenDaysFromNow },
-        ...taskOwnerFilter,
-      },
-      include: { owner: { select: { firstName: true, lastName: true } } },
-      orderBy: { nextDue: "asc" },
       take: 5,
     }),
     // Recent activity
@@ -313,15 +166,7 @@ export default async function DashboardPage({
         },
       },
     }),
-    // Employee list for edit dropdowns
-    prisma.employee.findMany({
-      where: { isArchived: false, status: "ACTIVE" },
-      select: { id: true, firstName: true, lastName: true, employeeNumber: true },
-      orderBy: { firstName: "asc" },
-    }),
   ]);
-
-  const totalOverdue = overdueTasks + overdueRecurring;
 
   // Count employees missing at least one required accreditation
   let missingAccredCount = 0;
@@ -345,62 +190,18 @@ export default async function DashboardPage({
   const totalAccredIssues = expiredAccredEmployees.length + pendingAccredEmployees.length + missingAccredCount;
 
   // Build status maps
-  const assetStatusMap: Record<string, number> = {};
-  for (const g of assetsByStatus) assetStatusMap[g.status] = g._count;
-
   const plantStatusMap: Record<string, number> = {};
   for (const g of plantByStatus) plantStatusMap[g.status] = g._count;
-
-  const locationMap: Record<string, number> = {};
-  for (const g of employeesByLocation) locationMap[g.location] = g._count;
-
-  const typeMap: Record<string, number> = {};
-  for (const g of employeesByType) typeMap[g.employmentType] = g._count;
-
-  // Compute counts
-  const totalDueToday = tasksDueTodayCount + recurringDueTodayCount;
-  const totalDueSoon = tasksDueSoon.length + recurringDueSoon.length;
-  const totalRecurringDue = overdueRecurring + recurringDueTodayCount + recurringDueSoon.length;
-
-  // Build all task rows for the command centre (with edit form data)
-  const allTaskItems: DashboardTaskItem[] = [
-    ...overdueTaskItems.map((t) => ({ id: t.id, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "overdue" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
-    ...overdueRecurringTasks.map((t) => ({ id: `r-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "overdue" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
-    ...tasksDueToday.map((t) => ({ id: `td-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "due-today" as const, dateLabel: "Today", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
-    ...recurringDueToday.map((t) => ({ id: `rt-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "due-today" as const, dateLabel: "Today", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
-    ...tasksDueSoon.map((t) => ({ id: `s-${t.id}`, title: t.title, type: "task" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, priority: t.priority, status: "due-soon" as const, dateLabel: t.dueDate ? formatDate(t.dueDate) : "", projectId: t.projectId, notes: t.notes, label: t.label, dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null, taskStatus: t.status })),
-    ...recurringDueSoon.map((t) => ({ id: `rs-${t.id}`, title: t.title, type: "recurring" as const, owner: `${t.owner.firstName} ${t.owner.lastName}`, ownerId: t.ownerId, status: "due-soon" as const, dateLabel: t.nextDue ? formatDate(t.nextDue) : "", description: t.description, category: t.category, frequencyType: t.frequencyType, frequencyValue: t.frequencyValue, scheduleType: t.scheduleType, lastCompleted: t.lastCompleted ? new Date(t.lastCompleted).toISOString() : null, nextDue: t.nextDue ? new Date(t.nextDue).toISOString() : null })),
-  ];
 
   return (
     <div>
       {/* ── Header + Status Chips ── */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Operations overview</p>
-          </div>
-          <div className="flex items-center gap-1 ml-2">
-            <Link
-              href="/"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${!viewAll ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-            >
-              Mine
-            </Link>
-            <Link
-              href="/?view=all"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewAll ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-            >
-              All
-            </Link>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 leading-tight">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Operations overview</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusChip count={totalOverdue} label="Overdue" color="red" href="/tasks" />
-          <StatusChip count={totalDueToday} label="Due Today" color="orange" href="/tasks" />
-          <StatusChip count={totalDueSoon} label="This Week" color="yellow" href="/tasks" />
-          <StatusChip count={totalRecurringDue} label="Recurring Due" color="blue" href="/tasks" />
           {totalAccredIssues > 0 && <StatusChip count={totalAccredIssues} label="Accred. Issues" color="red" href="/training" />}
           {plantServiceOverdue.length > 0 && <StatusChip count={plantServiceOverdue.length} label="Plant Overdue" color="red" href="/plant" />}
           {expiredAssets > 0 && <StatusChip count={expiredAssets} label="Assets Expired" color="red" href="/assets" />}
@@ -408,10 +209,16 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* ── Task Command Centre (primary) + Activity sidebar ── */}
+      {/* ── Task Command Centre (embedded from ACOMS.Controller) + Activity sidebar ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-5">
-        {/* Task centre — 3/4 (client component with complete + edit) */}
-        <DashboardTaskCentre tasks={allTaskItems} employees={employeesList} viewAll={viewAll} />
+        {/* Task centre — 3/4 (embedded iframe from ACOMS.Controller) */}
+        <div className="lg:col-span-3">
+          <ControllerEmbed
+            path="/embed/dashboard"
+            className="w-full"
+            minHeight="520px"
+          />
+        </div>
 
         {/* Recent Activity — sidebar 1/4 */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col">
@@ -442,11 +249,10 @@ export default async function DashboardPage({
       </div>
 
       {/* ── Secondary: Resources row ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <MiniCard label="Employees" value={activeEmployees} sub={`${totalEmployees} total`} href="/employees" />
         <MiniCard label="Assets" value={totalAssets} sub={expiredAssets > 0 ? `${expiredAssets} expired` : `${unassignedAssets} unassigned`} href="/assets" />
         <MiniCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
-        <MiniCard label="Active Tasks" value={activeTasks} sub={`${highPriorityTasks} high priority`} href="/tasks" />
       </div>
     </div>
   );
@@ -455,10 +261,7 @@ export default async function DashboardPage({
 /* ─── Staff Dashboard ───────────────────────────────── */
 
 async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
-  // Date boundaries in Australian timezone (converted to UTC for Prisma queries)
-  const { today, tomorrow: staffTomorrow, sevenDays: sevenDaysFromNow } = getDateBoundaries();
-
-  const [totalAssets, totalPlant, employee, overdueTasks, tasksDueToday, upcomingTasks, overdueRecurring, recurringDueToday, recurringDueSoon] = await Promise.all([
+  const [totalAssets, totalPlant, employee] = await Promise.all([
     prisma.asset.count({ where: { isArchived: false } }),
     prisma.plant.count({ where: { isArchived: false } }),
     employeeId
@@ -486,92 +289,10 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
           },
         })
       : null,
-    // Overdue tasks for this employee
-    employeeId
-      ? prisma.task.findMany({
-          where: {
-            isArchived: false,
-            status: { not: "COMPLETED" },
-            dueDate: { lt: today },
-            ownerId: employeeId,
-          },
-          include: { owner: { select: { firstName: true, lastName: true } } },
-          orderBy: { dueDate: "asc" },
-          take: 5,
-        })
-      : [],
-    // Tasks due today for this employee
-    employeeId
-      ? prisma.task.findMany({
-          where: {
-            isArchived: false,
-            status: { not: "COMPLETED" },
-            dueDate: { gte: today, lt: staffTomorrow },
-            ownerId: employeeId,
-          },
-          include: { owner: { select: { firstName: true, lastName: true } } },
-          orderBy: { dueDate: "asc" },
-          take: 5,
-        })
-      : [],
-    // Tasks due this week (excluding today) for this employee
-    employeeId
-      ? prisma.task.findMany({
-          where: {
-            isArchived: false,
-            status: { not: "COMPLETED" },
-            dueDate: { gte: staffTomorrow, lte: sevenDaysFromNow },
-            ownerId: employeeId,
-          },
-          include: { owner: { select: { firstName: true, lastName: true } } },
-          orderBy: { dueDate: "asc" },
-          take: 5,
-        })
-      : [],
-    // Overdue recurring tasks for this employee
-    employeeId
-      ? prisma.recurringTask.findMany({
-          where: {
-            isArchived: false,
-            nextDue: { lt: today },
-            ownerId: employeeId,
-          },
-          orderBy: { nextDue: "asc" },
-          take: 5,
-        })
-      : [],
-    // Recurring tasks due today for this employee
-    employeeId
-      ? prisma.recurringTask.findMany({
-          where: {
-            isArchived: false,
-            nextDue: { gte: today, lt: staffTomorrow },
-            ownerId: employeeId,
-          },
-          include: { owner: { select: { firstName: true, lastName: true } } },
-          orderBy: { nextDue: "asc" },
-          take: 5,
-        })
-      : [],
-    // Recurring tasks due this week (excluding today) for this employee
-    employeeId
-      ? prisma.recurringTask.findMany({
-          where: {
-            isArchived: false,
-            nextDue: { gte: staffTomorrow, lte: sevenDaysFromNow },
-            ownerId: employeeId,
-          },
-          include: { owner: { select: { firstName: true, lastName: true } } },
-          orderBy: { nextDue: "asc" },
-          take: 5,
-        })
-      : [],
   ]);
 
   const pendingCount = employee?.accreditations.filter((a) => a.status === "PENDING").length ?? 0;
   const expiredCount = employee?.accreditations.filter((a) => a.status === "EXPIRED").length ?? 0;
-  const staffDueTodayTotal = tasksDueToday.length + recurringDueToday.length;
-  const hasTaskAlerts = overdueTasks.length > 0 || overdueRecurring.length > 0 || staffDueTodayTotal > 0;
 
   return (
     <div>
@@ -583,35 +304,8 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
       </div>
 
       {/* Alerts for own record */}
-      {(pendingCount > 0 || expiredCount > 0 || hasTaskAlerts) && (
+      {(pendingCount > 0 || expiredCount > 0) && (
         <div className="flex flex-wrap gap-2 mb-6">
-          {overdueTasks.length > 0 && (
-            <Link
-              href="/tasks"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              {overdueTasks.length} overdue task{overdueTasks.length !== 1 ? "s" : ""}
-            </Link>
-          )}
-          {overdueRecurring.length > 0 && (
-            <Link
-              href="/tasks"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              {overdueRecurring.length} overdue recurring task{overdueRecurring.length !== 1 ? "s" : ""}
-            </Link>
-          )}
-          {staffDueTodayTotal > 0 && (
-            <Link
-              href="/tasks"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              {staffDueTodayTotal} task{staffDueTodayTotal !== 1 ? "s" : ""} due today
-            </Link>
-          )}
           {expiredCount > 0 && (
             <Link
               href="/training"
@@ -638,93 +332,6 @@ async function StaffDashboard({ employeeId }: { employeeId?: string | null }) {
         <StatCard label="Assets" value={totalAssets} href="/assets" />
         <StatCard label="Plant" value={totalPlant} href="/plant" />
       </div>
-
-      {/* Your Tasks */}
-      {employeeId && (
-        <div className="mb-5">
-          <DashboardCard title="Your Tasks" href="/tasks" linkLabel="View all">
-            {overdueTasks.length === 0 && upcomingTasks.length === 0 && overdueRecurring.length === 0 && tasksDueToday.length === 0 && recurringDueToday.length === 0 && recurringDueSoon.length === 0 ? (
-              <p className="text-sm text-gray-400 py-2">No tasks assigned to you</p>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {/* Overdue regular tasks */}
-                {overdueTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded">Overdue</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Overdue recurring tasks */}
-                {overdueRecurring.map((task) => (
-                  <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-red-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-red-500">Recurring &middot; {task.nextDue ? formatDate(task.nextDue) : ""}</span>
-                    </div>
-                    <span className="text-xs font-medium text-red-600 px-1.5 py-0.5 bg-red-50 rounded shrink-0 ml-3">Overdue</span>
-                  </div>
-                ))}
-                {/* Tasks due today */}
-                {tasksDueToday.map((task) => (
-                  <div key={`td-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-orange-500">{task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded">Due Today</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Recurring tasks due today */}
-                {recurringDueToday.map((task) => (
-                  <div key={`rt-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-orange-700 truncate block">{task.title}</span>
-                      <span className="text-xs text-orange-500">Recurring &middot; {task.owner.firstName} {task.owner.lastName}</span>
-                    </div>
-                    <span className="text-xs font-medium text-orange-600 px-1.5 py-0.5 bg-orange-50 rounded shrink-0 ml-3">Due Today</span>
-                  </div>
-                ))}
-                {/* Upcoming regular tasks */}
-                {upcomingTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <PriorityDot priority={task.priority} />
-                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
-                      <span className="text-xs text-gray-500 tabular-nums">{task.dueDate ? formatDate(task.dueDate) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-                {/* Recurring tasks due this week */}
-                {recurringDueSoon.map((task) => (
-                  <div key={`r-${task.id}`} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate block">{task.title}</span>
-                      <span className="text-xs text-gray-500">Recurring &middot; {task.nextDue ? formatDate(task.nextDue) : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs font-medium text-yellow-700 px-1.5 py-0.5 bg-yellow-50 rounded">Due Soon</span>
-                      <span className="text-xs text-gray-500 tabular-nums">{task.nextDue ? formatDate(task.nextDue) : ""}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </DashboardCard>
-        </div>
-      )}
 
       {/* Employee info + training */}
       {employee && (
@@ -880,15 +487,6 @@ function MiniCard({ label, value, sub, href }: {
       <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
     </Link>
   );
-}
-
-function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    HIGH: "bg-red-400",
-    MEDIUM: "bg-amber-400",
-    LOW: "bg-gray-300",
-  };
-  return <span className={`inline-block w-2 h-2 rounded-full ${colors[priority] ?? "bg-gray-300"}`} />;
 }
 
 function ActionDot({ action }: { action: string }) {

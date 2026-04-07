@@ -6,7 +6,7 @@ import type { NextRequest } from "next/server";
 export const runtime = "nodejs";
 
 const ADMIN_ONLY_ROUTES = ["/tasks", "/activity-log"];
-const ADMIN_ONLY_API_ROUTES = ["/api/tasks", "/api/recurring-tasks", "/api/activity-log"];
+const ADMIN_ONLY_API_ROUTES = ["/api/activity-log"];
 
 // Staff portal API routes — only accessible by the logged-in staff member (enforced in route handlers)
 const STAFF_API_ROUTES = ["/api/staff"];

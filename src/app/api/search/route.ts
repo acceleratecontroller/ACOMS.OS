@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         })
       : Promise.resolve([]);
 
-  const [employees, assets, plant, tasks] = await Promise.all([
+  const [employees, assets, plant] = await Promise.all([
     employeePromise,
     prisma.asset.findMany({
       where: {
@@ -81,21 +81,6 @@ export async function GET(request: NextRequest) {
       take: 5,
       orderBy: { plantNumber: "asc" },
     }),
-    // STAFF: no task search
-    isAdmin
-      ? prisma.task.findMany({
-          where: {
-            isArchived: archived,
-            OR: [
-              { title: { contains: term, mode: "insensitive" } },
-              { projectId: { contains: term, mode: "insensitive" } },
-              { notes: { contains: term, mode: "insensitive" } },
-            ],
-          },
-          take: 5,
-          orderBy: { createdAt: "desc" },
-        })
-      : Promise.resolve([]),
   ]);
 
   const results = [
@@ -119,13 +104,6 @@ export async function GET(request: NextRequest) {
       title: p.plantNumber,
       subtitle: [p.make, p.model].filter(Boolean).join(" ") || p.category,
       href: `/plant?open=${p.id}`,
-    })),
-    ...tasks.map((t) => ({
-      id: t.id,
-      type: "task" as const,
-      title: t.title,
-      subtitle: t.projectId || "Task",
-      href: `/tasks?open=${t.id}`,
     })),
   ];
 

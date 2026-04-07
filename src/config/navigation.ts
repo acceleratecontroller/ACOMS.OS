@@ -30,4 +30,6 @@ export const staffNavigationItems: NavItem[] = [
   { label: "My Training", href: "/staff/training", icon: "T" },
   { label: "My Assets & Plant", href: "/staff/assets-plant", icon: "A" },
   { label: "Forms & Requests", href: "/staff/forms", icon: "F" },
+  // Future: Task Manager will be embedded from ACOMS.Controller
+  // { label: "My Tasks", href: "/staff/tasks", icon: "T" },
 ];
