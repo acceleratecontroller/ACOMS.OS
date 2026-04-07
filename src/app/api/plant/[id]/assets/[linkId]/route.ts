@@ -36,6 +36,17 @@ export async function DELETE(
   );
   if (error) return error;
 
+  // Check if asset has any other active plant links — if not, clear location and assignedTo
+  const otherLinks = await prisma.plantAssetLink.findFirst({
+    where: { assetId: link.assetId, unlinkedAt: null },
+  });
+  if (!otherLinks) {
+    await prisma.asset.update({
+      where: { id: link.assetId },
+      data: { assignedToId: null, location: null },
+    });
+  }
+
   audit({
     entityType: "Plant",
     entityId: plantId,
