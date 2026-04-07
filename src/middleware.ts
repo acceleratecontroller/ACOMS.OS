@@ -11,6 +11,10 @@ const ADMIN_ONLY_API_ROUTES = ["/api/tasks", "/api/recurring-tasks", "/api/activ
 // Staff portal API routes — only accessible by the logged-in staff member (enforced in route handlers)
 const STAFF_API_ROUTES = ["/api/staff"];
 
+// Service-token authenticated API routes — these handle their own auth via service tokens
+// and should not require a session cookie
+const SERVICE_TOKEN_ROUTES = ["/api/employees/assignees", "/api/employees/lookup"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -22,6 +26,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
   ) {
+    return NextResponse.next();
+  }
+
+  // Allow service-token authenticated routes (they validate their own auth)
+  if (SERVICE_TOKEN_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
