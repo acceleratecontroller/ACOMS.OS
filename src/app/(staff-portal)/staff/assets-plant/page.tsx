@@ -29,6 +29,8 @@ export default async function StaffAssetsPlantPage() {
         serialNumber: true,
         status: true,
         condition: true,
+        expires: true,
+        expirationDate: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -83,10 +85,14 @@ export default async function StaffAssetsPlantPage() {
                     <th className="pb-2 font-medium text-gray-500">Make / Model</th>
                     <th className="pb-2 font-medium text-gray-500">Condition</th>
                     <th className="pb-2 font-medium text-gray-500">Status</th>
+                    <th className="pb-2 font-medium text-gray-500">Expiry</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {assets.map((asset) => (
+                  {assets.map((asset) => {
+                    const isExpired = asset.expires && asset.expirationDate && new Date(asset.expirationDate) <= now;
+                    const isExpiringSoon = asset.expires && asset.expirationDate && !isExpired && new Date(asset.expirationDate) <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+                    return (
                     <tr key={asset.id} className="border-b border-gray-100">
                       <td className="py-3 font-medium text-gray-900">{asset.name}</td>
                       <td className="py-3 text-gray-600">{asset.assetNumber}</td>
@@ -96,15 +102,22 @@ export default async function StaffAssetsPlantPage() {
                       </td>
                       <td className="py-3">{asset.condition ? <StatusBadge status={asset.condition} /> : "—"}</td>
                       <td className="py-3"><StatusBadge status={asset.status} /></td>
+                      <td className="py-3">
+                        {isExpired ? <StatusBadge status="EXPIRED" /> : isExpiringSoon ? <StatusBadge status="EXPIRING_SOON" /> : asset.expires && asset.expirationDate ? <span className="text-xs text-gray-500">{formatDate(asset.expirationDate)}</span> : <span className="text-gray-400">—</span>}
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
-              {assets.map((asset) => (
+              {assets.map((asset) => {
+                const isExpired = asset.expires && asset.expirationDate && new Date(asset.expirationDate) <= now;
+                const isExpiringSoon = asset.expires && asset.expirationDate && !isExpired && new Date(asset.expirationDate) <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+                return (
                 <div key={asset.id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-start justify-between">
                     <div>
@@ -118,14 +131,22 @@ export default async function StaffAssetsPlantPage() {
                       {asset.serialNumber && (
                         <p className="text-xs text-gray-400 mt-0.5">S/N: {asset.serialNumber}</p>
                       )}
+                      {asset.expires && asset.expirationDate && (
+                        <p className={`text-xs mt-0.5 ${isExpired ? "text-red-600 font-medium" : isExpiringSoon ? "text-orange-600 font-medium" : "text-gray-400"}`}>
+                          Expires: {formatDate(asset.expirationDate)}{isExpired ? " (Expired)" : isExpiringSoon ? " (Expiring Soon)" : ""}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <StatusBadge status={asset.status} />
                       {asset.condition && <StatusBadge status={asset.condition} />}
+                      {isExpired && <StatusBadge status="EXPIRED" />}
+                      {isExpiringSoon && <StatusBadge status="EXPIRING_SOON" />}
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

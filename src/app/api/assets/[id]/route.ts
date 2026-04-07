@@ -91,6 +91,12 @@ export async function PUT(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
+        ...(data.expires !== undefined && {
+          expires: data.expires ?? false,
+          expirationDate: data.expires
+            ? (data.expirationDate ? new Date(data.expirationDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+            : null,
+        }),
         ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.identityId }),
       },
     }),

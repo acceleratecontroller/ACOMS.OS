@@ -58,7 +58,7 @@ export async function POST(
   // Verify plant exists
   const plant = await prisma.plant.findUnique({
     where: { id: plantId },
-    select: { id: true, plantNumber: true, isArchived: true },
+    select: { id: true, plantNumber: true, isArchived: true, assignedToId: true },
   });
   if (!plant) {
     return NextResponse.json({ error: "Plant not found" }, { status: 404 });
@@ -104,6 +104,14 @@ export async function POST(
       }),
     );
     if (error) return error;
+
+    // Auto-assign the asset to the same person as the plant
+    if (plant.assignedToId) {
+      await prisma.asset.update({
+        where: { id: assetId },
+        data: { assignedToId: plant.assignedToId },
+      });
+    }
 
     audit({
       entityType: "Plant",
@@ -151,10 +159,11 @@ export async function POST(
             make: (createData.make as string) || null,
             model: (createData.model as string) || null,
             serialNumber: (createData.serialNumber as string) || null,
-            status: (createData.status as "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "RETIRED") || "IN_USE",
+            status: (createData.status as "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "RETIRED" | "EXPIRED") || "IN_USE",
             condition: (createData.condition as "NEW" | "GOOD" | "FAIR" | "POOR") || null,
             location: (createData.location as string) || null,
             notes: (createData.notes as string) || null,
+            assignedToId: plant.assignedToId || null,
             createdById: session.user.identityId,
           },
         });

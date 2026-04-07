@@ -93,6 +93,7 @@ export const ASSET_STATUS_OPTIONS: SelectOption[] = [
   { value: "IN_USE", label: "In Use" },
   { value: "MAINTENANCE", label: "Maintenance" },
   { value: "RETIRED", label: "Retired" },
+  { value: "EXPIRED", label: "Expired" },
 ];
 
 // ─── Plant constants ─────────────────────────────────────

@@ -26,9 +26,14 @@ export const createAssetSchema = z.object({
   purchaseCost: optionalNumericString,
   location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   assignedToId: optionalString,
-  status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "RETIRED"]).default("AVAILABLE"),
+  status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "RETIRED", "EXPIRED"]).default("AVAILABLE"),
   condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
   notes: optionalString,
+  expires: z.union([z.boolean(), z.string()]).optional().transform((val) => {
+    if (typeof val === "string") return val === "true" || val === "on";
+    return val ?? false;
+  }),
+  expirationDate: optionalString,
 });
 
 export const updateAssetSchema = createAssetSchema.partial();

@@ -39,6 +39,8 @@ export default async function DashboardPage({
     totalAssets,
     assetsByStatus,
     unassignedAssets,
+    expiredAssets,
+    expiringSoonAssets,
     // Plant stats
     totalPlant,
     plantByStatus,
@@ -88,6 +90,29 @@ export default async function DashboardPage({
       _count: true,
     }),
     prisma.asset.count({ where: { isArchived: false, assignedToId: null } }),
+    // Auto-expire assets, then count expired
+    prisma.asset.updateMany({
+      where: {
+        expires: true,
+        expirationDate: { lt: today },
+        status: { not: "EXPIRED" },
+        isArchived: false,
+      },
+      data: { status: "EXPIRED" },
+    }).then(() =>
+      prisma.asset.count({
+        where: { isArchived: false, expires: true, status: "EXPIRED" },
+      }),
+    ),
+    // Assets expiring within 30 days
+    prisma.asset.count({
+      where: {
+        isArchived: false,
+        expires: true,
+        expirationDate: { gte: today, lte: thirtyDaysFromNow },
+        status: { not: "EXPIRED" },
+      },
+    }),
     // Plant
     prisma.plant.count({ where: { isArchived: false } }),
     prisma.plant.groupBy({
@@ -378,6 +403,8 @@ export default async function DashboardPage({
           <StatusChip count={totalRecurringDue} label="Recurring Due" color="blue" href="/tasks" />
           {totalAccredIssues > 0 && <StatusChip count={totalAccredIssues} label="Accred. Issues" color="red" href="/training" />}
           {plantServiceOverdue.length > 0 && <StatusChip count={plantServiceOverdue.length} label="Plant Overdue" color="red" href="/plant" />}
+          {expiredAssets > 0 && <StatusChip count={expiredAssets} label="Assets Expired" color="red" href="/assets" />}
+          {expiringSoonAssets > 0 && <StatusChip count={expiringSoonAssets} label="Assets Expiring" color="orange" href="/assets" />}
         </div>
       </div>
 
@@ -417,7 +444,7 @@ export default async function DashboardPage({
       {/* ── Secondary: Resources row ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MiniCard label="Employees" value={activeEmployees} sub={`${totalEmployees} total`} href="/employees" />
-        <MiniCard label="Assets" value={totalAssets} sub={`${unassignedAssets} unassigned`} href="/assets" />
+        <MiniCard label="Assets" value={totalAssets} sub={expiredAssets > 0 ? `${expiredAssets} expired` : `${unassignedAssets} unassigned`} href="/assets" />
         <MiniCard label="Plant" value={totalPlant} sub={`${plantStatusMap["OPERATIONAL"] ?? 0} operational`} href="/plant" />
         <MiniCard label="Active Tasks" value={activeTasks} sub={`${highPriorityTasks} high priority`} href="/tasks" />
       </div>

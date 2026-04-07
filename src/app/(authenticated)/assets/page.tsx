@@ -45,6 +45,8 @@ interface Asset {
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
   plantLinks?: PlantLink[];
+  expires: boolean;
+  expirationDate: string | null;
 }
 
 const STATIC_COLUMNS: Column<Asset>[] = [
@@ -85,6 +87,7 @@ function AssetsContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [expirationFilter, setExpirationFilter] = useState<"all" | "expired" | "expiring_soon">("all");
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
   // Plant preview modal state
   const [previewPlant, setPreviewPlant] = useState<{
@@ -130,6 +133,24 @@ function AssetsContent() {
     label: `${e.firstName} ${e.lastName} (${e.employeeNumber})`,
   }));
 
+  // Expiration helpers
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+
+  function getExpirationFlag(asset: Asset): "expired" | "expiring_soon" | null {
+    if (!asset.expires || !asset.expirationDate) return null;
+    if (asset.expirationDate < now || asset.status === "EXPIRED") return "expired";
+    if (asset.expirationDate < thirtyDaysFromNow) return "expiring_soon";
+    return null;
+  }
+
+  const expiredCount = assets.filter((a) => getExpirationFlag(a) === "expired").length;
+  const expiringSoonCount = assets.filter((a) => getExpirationFlag(a) === "expiring_soon").length;
+
+  const filteredAssets = expirationFilter === "all"
+    ? assets
+    : assets.filter((a) => getExpirationFlag(a) === (expirationFilter === "expired" ? "expired" : "expiring_soon"));
+
   // Load full asset detail (includes plantLinks)
   function loadAssetDetail(assetId: string) {
     fetch(`/api/assets/${assetId}`)
@@ -173,6 +194,17 @@ function AssetsContent() {
       },
     },
     ...TAIL_COLUMNS,
+    {
+      key: "expires" as keyof Asset,
+      label: "Expiry",
+      render: (item) => {
+        const flag = getExpirationFlag(item);
+        if (flag === "expired") return <StatusBadge status="EXPIRED" />;
+        if (flag === "expiring_soon") return <StatusBadge status="EXPIRING_SOON" />;
+        if (item.expires && item.expirationDate) return <span className="text-xs text-gray-500">{formatDate(item.expirationDate)}</span>;
+        return <span className="text-gray-400">—</span>;
+      },
+    },
   ];
 
   function closeModal() {
@@ -196,6 +228,8 @@ function AssetsContent() {
       status: form.get("status"),
       condition: form.get("condition"),
       notes: form.get("notes"),
+      expires: form.get("expires") === "on",
+      expirationDate: form.get("expirationDate") || "",
     };
   }
 
@@ -241,6 +275,11 @@ function AssetsContent() {
   }
 
   function AssetForm({ defaults, onSubmit, submitLabel, onArchive }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onArchive?: () => void }) {
+    const [expiresChecked, setExpiresChecked] = useState(defaults?.expires ?? false);
+    const defaultExpDate = defaults?.expirationDate
+      ? formatDate(defaults.expirationDate)
+      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
     return (
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -269,6 +308,24 @@ function AssetsContent() {
           <SelectField label="Assigned To" name="assignedToId" defaultValue={defaults?.assignedToId || ""} options={employeeOptions} />
         </div>
         <TextAreaField label="Notes" name="notes" defaultValue={defaults?.notes || ""} placeholder="Optional notes..." />
+        {/* Expiration toggle */}
+        <div className="border border-gray-200 rounded-lg p-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="expires"
+              checked={expiresChecked}
+              onChange={(e) => setExpiresChecked(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">This asset expires</span>
+          </label>
+          {expiresChecked && (
+            <div className="mt-2 ml-6">
+              <FormField label="Expiration Date" name="expirationDate" type="date" defaultValue={defaultExpDate} />
+            </div>
+          )}
+        </div>
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">{saving ? "Saving..." : submitLabel}</button>
@@ -285,9 +342,9 @@ function AssetsContent() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowArchived(false)}
+            onClick={() => { setShowArchived(false); setExpirationFilter("all"); }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              !showArchived ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              !showArchived && expirationFilter === "all" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             Active
@@ -300,13 +357,33 @@ function AssetsContent() {
           >
             Archived
           </button>
+          {!showArchived && expiredCount > 0 && (
+            <button
+              onClick={() => setExpirationFilter(expirationFilter === "expired" ? "all" : "expired")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                expirationFilter === "expired" ? "bg-red-600 text-white" : "bg-red-50 text-red-700 hover:bg-red-100"
+              }`}
+            >
+              Expired ({expiredCount})
+            </button>
+          )}
+          {!showArchived && expiringSoonCount > 0 && (
+            <button
+              onClick={() => setExpirationFilter(expirationFilter === "expiring_soon" ? "all" : "expiring_soon")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                expirationFilter === "expiring_soon" ? "bg-orange-600 text-white" : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+              }`}
+            >
+              Expiring Soon ({expiringSoonCount})
+            </button>
+          )}
         </div>
         {!showArchived && (
           <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Asset</button>
         )}
       </div>
       {loading ? <p className="text-sm text-gray-500">Loading...</p> : (
-        <DataTable columns={columns} data={assets} onRowClick={(a) => { loadAssetDetail(a.id); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
+        <DataTable columns={columns} data={filteredAssets} onRowClick={(a) => { loadAssetDetail(a.id); setEditing(false); }} emptyMessage={showArchived ? "No archived assets." : "No assets found. Click '+ Add Asset' to create one."} />
       )}
 
       <Modal isOpen={!!selected && !creating} onClose={closeModal}>
@@ -331,6 +408,22 @@ function AssetsContent() {
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Date</dt><dd className="font-medium text-gray-900">{formatDate(selected.purchaseDate) || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Purchase Cost</dt><dd className="font-medium text-gray-900">{selected.purchaseCost ? `$${selected.purchaseCost}` : "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Assigned To</dt><dd className="font-medium text-gray-900">{selected.assignedTo ? `${selected.assignedTo.firstName} ${selected.assignedTo.lastName}` : "—"}</dd></div>
+              <div>
+                <dt className="text-gray-400 text-xs uppercase tracking-wider">Expires</dt>
+                <dd className="font-medium text-gray-900">
+                  {selected.expires ? (
+                    <span className="flex items-center gap-2">
+                      {formatDate(selected.expirationDate) || "—"}
+                      {(() => {
+                        const flag = getExpirationFlag(selected);
+                        if (flag === "expired") return <StatusBadge status="EXPIRED" />;
+                        if (flag === "expiring_soon") return <StatusBadge status="EXPIRING_SOON" />;
+                        return null;
+                      })()}
+                    </span>
+                  ) : "No"}
+                </dd>
+              </div>
             </dl>
             {selected.notes && (
               <div className="mt-3 text-sm"><p className="text-gray-400 text-xs uppercase tracking-wider">Notes</p><p className="text-gray-900 whitespace-pre-wrap">{selected.notes}</p></div>
