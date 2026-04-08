@@ -84,11 +84,10 @@ export function ControllerEmbed({
   const iframeSrc = `${controllerUrl}${path}?token=${encodeURIComponent(token)}`;
 
   return (
-    <div className={className} style={{ minHeight }}>
+    <div className={className} style={{ minHeight, height: minHeight }}>
       <iframe
         src={iframeSrc}
-        className="w-full h-full border-0 rounded-lg"
-        style={{ minHeight }}
+        className="w-full h-full border-0"
         title="ACOMS Controller"
         allow="clipboard-write"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
