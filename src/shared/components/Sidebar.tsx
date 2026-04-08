@@ -33,7 +33,14 @@ export function Sidebar() {
         <span className="w-6 h-6 flex items-center justify-center rounded bg-gray-700 text-xs font-bold">
           {item.icon}
         </span>
-        {item.label}
+        <div>
+          {item.label}
+          {item.href === "/tasks" && (
+            <div className={`text-[9px] leading-tight ${isActive ? "text-blue-200" : "text-gray-500"}`}>
+              Powered by ACOMS.Controller
+            </div>
+          )}
+        </div>
       </Link>
     );
   });
