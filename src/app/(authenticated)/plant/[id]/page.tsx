@@ -47,6 +47,10 @@ interface PlantItem {
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
   assetLinks?: LinkedAsset[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 interface LinkedAsset {
@@ -263,7 +267,17 @@ export default function PlantDetailPage() {
               <p className="whitespace-pre-wrap">{plant.comments}</p>
             </div>
           )}
-          <div className="flex gap-3 mt-6 pt-4 border-t">
+          {(plant.createdAt || plant.updatedAt) && (
+            <p className="mt-6 text-xs text-gray-400">
+              {plant.updatedAt && plant.createdAt && plant.updatedAt !== plant.createdAt
+                ? `Last updated ${new Date(plant.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${plant.updatedByName ? ` by ${plant.updatedByName}` : ""} · `
+                : ""}
+              {plant.createdAt
+                ? `Created ${new Date(plant.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${plant.createdByName ? ` by ${plant.createdByName}` : ""}`
+                : ""}
+            </p>
+          )}
+          <div className="flex gap-3 mt-4 pt-4 border-t">
             <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
             {!plant.isArchived && <button onClick={openSoldModal} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Sold</button>}
             <button onClick={() => router.push("/plant")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>

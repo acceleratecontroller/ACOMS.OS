@@ -144,6 +144,7 @@ model Employee {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   createdById  String   // ACOMS.Auth identity ID
+  updatedById  String?  // ACOMS.Auth identity ID — who last updated this record
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
@@ -202,6 +203,7 @@ model Asset {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   createdById  String   // ACOMS.Auth identity ID
+  updatedById  String?  // ACOMS.Auth identity ID — who last updated this record
 
   // Optional assignment to an Employee
   assignedTo   Employee? @relation("AssetAssignedToEmployee", fields: [assignedToId], references: [id])
@@ -249,6 +251,7 @@ model Plant {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   createdById  String   // ACOMS.Auth identity ID
+  updatedById  String?  // ACOMS.Auth identity ID — who last updated this record
 
   // Optional assignment to an Employee
   assignedTo   Employee? @relation("PlantAssignedToEmployee", fields: [assignedToId], references: [id])

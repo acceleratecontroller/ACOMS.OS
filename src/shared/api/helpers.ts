@@ -44,6 +44,26 @@ export async function validateEmployeeRef(
 }
 
 /**
+ * Resolve ACOMS.Auth identity IDs to employee names.
+ * Returns a map of identityId → "First Last" for display purposes.
+ */
+export async function resolveIdentityNames(
+  identityIds: (string | null | undefined)[],
+): Promise<Record<string, string>> {
+  const ids = identityIds.filter((id): id is string => !!id);
+  if (ids.length === 0) return {};
+  const employees = await prisma.employee.findMany({
+    where: { identityId: { in: ids } },
+    select: { identityId: true, firstName: true, lastName: true },
+  });
+  const map: Record<string, string> = {};
+  for (const emp of employees) {
+    if (emp.identityId) map[emp.identityId] = `${emp.firstName} ${emp.lastName}`;
+  }
+  return map;
+}
+
+/**
  * Wrap a Prisma operation with consistent error handling.
  * Returns the result or a formatted error response.
  */

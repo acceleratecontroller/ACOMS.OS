@@ -3,7 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updateAssetSchema } from "@/modules/assets/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
-import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
+import { parseBody, validateEmployeeRef, withPrismaError, resolveIdentityNames } from "@/shared/api/helpers";
 
 // GET /api/assets/[id] — Get a single asset (admin only)
 export async function GET(
@@ -36,7 +36,13 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(asset);
+  const names = await resolveIdentityNames([asset.createdById, asset.updatedById]);
+
+  return NextResponse.json({
+    ...asset,
+    createdByName: names[asset.createdById] || null,
+    updatedByName: asset.updatedById ? (names[asset.updatedById] || null) : null,
+  });
 }
 
 // PUT /api/assets/[id] — Update an asset
@@ -107,6 +113,7 @@ export async function PUT(
             : null,
         }),
         ...(isRetiring && { isArchived: true, archivedAt: new Date(), archivedById: session.user.identityId }),
+        updatedById: session.user.identityId,
       },
     }),
   );

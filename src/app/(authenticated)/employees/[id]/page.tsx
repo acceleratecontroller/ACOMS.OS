@@ -49,6 +49,10 @@ interface Employee {
   notes: string | null;
   isArchived: boolean;
   trainingRoles: { role: TrainingRoleRef }[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 interface AccessInfo {
@@ -301,7 +305,17 @@ export default function EmployeeDetailPage() {
               <p className="whitespace-pre-wrap">{employee.notes}</p>
             </div>
           )}
-          <div className="flex gap-3 mt-6 pt-4 border-t">
+          {(employee.createdAt || employee.updatedAt) && (
+            <p className="mt-6 text-xs text-gray-400">
+              {employee.updatedAt && employee.createdAt && employee.updatedAt !== employee.createdAt
+                ? `Last updated ${new Date(employee.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${employee.updatedByName ? ` by ${employee.updatedByName}` : ""} · `
+                : ""}
+              {employee.createdAt
+                ? `Created ${new Date(employee.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${employee.createdByName ? ` by ${employee.createdByName}` : ""}`
+                : ""}
+            </p>
+          )}
+          <div className="flex gap-3 mt-4 pt-4 border-t">
             {isAdmin && (
               <>
                 <button onClick={() => { setSelectedRoleIds(employee.trainingRoles.map((r) => r.role.id)); setEditing(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>

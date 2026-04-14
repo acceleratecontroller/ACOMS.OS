@@ -3,7 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updatePlantSchema } from "@/modules/plant/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
-import { parseBody, validateEmployeeRef, withPrismaError } from "@/shared/api/helpers";
+import { parseBody, validateEmployeeRef, withPrismaError, resolveIdentityNames } from "@/shared/api/helpers";
 
 // GET /api/plant/[id] — Get a single plant item (admin only)
 export async function GET(
@@ -39,7 +39,13 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(plant);
+  const names = await resolveIdentityNames([plant.createdById, plant.updatedById]);
+
+  return NextResponse.json({
+    ...plant,
+    createdByName: names[plant.createdById] || null,
+    updatedByName: plant.updatedById ? (names[plant.updatedById] || null) : null,
+  });
 }
 
 // PUT /api/plant/[id] — Update a plant item
@@ -129,6 +135,7 @@ export async function PUT(
         ...(data.nextServiceDue !== undefined && { nextServiceDue: data.nextServiceDue ? new Date(data.nextServiceDue) : null }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
+        updatedById: session.user.identityId,
       },
     }),
   );
