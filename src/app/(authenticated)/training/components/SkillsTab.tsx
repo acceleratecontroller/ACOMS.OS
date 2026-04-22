@@ -152,11 +152,10 @@ export function SkillsTab() {
 
   async function handleUnlinkAccreditation(accreditationId: string) {
     if (!selected) return;
-    await fetch(`/api/training/skills/${selected.id}/accreditations`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accreditationId }),
-    });
+    await fetch(
+      `/api/training/skills/${selected.id}/accreditations?accreditationId=${encodeURIComponent(accreditationId)}`,
+      { method: "DELETE" },
+    );
     const res = await fetch(`/api/training/skills/${selected.id}`);
     if (res.ok) setSelected(await res.json());
     loadSkills(showArchived);

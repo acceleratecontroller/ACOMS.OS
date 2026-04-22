@@ -167,11 +167,10 @@ export function RolesTab() {
 
   async function handleUnlinkSkill(skillId: string) {
     if (!selected) return;
-    await fetch(`/api/training/roles/${selected.id}/skills`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId }),
-    });
+    await fetch(
+      `/api/training/roles/${selected.id}/skills?skillId=${encodeURIComponent(skillId)}`,
+      { method: "DELETE" },
+    );
     const res = await fetch(`/api/training/roles/${selected.id}`);
     if (res.ok) {
       const updated = await res.json();
