@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
+import { backfillForSkillAccreditationLink } from "@/modules/training/requirements";
 
 // GET /api/training/skills/[id]/accreditations (admin only)
 export async function GET(
@@ -59,6 +60,8 @@ export async function POST(
     }),
   );
   if (error) return error;
+
+  await backfillForSkillAccreditationLink(id, accreditationId);
 
   return NextResponse.json(link, { status: 201 });
 }

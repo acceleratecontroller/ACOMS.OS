@@ -3,6 +3,10 @@ import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
+import {
+  accreditationIdsForRole,
+  ensureEmployeeAccreditations,
+} from "@/modules/training/requirements";
 
 // GET /api/training/employees/[employeeId]/roles
 // STAFF users can only view their own roles
@@ -67,41 +71,8 @@ export async function POST(
   if (error) return error;
 
   // Auto-assign accreditations: role → skills → accreditations
-  // Find all accreditation IDs required by this role's skills
-  const requiredAccreditations = await prisma.skillAccreditationLink.findMany({
-    where: {
-      skill: {
-        roleLinks: { some: { roleId } },
-      },
-    },
-    select: { accreditationId: true },
-  });
-
-  const uniqueAccrIds = [...new Set(requiredAccreditations.map((r) => r.accreditationId))];
-
-  if (uniqueAccrIds.length > 0) {
-    // Find which ones the employee already has
-    const existing = await prisma.employeeAccreditation.findMany({
-      where: {
-        employeeId,
-        accreditationId: { in: uniqueAccrIds },
-      },
-      select: { accreditationId: true },
-    });
-    const existingIds = new Set(existing.map((e) => e.accreditationId));
-
-    // Create records for ones they don't have yet (PENDING status, no dates)
-    const toCreate = uniqueAccrIds.filter((id) => !existingIds.has(id));
-    if (toCreate.length > 0) {
-      await prisma.employeeAccreditation.createMany({
-        data: toCreate.map((accreditationId) => ({
-          employeeId,
-          accreditationId,
-          status: "PENDING" as const,
-        })),
-      });
-    }
-  }
+  const accrIds = await accreditationIdsForRole(roleId);
+  await ensureEmployeeAccreditations([employeeId], accrIds);
 
   audit({
     entityType: "EmployeeRole",
