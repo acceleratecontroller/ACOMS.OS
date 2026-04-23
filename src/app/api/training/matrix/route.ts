@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
                       skill: {
                         select: {
                           id: true,
+                          skillNumber: true,
                           name: true,
                           isArchived: true,
                           accreditationLinks: {

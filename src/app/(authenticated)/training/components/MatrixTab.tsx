@@ -60,7 +60,7 @@ interface EmployeeRole {
     id: string;
     roleNumber: string;
     name: string;
-    skillLinks: { skill: { id: string; name: string; accreditationLinks: { accreditation: AccredDef }[] } }[];
+    skillLinks: { skill: { id: string; skillNumber: string; name: string; accreditationLinks: { accreditation: AccredDef }[] } }[];
   };
 }
 
@@ -155,6 +155,114 @@ function getEffectiveStatus(held: EmployeeAccred): string {
 function isEffectivelyCompliant(held: EmployeeAccred): boolean {
   const eff = getEffectiveStatus(held);
   return eff === "VERIFIED" || eff === "EXEMPT";
+}
+
+// ─── Search match helpers ──────────────────────────────
+type MatchHealth = "compliant" | "expiring_soon" | "expired" | "pending" | "missing";
+
+interface SearchMatch {
+  kind: "role" | "skill" | "accreditation";
+  label: string;
+  health?: MatchHealth;
+  healthLabel?: string;
+}
+
+const HEALTH_STYLES: Record<MatchHealth, string> = {
+  compliant: "bg-green-100 text-green-700",
+  expiring_soon: "bg-amber-100 text-amber-700",
+  expired: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-800",
+  missing: "bg-red-100 text-red-700",
+};
+
+function getHeldHealth(held: EmployeeAccred): { health: MatchHealth; label: string } {
+  if (held.status === "PENDING") return { health: "pending", label: "Pending" };
+  if (held.status === "VERIFIED") {
+    if (held.accreditation.expires && isDateExpired(held.expiryDate)) {
+      return { health: "expired", label: "Expired" };
+    }
+    if (held.accreditation.expires && isDateExpiringSoon(held.expiryDate)) {
+      return { health: "expiring_soon", label: "Expiring Soon" };
+    }
+    return { health: "compliant", label: "In Date" };
+  }
+  if (held.status === "EXPIRED") return { health: "expired", label: "Expired" };
+  return { health: "pending", label: held.status };
+}
+
+function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
+  if (!q) return [];
+  const matches: SearchMatch[] = [];
+  const seenRoles = new Set<string>();
+  const seenSkills = new Set<string>();
+  const seenAccreds = new Set<string>();
+
+  for (const tr of emp.trainingRoles) {
+    if (seenRoles.has(tr.role.id)) continue;
+    if (tr.role.roleNumber.toLowerCase().includes(q) || tr.role.name.toLowerCase().includes(q)) {
+      matches.push({ kind: "role", label: tr.role.name });
+      seenRoles.add(tr.role.id);
+    }
+  }
+
+  for (const tr of emp.trainingRoles) {
+    for (const sl of tr.role.skillLinks) {
+      if (seenSkills.has(sl.skill.id)) continue;
+      if (sl.skill.name.toLowerCase().includes(q)) {
+        matches.push({ kind: "skill", label: sl.skill.name });
+        seenSkills.add(sl.skill.id);
+      }
+    }
+  }
+
+  // Required accreditations via role→skill→accreditation
+  const requiredAccreds = new Map<string, AccredDef>();
+  for (const tr of emp.trainingRoles) {
+    for (const sl of tr.role.skillLinks) {
+      for (const al of sl.skill.accreditationLinks) {
+        requiredAccreds.set(al.accreditation.id, al.accreditation);
+      }
+    }
+  }
+  const heldById = new Map(emp.accreditations.map((ea) => [ea.accreditation.id, ea]));
+
+  // Held accreditations (excluding EXEMPT)
+  for (const ea of emp.accreditations) {
+    if (seenAccreds.has(ea.accreditation.id)) continue;
+    if (ea.status === "EXEMPT") continue;
+    const nameHit =
+      ea.accreditation.accreditationNumber.toLowerCase().includes(q) ||
+      ea.accreditation.name.toLowerCase().includes(q);
+    if (!nameHit) continue;
+    const { health, label } = getHeldHealth(ea);
+    matches.push({
+      kind: "accreditation",
+      label: `${ea.accreditation.accreditationNumber} — ${ea.accreditation.name}`,
+      health,
+      healthLabel: label,
+    });
+    seenAccreds.add(ea.accreditation.id);
+  }
+
+  // Required via role but no record (missing)
+  for (const [id, accred] of requiredAccreds) {
+    if (seenAccreds.has(id)) continue;
+    const held = heldById.get(id);
+    if (held) continue; // already evaluated above (matched or didn't match the query text)
+    const nameHit =
+      accred.accreditationNumber.toLowerCase().includes(q) ||
+      accred.name.toLowerCase().includes(q);
+    if (!nameHit) continue;
+    matches.push({
+      kind: "accreditation",
+      label: `${accred.accreditationNumber} — ${accred.name}`,
+      health: "missing",
+      healthLabel: "Missing",
+    });
+    seenAccreds.add(id);
+  }
+
+  return matches;
 }
 
 // ─── Compliance computation ────────────────────────────
@@ -286,6 +394,7 @@ export function MatrixTab() {
           filter={complianceFilter}
           onFilterToggle={toggleFilter}
           searchQuery={searchQuery}
+          onSearchClear={() => setSearchQuery("")}
         />
       )}
 
@@ -293,6 +402,42 @@ export function MatrixTab() {
         <ComplianceModal employee={selectedEmployee} onClose={handleModalClose} />
       )}
     </>
+  );
+}
+
+// ─── Match Chips ────────────────────────────────────────
+function MatchChips({ matches }: { matches: SearchMatch[] }) {
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {matches.map((m, i) => {
+        if (m.kind === "accreditation" && m.health && m.healthLabel) {
+          return (
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${HEALTH_STYLES[m.health]}`}
+              title={`Accreditation · ${m.healthLabel}`}
+            >
+              <span>{m.label}</span>
+              <span className="opacity-70">·</span>
+              <span>{m.healthLabel}</span>
+            </span>
+          );
+        }
+        const typeStyle = m.kind === "role"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-indigo-100 text-indigo-700";
+        const prefix = m.kind === "role" ? "Role" : "Skill";
+        return (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${typeStyle}`}
+          >
+            <span className="opacity-70">{prefix}:</span>
+            <span>{m.label}</span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -332,12 +477,13 @@ function MetricCard({ label, value, accent, active, onClick }: {
 }
 
 // ─── Employee Compliance View ──────────────────────────
-function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterToggle, searchQuery }: {
+function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterToggle, searchQuery, onSearchClear }: {
   employees: EmployeeRow[];
   onEmployeeClick: (emp: EmployeeRow) => void;
   filter: ComplianceFilter;
   onFilterToggle: (f: ComplianceFilter) => void;
   searchQuery: string;
+  onSearchClear: () => void;
 }) {
   const { selectedRegions } = useRegionFilter();
 
@@ -346,27 +492,20 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
     [employees, selectedRegions],
   );
 
-  const searchFiltered = useMemo(() => {
+  const withMatches = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return regionFiltered;
-    return regionFiltered.filter((e) => {
-      for (const tr of e.trainingRoles) {
-        if (tr.role.roleNumber.toLowerCase().includes(q)) return true;
-        if (tr.role.name.toLowerCase().includes(q)) return true;
-        for (const sl of tr.role.skillLinks) {
-          if (sl.skill.name.toLowerCase().includes(q)) return true;
-        }
-      }
-      for (const a of e.accreditations) {
-        if (a.status === "EXEMPT") continue;
-        if (a.accreditation.accreditationNumber.toLowerCase().includes(q)) return true;
-        if (a.accreditation.name.toLowerCase().includes(q)) return true;
-      }
-      return false;
-    });
+    return regionFiltered.map((emp) => ({ emp, matches: computeSearchMatches(emp, q) }));
   }, [regionFiltered, searchQuery]);
 
-  const enriched = useMemo(() => searchFiltered.map(enrichEmployee), [searchFiltered]);
+  const searchFiltered = useMemo(
+    () => (searchQuery.trim() ? withMatches.filter((r) => r.matches.length > 0) : withMatches),
+    [withMatches, searchQuery],
+  );
+
+  const enriched = useMemo(
+    () => searchFiltered.map(({ emp, matches }) => ({ ...enrichEmployee(emp), matches })),
+    [searchFiltered],
+  );
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -404,8 +543,28 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
   const issueCount = stats.needsAttention;
   const complianceAccent: "green" | "amber" | "red" = stats.overallPct >= 90 ? "green" : stats.overallPct >= 50 ? "amber" : "red";
 
+  const activeQuery = searchQuery.trim();
+
   return (
     <div className="space-y-4">
+      {/* Search results banner */}
+      {activeQuery && (
+        <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-900">
+          <span>
+            Showing <span className="font-semibold">{enriched.length}</span> of {regionFiltered.length}{" "}
+            employee{regionFiltered.length === 1 ? "" : "s"} matching{" "}
+            <span className="font-semibold">&ldquo;{activeQuery}&rdquo;</span>
+          </span>
+          <button
+            type="button"
+            onClick={onSearchClear}
+            className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline shrink-0"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Metrics strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <MetricCard
@@ -465,7 +624,7 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
           <div className="text-center py-8 text-gray-400 text-sm">No employees match this filter.</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filtered.map(({ emp, pct, total, compliant, expiredCount, expiringSoonCount, missingCount, pendingCount }) => {
+            {filtered.map(({ emp, pct, total, compliant, expiredCount, expiringSoonCount, missingCount, pendingCount, matches }) => {
               const barColor = pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-400" : "bg-red-500";
               const issueLabel = getIssueLabel(expiredCount, missingCount, pendingCount, expiringSoonCount);
 
@@ -476,13 +635,14 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
                   onClick={() => onEmployeeClick(emp)}
                 >
                   {/* Desktop row */}
-                  <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_140px_120px] gap-4 px-4 py-3 items-center">
+                  <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_140px_120px] gap-4 px-4 py-3 items-start">
                     {/* Employee */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-gray-400 shrink-0">{emp.employeeNumber}</span>
                         <span className="text-sm font-medium text-gray-900 truncate">{emp.firstName} {emp.lastName}</span>
                       </div>
+                      {matches.length > 0 && <MatchChips matches={matches} />}
                     </div>
 
                     {/* Roles */}
@@ -517,10 +677,11 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 
                   {/* Mobile row */}
                   <div className="sm:hidden px-4 py-3 space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                       <div className="min-w-0">
                         <span className="text-xs font-mono text-gray-400 mr-1.5">{emp.employeeNumber}</span>
                         <span className="text-sm font-medium text-gray-900">{emp.firstName} {emp.lastName}</span>
+                        {matches.length > 0 && <MatchChips matches={matches} />}
                       </div>
                       <span className={`text-xs font-medium tabular-nums ${
                         pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
@@ -642,6 +803,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [modalSearch, setModalSearch] = useState("");
 
   useEffect(() => {
     const heldMap = new Map(employee.accreditations.map((ea) => [ea.accreditation.id, ea]));
@@ -749,6 +911,58 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   const { pct, compliant, total, expiredCount, expiringSoonCount } = computeCompliance(employee);
   const dirtyCount = rows.filter((r) => r.dirty).length;
 
+  // Build skill-based grouping for the flat rows array. Each accreditation is
+  // placed under the first skill that requires it (based on role order).
+  interface SkillRef { id: string; skillNumber: string; name: string }
+  const groupedRows = useMemo(() => {
+    const accredToSkill = new Map<string, SkillRef>();
+    const skillOrder: SkillRef[] = [];
+    employee.trainingRoles.forEach((tr) => {
+      tr.role.skillLinks.forEach((sl) => {
+        if (!skillOrder.some((s) => s.id === sl.skill.id)) {
+          skillOrder.push({ id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
+        }
+        sl.skill.accreditationLinks.forEach((al) => {
+          if (!accredToSkill.has(al.accreditation.id)) {
+            accredToSkill.set(al.accreditation.id, { id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
+          }
+        });
+      });
+    });
+
+    const q = modalSearch.trim().toLowerCase();
+    const visibleIdx = rows
+      .map((r, i) => ({ row: r, idx: i }))
+      .filter(({ row }) => {
+        if (!q) return true;
+        const skill = accredToSkill.get(row.accreditationId);
+        return (
+          row.accreditationName.toLowerCase().includes(q) ||
+          row.accreditationNumber.toLowerCase().includes(q) ||
+          (skill ? skill.name.toLowerCase().includes(q) : false)
+        );
+      });
+
+    const bySkill = new Map<string, { skill: SkillRef; items: { row: AccredEditRow; idx: number }[] }>();
+    visibleIdx.forEach(({ row, idx }) => {
+      const skill = accredToSkill.get(row.accreditationId)
+        || { id: "_other", skillNumber: "", name: "Other" };
+      if (!bySkill.has(skill.id)) bySkill.set(skill.id, { skill, items: [] });
+      bySkill.get(skill.id)!.items.push({ row, idx });
+    });
+
+    const groups: { skill: SkillRef; items: { row: AccredEditRow; idx: number }[] }[] = [];
+    skillOrder.forEach((s) => {
+      const g = bySkill.get(s.id);
+      if (g) groups.push(g);
+    });
+    const other = bySkill.get("_other");
+    if (other) groups.push(other);
+    return groups;
+  }, [rows, modalSearch, employee]);
+
+  const visibleCount = groupedRows.reduce((n, g) => n + g.items.length, 0);
+
   return (
     <Modal isOpen onClose={onClose}>
       <div className="max-h-[80vh] flex flex-col">
@@ -776,17 +990,48 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         </div>
 
         {employee.trainingRoles.length > 0 && (
-          <div className="text-xs text-gray-500 mb-4">
+          <div className="text-xs text-gray-500 mb-3">
             {employee.trainingRoles.map((tr) => tr.role.name).join(", ")}
           </div>
         )}
 
-        {/* Accreditation rows */}
-        <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-3">
+        {/* Modal search filter */}
+        {rows.length > 0 && (
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Filter accreditations or skills..."
+              value={modalSearch}
+              onChange={(e) => setModalSearch(e.target.value)}
+              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {modalSearch && (
+              <span className="text-xs text-gray-500 shrink-0">
+                {visibleCount} of {rows.length}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Accreditation rows (grouped by skill) */}
+        <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-4">
           {rows.length === 0 && (
             <p className="text-sm text-gray-400 py-4 text-center">No accreditations required for assigned roles.</p>
           )}
-          {rows.map((row, idx) => {
+          {rows.length > 0 && visibleCount === 0 && (
+            <p className="text-sm text-gray-400 py-4 text-center">No accreditations match this filter.</p>
+          )}
+          {groupedRows.map((group) => (
+            <div key={group.skill.id}>
+              <div className="flex items-baseline gap-2 mb-1.5 px-0.5">
+                {group.skill.skillNumber && (
+                  <span className="text-[11px] font-mono text-gray-400">{group.skill.skillNumber}</span>
+                )}
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">{group.skill.name}</h3>
+                <span className="text-[11px] text-gray-400">· {group.items.length}</span>
+              </div>
+              <div className="space-y-3">
+                {group.items.map(({ row, idx }) => {
             const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
             const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
             const showExpiryWarning = row.status === "VERIFIED" && dateExpired;
@@ -886,7 +1131,10 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                 </div>
               </div>
             );
-          })}
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Footer */}
