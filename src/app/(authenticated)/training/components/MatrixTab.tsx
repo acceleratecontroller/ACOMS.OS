@@ -20,7 +20,7 @@ interface SkillNode {
   skillNumber: string;
   name: string;
   isArchived: boolean;
-  accreditationLinks: { accreditation: AccreditationNode }[];
+  accreditationLinks: { accreditation: AccreditationNode; required: boolean }[];
 }
 
 interface RoleNode {
@@ -28,12 +28,12 @@ interface RoleNode {
   roleNumber: string;
   name: string;
   category: string;
-  skillLinks: { skill: SkillNode }[];
+  skillLinks: { skill: SkillNode; required: boolean }[];
 }
 
 interface TreeData {
   roles: RoleNode[];
-  unlinkedSkills: (SkillNode & { accreditationLinks: { accreditation: AccreditationNode }[] })[];
+  unlinkedSkills: (SkillNode & { accreditationLinks: { accreditation: AccreditationNode; required: boolean }[] })[];
   unlinkedAccreditations: AccreditationNode[];
 }
 
@@ -882,59 +882,139 @@ function TreeView({ data }: { data: TreeData | null }) {
 
   return (
     <div className="space-y-3">
-      {data.roles.map((role) => (
-        <div key={role.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <span className="text-xs font-mono text-gray-400">{role.roleNumber}</span>
-            <h3 className="text-sm font-semibold text-gray-900">{role.name}</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{role.category === "OFFICE" ? "Office" : "Field"}</span>
-          </div>
-          {role.skillLinks.length === 0 ? (
-            <p className="text-xs text-gray-400 px-4 py-3">No skills linked</p>
-          ) : (
-            <div className="px-4 py-3 space-y-2">
-              {role.skillLinks.map((sl) => (
-                <div key={sl.skill.id} className="border-l-2 border-gray-200 pl-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-gray-400">{sl.skill.skillNumber}</span>
-                    <span className="text-sm text-gray-700">{sl.skill.name}</span>
-                  </div>
-                  {sl.skill.accreditationLinks.length > 0 && (
-                    <div className="ml-4 mt-1 space-y-0.5">
-                      {sl.skill.accreditationLinks.map((al) => (
-                        <div key={al.accreditation.id} className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="font-mono text-gray-400">{al.accreditation.accreditationNumber}</span>
-                          <span>{al.accreditation.name}</span>
-                        </div>
+      {/* Legend */}
+      <div className="flex items-center gap-3 text-xs text-gray-500 px-1">
+        <span className="font-medium">Legend:</span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">Required</span>
+          counts toward compliance
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-600">Other</span>
+          tracked but optional
+        </span>
+      </div>
+
+      {data.roles.map((role) => {
+        const requiredLinks = role.skillLinks.filter((sl) => sl.required);
+        const otherLinks = role.skillLinks.filter((sl) => !sl.required);
+        return (
+          <div key={role.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-mono text-gray-400">{role.roleNumber}</span>
+              <h3 className="text-sm font-semibold text-gray-900">{role.name}</h3>
+              <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                {role.category === "OFFICE" ? "Office" : "Field"}
+              </span>
+              <span className="ml-auto text-[11px] text-gray-400">
+                {requiredLinks.length} required · {otherLinks.length} other
+              </span>
+            </div>
+            {role.skillLinks.length === 0 ? (
+              <p className="text-xs text-gray-400 px-4 py-3">No skills linked</p>
+            ) : (
+              <div className="px-4 py-3 space-y-4">
+                {[
+                  { heading: "Required Skills", links: requiredLinks, roleRequired: true },
+                  { heading: "Other Skills",    links: otherLinks,    roleRequired: false },
+                ].filter((g) => g.links.length > 0).map((group) => (
+                  <div key={group.heading}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                      {group.heading}
+                    </div>
+                    <div className="space-y-2">
+                      {group.links.map((sl) => (
+                        <TreeSkillNode key={sl.skill.id} skill={sl.skill} roleRequired={group.roleRequired} />
                       ))}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {data.unlinkedSkills.length > 0 && (
         <div className="bg-white border border-amber-200 rounded-lg shadow-sm p-4">
           <h3 className="text-sm font-medium text-amber-700 mb-2">Unlinked Skills</h3>
-          <ul className="space-y-1">
+          <p className="text-[11px] text-gray-500 mb-2">Not attached to any role — won&rsquo;t apply to employees.</p>
+          <div className="space-y-2">
             {data.unlinkedSkills.map((s) => (
-              <li key={s.id} className="text-xs text-gray-600">{s.skillNumber} — {s.name}</li>
+              <TreeSkillNode key={s.id} skill={s} roleRequired={null} />
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       {data.unlinkedAccreditations.length > 0 && (
         <div className="bg-white border border-amber-200 rounded-lg shadow-sm p-4">
           <h3 className="text-sm font-medium text-amber-700 mb-2">Unlinked Accreditations</h3>
+          <p className="text-[11px] text-gray-500 mb-2">Not attached to any skill — won&rsquo;t apply through the role tree.</p>
           <ul className="space-y-1">
             {data.unlinkedAccreditations.map((a) => (
-              <li key={a.id} className="text-xs text-gray-600">{a.accreditationNumber} — {a.name}</li>
+              <li key={a.id} className="text-xs text-gray-600 flex items-center gap-2">
+                <span className="font-mono text-gray-400">{a.accreditationNumber}</span>
+                <span>{a.name}</span>
+              </li>
             ))}
           </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreeSkillNode({
+  skill,
+  roleRequired,
+}: {
+  skill: SkillNode;
+  roleRequired: boolean | null; // null = unlinked skill (no role context)
+}) {
+  const requiredAccreds = skill.accreditationLinks.filter((al) => al.required);
+  const otherAccreds = skill.accreditationLinks.filter((al) => !al.required);
+  // When the skill is attached to a role as Other, every accreditation under
+  // it is effectively Other for compliance regardless of its own flag.
+  const inheritingOther = roleRequired === false;
+
+  return (
+    <div className={`border-l-2 pl-3 ${inheritingOther ? "border-gray-200 opacity-75" : "border-blue-200"}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-mono text-gray-400">{skill.skillNumber}</span>
+        <span className="text-sm text-gray-700">{skill.name}</span>
+      </div>
+      {skill.accreditationLinks.length > 0 && (
+        <div className="ml-4 mt-1.5 space-y-2">
+          {[
+            { heading: "Required", items: requiredAccreds, req: true },
+            { heading: "Other",    items: otherAccreds,    req: false },
+          ].filter((g) => g.items.length > 0).map((group) => {
+            // Effective flag = role-skill.required AND skill-accred.required.
+            // If role context says Other, it drags everything down to Other.
+            const effectiveRequired = roleRequired !== false && group.req;
+            return (
+              <div key={group.heading}>
+                {(requiredAccreds.length > 0 && otherAccreds.length > 0) && (
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
+                    {group.heading}
+                    {inheritingOther && group.req && <span className="ml-1 text-gray-400 font-normal">(inherited as Other)</span>}
+                  </div>
+                )}
+                {group.items.map((al) => (
+                  <div key={al.accreditation.id} className="flex items-center gap-2 text-xs text-gray-600 py-0.5">
+                    <span className="font-mono text-gray-400">{al.accreditation.accreditationNumber}</span>
+                    <span>{al.accreditation.name}</span>
+                    <span className={`ml-auto inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      effectiveRequired ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {effectiveRequired ? "Required" : "Other"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
