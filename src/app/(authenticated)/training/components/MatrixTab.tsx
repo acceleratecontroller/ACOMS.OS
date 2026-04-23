@@ -211,6 +211,7 @@ export function MatrixTab() {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = useCallback((v: View, showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -237,9 +238,19 @@ export function MatrixTab() {
 
   return (
     <>
-      {/* Segmented control */}
-      <div className="flex items-center justify-between mb-4">
-        <div />
+      {/* Segmented control + search */}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        {view === "employees" ? (
+          <input
+            type="search"
+            placeholder="Search role, skill, or accreditation..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-72 max-w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        ) : (
+          <div />
+        )}
         <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
           <button
             onClick={() => setView("employees")}
@@ -274,6 +285,7 @@ export function MatrixTab() {
           onEmployeeClick={setSelectedEmployee}
           filter={complianceFilter}
           onFilterToggle={toggleFilter}
+          searchQuery={searchQuery}
         />
       )}
 
@@ -320,14 +332,14 @@ function MetricCard({ label, value, accent, active, onClick }: {
 }
 
 // ─── Employee Compliance View ──────────────────────────
-function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterToggle }: {
+function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterToggle, searchQuery }: {
   employees: EmployeeRow[];
   onEmployeeClick: (emp: EmployeeRow) => void;
   filter: ComplianceFilter;
   onFilterToggle: (f: ComplianceFilter) => void;
+  searchQuery: string;
 }) {
   const { selectedRegions } = useRegionFilter();
-  const [searchQuery, setSearchQuery] = useState("");
 
   const regionFiltered = useMemo(
     () => filterByRegion(employees, selectedRegions),
@@ -394,17 +406,6 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 
   return (
     <div className="space-y-4">
-      {/* Search row */}
-      <div className="flex items-center justify-end">
-        <input
-          type="search"
-          placeholder="Search role, skill, or accreditation..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-72 max-w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
-
       {/* Metrics strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <MetricCard
