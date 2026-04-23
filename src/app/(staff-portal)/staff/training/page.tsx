@@ -31,6 +31,17 @@ export default async function StaffTrainingPage() {
             name: true,
             category: true,
             description: true,
+            skillLinks: {
+              select: {
+                skill: {
+                  select: {
+                    accreditationLinks: {
+                      select: { accreditationId: true, required: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -52,6 +63,7 @@ export default async function StaffTrainingPage() {
         evidenceFileName: true,
         accreditation: {
           select: {
+            id: true,
             accreditationNumber: true,
             code: true,
             name: true,
@@ -96,13 +108,33 @@ export default async function StaffTrainingPage() {
     return "VERIFIED";
   }
 
+  // Build the effective Required/Other flag per accreditation: the skill link
+  // wins when the accreditation is linked via any of the employee's current
+  // roles. Standalone accreditations (no link) fall back to the stored
+  // EmployeeAccreditation.required. Required wins across multiple skill links.
+  const linkedRequired = new Map<string, boolean>();
+  for (const r of roles) {
+    for (const sl of r.role.skillLinks) {
+      for (const al of sl.skill.accreditationLinks) {
+        const cur = linkedRequired.get(al.accreditationId);
+        if (cur === true) continue;
+        linkedRequired.set(al.accreditationId, al.required);
+      }
+    }
+  }
+  function isRequired(a: typeof accreditations[0]): boolean {
+    const fromLink = linkedRequired.get(a.accreditation.id);
+    return fromLink !== undefined ? fromLink : a.required;
+  }
+
   // Compute summary (Required only — these are what affect compliance).
   // Other accreditation expiry info is surfaced separately in its own section.
   let expired = 0, expiringSoon = 0, current = 0, pending = 0;
   let otherExpired = 0, otherExpiringSoon = 0;
   for (const a of accreditations) {
     const eff = getEffectiveStatus(a);
-    if (a.required) {
+    const required = isRequired(a);
+    if (required) {
       if (eff === "EXPIRED") expired++;
       else if (eff === "EXPIRING_SOON") expiringSoon++;
       else if (eff === "PENDING") pending++;
@@ -113,8 +145,8 @@ export default async function StaffTrainingPage() {
     }
   }
 
-  const requiredAccreds = accreditations.filter((a) => a.required);
-  const otherAccreds = accreditations.filter((a) => !a.required);
+  const requiredAccreds = accreditations.filter(isRequired);
+  const otherAccreds = accreditations.filter((a) => !isRequired(a));
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -238,6 +270,7 @@ interface AccredCardProps {
     notes: string | null;
     evidenceFileName: string | null;
     accreditation: {
+      id: string;
       accreditationNumber: string;
       code: string | null;
       name: string;

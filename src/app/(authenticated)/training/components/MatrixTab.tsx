@@ -240,10 +240,12 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
   // VERIFIED and EXPIRED are real evidence and always count.
   // PENDING only counts if it's still linked to their current roles
   // (hides legacy orphans). EXEMPT never counts as a search match.
+  // Required/Other is the skill link's flag when linked, otherwise EA.required.
   for (const ea of emp.accreditations) {
     if (seenAccreds.has(ea.accreditation.id)) continue;
     if (ea.status === "EXEMPT") continue;
-    if (ea.status === "PENDING" && !linkedAccreds.has(ea.accreditation.id)) continue;
+    const linkedInfo = linkedAccreds.get(ea.accreditation.id);
+    if (ea.status === "PENDING" && !linkedInfo) continue;
     const nameHit =
       ea.accreditation.accreditationNumber.toLowerCase().includes(q) ||
       ea.accreditation.name.toLowerCase().includes(q);
@@ -252,7 +254,7 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
     matches.push({
       kind: "accreditation",
       label: `${ea.accreditation.accreditationNumber} — ${ea.accreditation.name}`,
-      required: ea.required,
+      required: linkedInfo ? linkedInfo.required : ea.required,
       health,
       healthLabel: label,
     });
@@ -281,17 +283,43 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
   return matches;
 }
 
-// ─── Compliance computation ────────────────────────────
-// Only Required accreditations count toward compliance — Other rows are
-// tracked separately (see otherExpiredCount / otherExpiringSoonCount).
-function computeCompliance(emp: EmployeeRow) {
-  const requiredAccredIds = new Set<string>();
+// Build the "effective required" map for an employee: for any accreditation
+// currently linked via a role→skill chain, the skill link's required flag is
+// the source of truth. For accreditations not currently linked (standalone),
+// fall back to the stored EmployeeAccreditation.required.
+// Required wins if the same accreditation is linked both ways across skills.
+function buildEffectiveRequiredMap(emp: EmployeeRow): Map<string, boolean> {
+  const linked = new Map<string, boolean>();
   emp.trainingRoles.forEach((tr) => {
     tr.role.skillLinks.forEach((sl) => {
       sl.skill.accreditationLinks.forEach((al) => {
-        if (al.required) requiredAccredIds.add(al.accreditation.id);
+        const cur = linked.get(al.accreditation.id);
+        if (cur === true) return;
+        linked.set(al.accreditation.id, al.required);
       });
     });
+  });
+  return linked;
+}
+
+function effectiveRequired(
+  ea: EmployeeAccred,
+  linkedMap: Map<string, boolean>,
+): boolean {
+  const fromLink = linkedMap.get(ea.accreditation.id);
+  return fromLink !== undefined ? fromLink : ea.required;
+}
+
+// ─── Compliance computation ────────────────────────────
+// Only Required accreditations count toward compliance — Other rows are
+// tracked separately (see otherExpiredCount / otherExpiringSoonCount).
+// "Required" here is driven by the skill link when linked, and by the stored
+// EmployeeAccreditation.required when standalone.
+function computeCompliance(emp: EmployeeRow) {
+  const linkedRequiredMap = buildEffectiveRequiredMap(emp);
+  const requiredAccredIds = new Set<string>();
+  linkedRequiredMap.forEach((required, accredId) => {
+    if (required) requiredAccredIds.add(accredId);
   });
 
   const heldMap = new Map(emp.accreditations.map((ea) => [ea.accreditation.id, ea]));
@@ -311,11 +339,13 @@ function computeCompliance(emp: EmployeeRow) {
     }
   });
 
-  // Other accreditations — expiration tracking only (no compliance effect)
+  // Other accreditations — expiration tracking only (no compliance effect).
+  // Use effective required so a skill-linked row whose skill says Other is
+  // correctly counted as Other even if EA.required stored otherwise.
   let otherExpiredCount = 0;
   let otherExpiringSoonCount = 0;
   emp.accreditations.forEach((ea) => {
-    if (ea.required) return;
+    if (effectiveRequired(ea, linkedRequiredMap)) return;
     if (!ea.accreditation.expires) return;
     if (ea.status !== "VERIFIED") return;
     if (isDateExpired(ea.expiryDate)) otherExpiredCount++;
@@ -964,7 +994,8 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
 
     const editRows: AccredEditRow[] = [];
 
-    // Linked (role-required) rows
+    // Linked (role-required) rows — skill link is the source of truth for
+    // the Required/Other classification, not EA.required.
     linkedMap.forEach(({ def, required }, accredId) => {
       const held = heldMap.get(accredId);
       editRows.push({
@@ -975,7 +1006,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         renewalMonths: def.renewalMonths,
         recordId: held?.id || null,
         status: held?.status || "MISSING",
-        required: held ? held.required : required,
+        required,
         expiryDate: formatDate(held?.expiryDate || null),
         certificateNumber: held?.certificateNumber || "",
         notes: held?.notes || "",
@@ -1093,7 +1124,9 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               status: row.status,
-              required: row.required,
+              // Only send `required` for standalone rows — linked rows take
+              // their Required/Other classification from the skill link.
+              ...(row.standalone && { required: row.required }),
               expiryDate: row.expiryDate || null,
               certificateNumber: row.certificateNumber || null,
               notes: row.notes || null,
@@ -1110,7 +1143,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
             body: JSON.stringify({
               accreditationId: row.accreditationId,
               status: row.status === "MISSING" ? "PENDING" : row.status,
-              required: row.required,
+              ...(row.standalone && { required: row.required }),
               expiryDate: row.expiryDate || null,
               certificateNumber: row.certificateNumber || null,
               notes: row.notes || null,
@@ -1383,10 +1416,21 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                     <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <RequiredOtherPill
-                      required={row.required}
-                      onChange={(r) => updateRow(idx, "required", r)}
-                    />
+                    {row.standalone ? (
+                      <RequiredOtherPill
+                        required={row.required}
+                        onChange={(r) => updateRow(idx, "required", r)}
+                      />
+                    ) : (
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
+                          row.required ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
+                        }`}
+                        title="Set at the skill level"
+                      >
+                        {row.required ? "Required" : "Other"}
+                      </span>
+                    )}
                     {row.expires && row.renewalMonths && (
                       <span className="text-xs text-gray-400">
                         {row.renewalMonths}mo renewal
