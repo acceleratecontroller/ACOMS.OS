@@ -13,14 +13,44 @@ interface Accreditation {
   isArchived?: boolean;
 }
 
+interface SkillAccreditationLink {
+  accreditation: Accreditation;
+  required: boolean;
+}
+
 interface Skill {
   id: string;
   skillNumber: string;
   name: string;
   description: string | null;
   isArchived: boolean;
-  accreditationLinks: { accreditation: Accreditation }[];
+  accreditationLinks: SkillAccreditationLink[];
   roleLinks: { role: { id: string; roleNumber: string; name: string } }[];
+}
+
+function RequiredPill({ required, onChange }: { required: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-medium">
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`px-2 py-0.5 transition-colors ${
+          required ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Required
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`px-2 py-0.5 transition-colors ${
+          !required ? "bg-gray-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Other
+      </button>
+    </div>
+  );
 }
 
 const columns: Column<Skill>[] = [
@@ -53,6 +83,7 @@ export function SkillsTab() {
 
   const [allAccreditations, setAllAccreditations] = useState<Accreditation[]>([]);
   const [linkAccredId, setLinkAccredId] = useState("");
+  const [linkAccredRequired, setLinkAccredRequired] = useState(true);
 
   const loadSkills = useCallback((archived: boolean) => {
     setLoading(true);
@@ -142,7 +173,7 @@ export function SkillsTab() {
     await fetch(`/api/training/skills/${selected.id}/accreditations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accreditationId: linkAccredId }),
+      body: JSON.stringify({ accreditationId: linkAccredId, required: linkAccredRequired }),
     });
     setLinkAccredId("");
     const res = await fetch(`/api/training/skills/${selected.id}`);
@@ -161,8 +192,22 @@ export function SkillsTab() {
     loadSkills(showArchived);
   }
 
+  async function handleToggleRequired(accreditationId: string, nextRequired: boolean) {
+    if (!selected) return;
+    await fetch(`/api/training/skills/${selected.id}/accreditations`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accreditationId, required: nextRequired }),
+    });
+    const res = await fetch(`/api/training/skills/${selected.id}`);
+    if (res.ok) setSelected(await res.json());
+    loadSkills(showArchived);
+  }
+
   const linkedAccredIds = new Set(selected?.accreditationLinks.map((l) => l.accreditation.id) || []);
   const availableAccreds = allAccreditations.filter((a) => !linkedAccredIds.has(a.id) && !a.isArchived);
+  const requiredLinks = selected?.accreditationLinks.filter((l) => l.required) || [];
+  const otherLinks = selected?.accreditationLinks.filter((l) => !l.required) || [];
 
   return (
     <>
@@ -234,33 +279,62 @@ export function SkillsTab() {
                 </div>
               )}
 
-              {/* Linked Accreditations */}
+              {/* Required Accreditations */}
               <div className="pt-3 border-t">
                 <h3 className="font-medium mb-2">Required Accreditations</h3>
-                {selected.accreditationLinks.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No accreditations linked.</p>
+                {requiredLinks.length === 0 ? (
+                  <p className="text-gray-400 text-xs">None.</p>
                 ) : (
                   <ul className="space-y-1">
-                    {selected.accreditationLinks.map((link) => (
-                      <li key={link.accreditation.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5">
-                        <span>{link.accreditation.accreditationNumber} — {link.accreditation.name}</span>
-                        <button onClick={() => handleUnlinkAccreditation(link.accreditation.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                    {requiredLinks.map((link) => (
+                      <li key={link.accreditation.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 gap-2">
+                        <span className="truncate">{link.accreditation.accreditationNumber} — {link.accreditation.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <RequiredPill required={true} onChange={(r) => handleToggleRequired(link.accreditation.id, r)} />
+                          <button onClick={() => handleUnlinkAccreditation(link.accreditation.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
-                {availableAccreds.length > 0 && (
-                  <div className="flex gap-2 mt-2">
-                    <select value={linkAccredId} onChange={(e) => setLinkAccredId(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm">
+              </div>
+
+              {/* Other Accreditations (nice to have) */}
+              <div className="pt-3 border-t">
+                <h3 className="font-medium mb-1">Other Accreditations</h3>
+                <p className="text-xs text-gray-500 mb-2">Nice to have — tracked but not required for compliance.</p>
+                {otherLinks.length === 0 ? (
+                  <p className="text-gray-400 text-xs">None.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {otherLinks.map((link) => (
+                      <li key={link.accreditation.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 gap-2">
+                        <span className="truncate">{link.accreditation.accreditationNumber} — {link.accreditation.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <RequiredPill required={false} onChange={(r) => handleToggleRequired(link.accreditation.id, r)} />
+                          <button onClick={() => handleUnlinkAccreditation(link.accreditation.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Add accreditation */}
+              {availableAccreds.length > 0 && (
+                <div className="pt-3 border-t">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <select value={linkAccredId} onChange={(e) => setLinkAccredId(e.target.value)} className="flex-1 min-w-[180px] border rounded px-2 py-1 text-sm">
                       <option value="">Select an accreditation...</option>
                       {availableAccreds.map((a) => (
                         <option key={a.id} value={a.id}>{a.accreditationNumber} — {a.name}</option>
                       ))}
                     </select>
+                    <RequiredPill required={linkAccredRequired} onChange={setLinkAccredRequired} />
                     <button onClick={handleLinkAccreditation} disabled={!linkAccredId} className="bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Add</button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}

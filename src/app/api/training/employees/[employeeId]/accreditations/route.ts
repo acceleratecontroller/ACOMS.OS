@@ -67,6 +67,7 @@ export async function POST(
         employeeId,
         accreditationId: data.accreditationId,
         status: data.status,
+        ...(data.required !== undefined && { required: data.required }),
         issueDate: data.issueDate ? new Date(data.issueDate) : null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         certificateNumber: data.certificateNumber || null,

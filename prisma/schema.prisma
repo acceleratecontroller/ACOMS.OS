@@ -346,6 +346,7 @@ model SkillAccreditationLink {
   skill            TrainingSkill @relation(fields: [skillId], references: [id])
   accreditationId  String
   accreditation    Accreditation @relation(fields: [accreditationId], references: [id])
+  required         Boolean       @default(true)
 
   @@unique([skillId, accreditationId])
   @@index([skillId])
@@ -374,6 +375,7 @@ model EmployeeAccreditation {
   accreditationId   String
   accreditation     Accreditation       @relation(fields: [accreditationId], references: [id])
   status            AccreditationStatus @default(PENDING)
+  required          Boolean             @default(true)
   issueDate         DateTime?
   expiryDate        DateTime?
   certificateNumber String?

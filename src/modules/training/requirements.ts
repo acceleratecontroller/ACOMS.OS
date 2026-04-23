@@ -1,18 +1,28 @@
 import { prisma } from "@/shared/database/client";
 
+export interface AccreditationRequirement {
+  accreditationId: string;
+  required: boolean;
+}
+
 /**
  * Ensure every given employee has a PENDING EmployeeAccreditation row for each
- * given accreditation. Existing rows are left untouched so manually set statuses
- * (COMPLETED, EXEMPT, etc.) and dates are preserved.
+ * given accreditation. Existing rows are left untouched so manually-set
+ * statuses (VERIFIED, EXPIRED, EXEMPT, etc.), dates and required flags are
+ * preserved.
+ *
+ * New rows inherit the `required` flag from the requirement definition so
+ * Required/Other propagates from SkillAccreditationLink down to the employee.
  *
  * Returns the number of rows created.
  */
 export async function ensureEmployeeAccreditations(
   employeeIds: string[],
-  accreditationIds: string[],
+  requirements: AccreditationRequirement[],
 ): Promise<number> {
-  if (employeeIds.length === 0 || accreditationIds.length === 0) return 0;
+  if (employeeIds.length === 0 || requirements.length === 0) return 0;
 
+  const accreditationIds = requirements.map((r) => r.accreditationId);
   const existing = await prisma.employeeAccreditation.findMany({
     where: {
       employeeId: { in: employeeIds },
@@ -24,11 +34,15 @@ export async function ensureEmployeeAccreditations(
     existing.map((e) => `${e.employeeId}:${e.accreditationId}`),
   );
 
-  const toCreate: { employeeId: string; accreditationId: string }[] = [];
+  const toCreate: { employeeId: string; accreditationId: string; required: boolean }[] = [];
   for (const employeeId of employeeIds) {
-    for (const accreditationId of accreditationIds) {
-      if (!existingKeys.has(`${employeeId}:${accreditationId}`)) {
-        toCreate.push({ employeeId, accreditationId });
+    for (const req of requirements) {
+      if (!existingKeys.has(`${employeeId}:${req.accreditationId}`)) {
+        toCreate.push({
+          employeeId,
+          accreditationId: req.accreditationId,
+          required: req.required,
+        });
       }
     }
   }
@@ -44,7 +58,7 @@ export async function ensureEmployeeAccreditations(
 /**
  * Back-fill PENDING EmployeeAccreditation rows after a skill is newly linked to
  * a role: every employee currently assigned the role gets a PENDING row for
- * each accreditation the skill already requires.
+ * each accreditation the skill already requires (required flag inherited).
  */
 export async function backfillForRoleSkillLink(
   roleId: string,
@@ -57,23 +71,25 @@ export async function backfillForRoleSkillLink(
     }),
     prisma.skillAccreditationLink.findMany({
       where: { skillId },
-      select: { accreditationId: true },
+      select: { accreditationId: true, required: true },
     }),
   ]);
   return ensureEmployeeAccreditations(
     employees.map((e) => e.employeeId),
-    accreditations.map((a) => a.accreditationId),
+    accreditations,
   );
 }
 
 /**
  * Back-fill PENDING EmployeeAccreditation rows after an accreditation is newly
  * linked to a skill: every employee assigned to any role that uses this skill
- * gets a PENDING row for the new accreditation.
+ * gets a PENDING row for the new accreditation, inheriting the link's
+ * `required` flag.
  */
 export async function backfillForSkillAccreditationLink(
   skillId: string,
   accreditationId: string,
+  required: boolean,
 ): Promise<number> {
   const employees = await prisma.employeeRole.findMany({
     where: { role: { skillLinks: { some: { skillId } } } },
@@ -82,35 +98,39 @@ export async function backfillForSkillAccreditationLink(
   });
   return ensureEmployeeAccreditations(
     employees.map((e) => e.employeeId),
-    [accreditationId],
+    [{ accreditationId, required }],
   );
 }
 
 /**
- * Compute the set of accreditation IDs required by a role (via its current
- * skills). Used when assigning a role to an employee.
+ * Compute the accreditation requirements for a role (via its current skills),
+ * including the required/other flag for each.
  */
-export async function accreditationIdsForRole(
+export async function accreditationRequirementsForRole(
   roleId: string,
-): Promise<string[]> {
+): Promise<AccreditationRequirement[]> {
   const links = await prisma.skillAccreditationLink.findMany({
     where: { skill: { roleLinks: { some: { roleId } } } },
-    select: { accreditationId: true },
+    select: { accreditationId: true, required: true },
   });
-  return [...new Set(links.map((l) => l.accreditationId))];
+  // If an accreditation is required via any skill of this role, it wins.
+  const byId = new Map<string, boolean>();
+  for (const l of links) {
+    const current = byId.get(l.accreditationId);
+    if (current === true) continue;
+    byId.set(l.accreditationId, l.required);
+  }
+  return [...byId.entries()].map(([accreditationId, required]) => ({
+    accreditationId,
+    required,
+  }));
 }
 
 /**
  * Remove orphaned PENDING/EXEMPT EmployeeAccreditation rows for each given
- * employee — i.e. rows whose accreditation is no longer required by any of
- * that employee's current roles. VERIFIED and EXPIRED rows are always kept
- * (they represent real evidence of qualifications earned).
- *
- * Call this after any operation that can sever a
- * role→skill→accreditation link: removing an employee's role, removing a
- * skill from a role, or removing an accreditation from a skill.
- *
- * Returns the number of rows deleted.
+ * employee — rows whose accreditation is no longer required by any of that
+ * employee's current roles (regardless of required/other flag on the link).
+ * VERIFIED and EXPIRED rows are always kept — they represent real evidence.
  */
 export async function cleanupOrphanedPendingAndExempt(
   employeeIds: string[],
@@ -143,11 +163,11 @@ export async function cleanupOrphanedPendingAndExempt(
 
   let totalDeleted = 0;
   for (const emp of employees) {
-    const required = new Set<string>();
+    const stillLinked = new Set<string>();
     emp.trainingRoles.forEach((tr) => {
       tr.role.skillLinks.forEach((sl) => {
         sl.skill.accreditationLinks.forEach((al) => {
-          required.add(al.accreditationId);
+          stillLinked.add(al.accreditationId);
         });
       });
     });
@@ -155,7 +175,7 @@ export async function cleanupOrphanedPendingAndExempt(
     const where = {
       employeeId: emp.id,
       status: { in: ["PENDING", "EXEMPT"] as ("PENDING" | "EXEMPT")[] },
-      ...(required.size > 0 ? { accreditationId: { notIn: [...required] } } : {}),
+      ...(stillLinked.size > 0 ? { accreditationId: { notIn: [...stillLinked] } } : {}),
     };
 
     const { count } = await prisma.employeeAccreditation.deleteMany({ where });
@@ -164,9 +184,6 @@ export async function cleanupOrphanedPendingAndExempt(
   return totalDeleted;
 }
 
-/**
- * Get all employee IDs currently assigned a given role.
- */
 export async function employeeIdsWithRole(roleId: string): Promise<string[]> {
   const rows = await prisma.employeeRole.findMany({
     where: { roleId },
@@ -175,9 +192,6 @@ export async function employeeIdsWithRole(roleId: string): Promise<string[]> {
   return rows.map((r) => r.employeeId);
 }
 
-/**
- * Get all employee IDs currently assigned to any role that uses a given skill.
- */
 export async function employeeIdsWithSkill(skillId: string): Promise<string[]> {
   const rows = await prisma.employeeRole.findMany({
     where: { role: { skillLinks: { some: { skillId } } } },

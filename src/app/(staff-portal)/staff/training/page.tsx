@@ -44,6 +44,7 @@ export default async function StaffTrainingPage() {
       select: {
         id: true,
         status: true,
+        required: true,
         issueDate: true,
         expiryDate: true,
         certificateNumber: true,
@@ -95,15 +96,25 @@ export default async function StaffTrainingPage() {
     return "VERIFIED";
   }
 
-  // Compute summary
+  // Compute summary (Required only — these are what affect compliance).
+  // Other accreditation expiry info is surfaced separately in its own section.
   let expired = 0, expiringSoon = 0, current = 0, pending = 0;
+  let otherExpired = 0, otherExpiringSoon = 0;
   for (const a of accreditations) {
     const eff = getEffectiveStatus(a);
-    if (eff === "EXPIRED") expired++;
-    else if (eff === "EXPIRING_SOON") expiringSoon++;
-    else if (eff === "PENDING") pending++;
-    else current++;
+    if (a.required) {
+      if (eff === "EXPIRED") expired++;
+      else if (eff === "EXPIRING_SOON") expiringSoon++;
+      else if (eff === "PENDING") pending++;
+      else current++;
+    } else {
+      if (eff === "EXPIRED") otherExpired++;
+      else if (eff === "EXPIRING_SOON") otherExpiringSoon++;
+    }
   }
+
+  const requiredAccreds = accreditations.filter((a) => a.required);
+  const otherAccreds = accreditations.filter((a) => !a.required);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -157,68 +168,48 @@ export default async function StaffTrainingPage() {
         )}
       </div>
 
-      {/* Accreditations */}
+      {/* Required Accreditations */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Accreditations</h2>
-        {accreditations.length === 0 ? (
-          <p className="text-sm text-gray-400">No accreditations assigned.</p>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Required Accreditations</h2>
+        <p className="text-xs text-gray-500 mb-4">These count toward your compliance.</p>
+        {requiredAccreds.length === 0 ? (
+          <p className="text-sm text-gray-400">No required accreditations assigned.</p>
         ) : (
           <div className="space-y-3">
-            {accreditations.map((a) => {
+            {requiredAccreds.map((a) => {
               const effectiveStatus = getEffectiveStatus(a);
               return (
-                <div key={a.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900">{a.accreditation.name}</p>
-                        <StatusBadge status={effectiveStatus} />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {a.accreditation.accreditationNumber}
-                        {a.accreditation.code ? ` — ${a.accreditation.code}` : ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
-                    <div>
-                      <p className="text-gray-500">Issue Date</p>
-                      <p className="font-medium text-gray-700">{formatDate(a.issueDate)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Expiry Date</p>
-                      <p className={`font-medium ${
-                        effectiveStatus === "EXPIRED" ? "text-red-700" :
-                        effectiveStatus === "EXPIRING_SOON" ? "text-yellow-700" :
-                        "text-gray-700"
-                      }`}>
-                        {a.accreditation.expires ? formatDate(a.expiryDate) : "Does not expire"}
-                      </p>
-                    </div>
-                    {a.certificateNumber && (
-                      <div>
-                        <p className="text-gray-500">Certificate No.</p>
-                        <p className="font-medium text-gray-700">{a.certificateNumber}</p>
-                      </div>
-                    )}
-                    {a.evidenceFileName && (
-                      <div>
-                        <p className="text-gray-500">Evidence</p>
-                        <p className="font-medium text-gray-700">{a.evidenceFileName}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {a.notes && (
-                    <p className="text-xs text-gray-500 mt-2">{a.notes}</p>
-                  )}
-                </div>
+                <AccredCard key={a.id} accred={a} effectiveStatus={effectiveStatus} formatDate={formatDate} />
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Other Accreditations */}
+      {otherAccreds.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Other Accreditations</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Extra accreditations on record — not required for compliance.
+            {(otherExpired > 0 || otherExpiringSoon > 0) && (
+              <span className="block mt-1">
+                {otherExpired > 0 && <span className="text-red-600 font-medium">{otherExpired} expired</span>}
+                {otherExpired > 0 && otherExpiringSoon > 0 && <span className="text-gray-400"> · </span>}
+                {otherExpiringSoon > 0 && <span className="text-amber-600 font-medium">{otherExpiringSoon} expiring soon</span>}
+              </span>
+            )}
+          </p>
+          <div className="space-y-3">
+            {otherAccreds.map((a) => {
+              const effectiveStatus = getEffectiveStatus(a);
+              return (
+                <AccredCard key={a.id} accred={a} effectiveStatus={effectiveStatus} formatDate={formatDate} />
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Evidence Upload Placeholder */}
       <div className="bg-white rounded-lg border border-dashed border-gray-300 p-6">
@@ -232,6 +223,80 @@ export default async function StaffTrainingPage() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+interface AccredCardProps {
+  accred: {
+    id: string;
+    status: string;
+    required: boolean;
+    issueDate: Date | null;
+    expiryDate: Date | null;
+    certificateNumber: string | null;
+    notes: string | null;
+    evidenceFileName: string | null;
+    accreditation: {
+      accreditationNumber: string;
+      code: string | null;
+      name: string;
+      expires: boolean;
+      renewalMonths: number | null;
+    };
+  };
+  effectiveStatus: string;
+  formatDate: (d: Date | string | null) => string;
+}
+
+function AccredCard({ accred: a, effectiveStatus, formatDate }: AccredCardProps) {
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-gray-900">{a.accreditation.name}</p>
+            <StatusBadge status={effectiveStatus} />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {a.accreditation.accreditationNumber}
+            {a.accreditation.code ? ` — ${a.accreditation.code}` : ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
+        <div>
+          <p className="text-gray-500">Issue Date</p>
+          <p className="font-medium text-gray-700">{formatDate(a.issueDate)}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Expiry Date</p>
+          <p className={`font-medium ${
+            effectiveStatus === "EXPIRED" ? "text-red-700" :
+            effectiveStatus === "EXPIRING_SOON" ? "text-yellow-700" :
+            "text-gray-700"
+          }`}>
+            {a.accreditation.expires ? formatDate(a.expiryDate) : "Does not expire"}
+          </p>
+        </div>
+        {a.certificateNumber && (
+          <div>
+            <p className="text-gray-500">Certificate No.</p>
+            <p className="font-medium text-gray-700">{a.certificateNumber}</p>
+          </div>
+        )}
+        {a.evidenceFileName && (
+          <div>
+            <p className="text-gray-500">Evidence</p>
+            <p className="font-medium text-gray-700">{a.evidenceFileName}</p>
+          </div>
+        )}
+      </div>
+
+      {a.notes && (
+        <p className="text-xs text-gray-500 mt-2">{a.notes}</p>
+      )}
     </div>
   );
 }

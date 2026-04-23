@@ -4,7 +4,7 @@ import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 import {
-  accreditationIdsForRole,
+  accreditationRequirementsForRole,
   cleanupOrphanedPendingAndExempt,
   ensureEmployeeAccreditations,
 } from "@/modules/training/requirements";
@@ -71,9 +71,9 @@ export async function POST(
   );
   if (error) return error;
 
-  // Auto-assign accreditations: role → skills → accreditations
-  const accrIds = await accreditationIdsForRole(roleId);
-  await ensureEmployeeAccreditations([employeeId], accrIds);
+  // Auto-assign accreditations: role → skills → accreditations (both Required and Other)
+  const requirements = await accreditationRequirementsForRole(roleId);
+  await ensureEmployeeAccreditations([employeeId], requirements);
 
   audit({
     entityType: "EmployeeRole",

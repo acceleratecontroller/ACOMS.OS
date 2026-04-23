@@ -22,7 +22,9 @@ export async function GET(
   const { result, error } = await withPrismaError("Failed to list skill accreditations", () =>
     prisma.skillAccreditationLink.findMany({
       where: { skillId: id },
-      include: {
+      select: {
+        id: true,
+        required: true,
         accreditation: {
           select: { id: true, accreditationNumber: true, name: true, description: true, isArchived: true },
         },
@@ -48,15 +50,18 @@ export async function POST(
   const { data: body, error: bodyError } = await parseBody(request);
   if (bodyError) return bodyError;
 
-  const accreditationId = (body as { accreditationId?: string }).accreditationId;
+  const { accreditationId, required } = body as { accreditationId?: string; required?: boolean };
   if (!accreditationId) {
     return NextResponse.json({ error: "accreditationId is required" }, { status: 400 });
   }
+  const req = required !== false; // default true
 
   const { result: link, error } = await withPrismaError("Failed to link accreditation to skill", () =>
     prisma.skillAccreditationLink.create({
-      data: { skillId: id, accreditationId },
-      include: {
+      data: { skillId: id, accreditationId, required: req },
+      select: {
+        id: true,
+        required: true,
         accreditation: {
           select: { id: true, accreditationNumber: true, name: true, description: true, isArchived: true },
         },
@@ -65,9 +70,46 @@ export async function POST(
   );
   if (error) return error;
 
-  await backfillForSkillAccreditationLink(id, accreditationId);
+  await backfillForSkillAccreditationLink(id, accreditationId, req);
 
   return NextResponse.json(link, { status: 201 });
+}
+
+// PATCH /api/training/skills/[id]/accreditations — Update required flag on a link
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
+  const { accreditationId, required } = body as { accreditationId?: string; required?: boolean };
+  if (!accreditationId || typeof required !== "boolean") {
+    return NextResponse.json({ error: "accreditationId and required are both required" }, { status: 400 });
+  }
+
+  const { result: link, error } = await withPrismaError("Failed to update skill-accreditation link", () =>
+    prisma.skillAccreditationLink.update({
+      where: { skillId_accreditationId: { skillId: id, accreditationId } },
+      data: { required },
+      select: {
+        id: true,
+        required: true,
+        accreditation: {
+          select: { id: true, accreditationNumber: true, name: true, description: true, isArchived: true },
+        },
+      },
+    }),
+  );
+  if (error) return error;
+
+  return NextResponse.json(link);
 }
 
 // DELETE /api/training/skills/[id]/accreditations — Unlink accreditation from skill

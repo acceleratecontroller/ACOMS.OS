@@ -48,6 +48,7 @@ export type UpdateAccreditationInput = z.infer<typeof updateAccreditationSchema>
 export const assignEmployeeAccreditationSchema = z.object({
   accreditationId: z.string().min(1, "Accreditation is required"),
   status: z.enum(["PENDING", "VERIFIED", "EXPIRED", "EXEMPT"]).default("PENDING"),
+  required: z.boolean().optional(), // defaults to true at the DB layer
   issueDate: optionalString,
   expiryDate: optionalString,
   certificateNumber: optionalString,

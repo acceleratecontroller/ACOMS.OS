@@ -50,6 +50,7 @@ interface EmployeeAccred {
   id: string;
   accreditation: AccredDef;
   status: string;
+  required: boolean;
   expiryDate: string | null;
   certificateNumber: string | null;
   notes: string | null;
@@ -60,7 +61,7 @@ interface EmployeeRole {
     id: string;
     roleNumber: string;
     name: string;
-    skillLinks: { skill: { id: string; skillNumber: string; name: string; accreditationLinks: { accreditation: AccredDef }[] } }[];
+    skillLinks: { skill: { id: string; skillNumber: string; name: string; accreditationLinks: { accreditation: AccredDef; required: boolean }[] } }[];
   };
 }
 
@@ -98,10 +99,12 @@ interface AccredEditRow {
   renewalMonths: number | null;
   recordId: string | null;
   status: string;
+  required: boolean; // Required vs Other
   expiryDate: string;
   certificateNumber: string;
   notes: string;
   dirty: boolean;
+  standalone: boolean; // true when not linked to any role-required skill
 }
 
 // ─── Enriched employee for list rendering ──────────────
@@ -114,6 +117,8 @@ interface EnrichedEmployee {
   expiringSoonCount: number;
   missingCount: number;
   pendingCount: number;
+  otherExpiredCount: number;
+  otherExpiringSoonCount: number;
 }
 
 // ─── Date helpers ──────────────────────────────────────
@@ -163,6 +168,7 @@ type MatchHealth = "compliant" | "expiring_soon" | "expired" | "pending" | "miss
 interface SearchMatch {
   kind: "role" | "skill" | "accreditation";
   label: string;
+  required?: boolean; // accreditation-only: false means "Other" (nice to have)
   health?: MatchHealth;
   healthLabel?: string;
 }
@@ -215,25 +221,29 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
     }
   }
 
-  // Required accreditations via role→skill→accreditation
-  const requiredAccreds = new Map<string, AccredDef>();
+  // Linked accreditations via role→skill→accreditation. Required wins when
+  // the same accreditation appears both required and other.
+  const linkedAccreds = new Map<string, { accred: AccredDef; required: boolean }>();
   for (const tr of emp.trainingRoles) {
     for (const sl of tr.role.skillLinks) {
       for (const al of sl.skill.accreditationLinks) {
-        requiredAccreds.set(al.accreditation.id, al.accreditation);
+        const existing = linkedAccreds.get(al.accreditation.id);
+        if (!existing || (!existing.required && al.required)) {
+          linkedAccreds.set(al.accreditation.id, { accred: al.accreditation, required: al.required });
+        }
       }
     }
   }
   const heldById = new Map(emp.accreditations.map((ea) => [ea.accreditation.id, ea]));
 
   // Held accreditations.
-  // VERIFIED and EXPIRED are real evidence of a qualification and always count.
-  // PENDING only counts if it's still required by their current roles
+  // VERIFIED and EXPIRED are real evidence and always count.
+  // PENDING only counts if it's still linked to their current roles
   // (hides legacy orphans). EXEMPT never counts as a search match.
   for (const ea of emp.accreditations) {
     if (seenAccreds.has(ea.accreditation.id)) continue;
     if (ea.status === "EXEMPT") continue;
-    if (ea.status === "PENDING" && !requiredAccreds.has(ea.accreditation.id)) continue;
+    if (ea.status === "PENDING" && !linkedAccreds.has(ea.accreditation.id)) continue;
     const nameHit =
       ea.accreditation.accreditationNumber.toLowerCase().includes(q) ||
       ea.accreditation.name.toLowerCase().includes(q);
@@ -242,24 +252,26 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
     matches.push({
       kind: "accreditation",
       label: `${ea.accreditation.accreditationNumber} — ${ea.accreditation.name}`,
+      required: ea.required,
       health,
       healthLabel: label,
     });
     seenAccreds.add(ea.accreditation.id);
   }
 
-  // Required via role but no record (missing)
-  for (const [id, accred] of requiredAccreds) {
+  // Linked via role but no record (missing)
+  for (const [id, info] of linkedAccreds) {
     if (seenAccreds.has(id)) continue;
     const held = heldById.get(id);
-    if (held) continue; // already evaluated above (matched or didn't match the query text)
+    if (held) continue;
     const nameHit =
-      accred.accreditationNumber.toLowerCase().includes(q) ||
-      accred.name.toLowerCase().includes(q);
+      info.accred.accreditationNumber.toLowerCase().includes(q) ||
+      info.accred.name.toLowerCase().includes(q);
     if (!nameHit) continue;
     matches.push({
       kind: "accreditation",
-      label: `${accred.accreditationNumber} — ${accred.name}`,
+      label: `${info.accred.accreditationNumber} — ${info.accred.name}`,
+      required: info.required,
       health: "missing",
       healthLabel: "Missing",
     });
@@ -270,12 +282,14 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
 }
 
 // ─── Compliance computation ────────────────────────────
+// Only Required accreditations count toward compliance — Other rows are
+// tracked separately (see otherExpiredCount / otherExpiringSoonCount).
 function computeCompliance(emp: EmployeeRow) {
   const requiredAccredIds = new Set<string>();
   emp.trainingRoles.forEach((tr) => {
     tr.role.skillLinks.forEach((sl) => {
       sl.skill.accreditationLinks.forEach((al) => {
-        requiredAccredIds.add(al.accreditation.id);
+        if (al.required) requiredAccredIds.add(al.accreditation.id);
       });
     });
   });
@@ -297,8 +311,29 @@ function computeCompliance(emp: EmployeeRow) {
     }
   });
 
+  // Other accreditations — expiration tracking only (no compliance effect)
+  let otherExpiredCount = 0;
+  let otherExpiringSoonCount = 0;
+  emp.accreditations.forEach((ea) => {
+    if (ea.required) return;
+    if (!ea.accreditation.expires) return;
+    if (ea.status !== "VERIFIED") return;
+    if (isDateExpired(ea.expiryDate)) otherExpiredCount++;
+    else if (isDateExpiringSoon(ea.expiryDate)) otherExpiringSoonCount++;
+  });
+
   const pct = total > 0 ? Math.round((compliant / total) * 100) : 100;
-  return { requiredAccredIds, heldMap, pct, total, compliant, expiredCount, expiringSoonCount };
+  return {
+    requiredAccredIds,
+    heldMap,
+    pct,
+    total,
+    compliant,
+    expiredCount,
+    expiringSoonCount,
+    otherExpiredCount,
+    otherExpiringSoonCount,
+  };
 }
 
 function enrichEmployee(emp: EmployeeRow): EnrichedEmployee {
@@ -310,7 +345,18 @@ function enrichEmployee(emp: EmployeeRow): EnrichedEmployee {
     if (!held) missingCount++;
     else if (held.status === "PENDING") pendingCount++;
   });
-  return { emp, pct: c.pct, total: c.total, compliant: c.compliant, expiredCount: c.expiredCount, expiringSoonCount: c.expiringSoonCount, missingCount, pendingCount };
+  return {
+    emp,
+    pct: c.pct,
+    total: c.total,
+    compliant: c.compliant,
+    expiredCount: c.expiredCount,
+    expiringSoonCount: c.expiringSoonCount,
+    missingCount,
+    pendingCount,
+    otherExpiredCount: c.otherExpiredCount,
+    otherExpiringSoonCount: c.otherExpiringSoonCount,
+  };
 }
 
 const formatDate = (d: string | null) => (d ? d.split("T")[0] : "");
@@ -409,21 +455,49 @@ export function MatrixTab() {
   );
 }
 
+// ─── Required vs Other pill toggle ─────────────────────
+function RequiredOtherPill({ required, onChange }: { required: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-medium">
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`px-2 py-0.5 transition-colors ${
+          required ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Required
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`px-2 py-0.5 transition-colors ${
+          !required ? "bg-gray-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Other
+      </button>
+    </div>
+  );
+}
+
 // ─── Match Chips ────────────────────────────────────────
 function MatchChips({ matches }: { matches: SearchMatch[] }) {
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
       {matches.map((m, i) => {
         if (m.kind === "accreditation" && m.health && m.healthLabel) {
+          const isOther = m.required === false;
           return (
             <span
               key={i}
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${HEALTH_STYLES[m.health]}`}
-              title={`Accreditation · ${m.healthLabel}`}
+              title={`Accreditation · ${m.healthLabel}${isOther ? " · Other" : ""}`}
             >
               <span>{m.label}</span>
               <span className="opacity-70">·</span>
               <span>{m.healthLabel}</span>
+              {isOther && <span className="opacity-70 italic">· Other</span>}
             </span>
           );
         }
@@ -511,19 +585,32 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
     [searchFiltered],
   );
 
-  // Aggregate stats
+  // Aggregate stats (Required only for compliance; Other tracked separately)
   const stats = useMemo(() => {
     let expired = 0, missingPending = 0, expiringSoon = 0, compliant = 0, needsAttention = 0, totalPct = 0;
+    let otherExpired = 0, otherExpiringSoon = 0;
     for (const e of enriched) {
       if (e.expiredCount > 0) expired++;
       if (e.missingCount > 0 || e.pendingCount > 0) missingPending++;
       if (e.expiringSoonCount > 0) expiringSoon++;
       if (e.pct === 100) compliant++;
       if (e.expiredCount > 0 || e.missingCount > 0 || e.pendingCount > 0) needsAttention++;
+      if (e.otherExpiredCount > 0) otherExpired++;
+      if (e.otherExpiringSoonCount > 0) otherExpiringSoon++;
       totalPct += e.pct;
     }
     const overallPct = enriched.length > 0 ? Math.round(totalPct / enriched.length) : 100;
-    return { total: enriched.length, expired, missingPending, expiringSoon, compliant, needsAttention, overallPct };
+    return {
+      total: enriched.length,
+      expired,
+      missingPending,
+      expiringSoon,
+      compliant,
+      needsAttention,
+      overallPct,
+      otherExpired,
+      otherExpiringSoon,
+    };
   }, [enriched]);
 
   // Filter + sort (worst compliance first)
@@ -606,6 +693,27 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
           onClick={() => onFilterToggle("compliant")}
         />
       </div>
+
+      {/* Other accreditation expiration tracking (not required = not counted
+          toward compliance, but still worth knowing about). */}
+      {(stats.otherExpired > 0 || stats.otherExpiringSoon > 0) && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
+          <span className="font-semibold uppercase tracking-wide text-gray-500">Other</span>
+          {stats.otherExpired > 0 && (
+            <span>
+              <span className="text-red-600 font-medium">{stats.otherExpired}</span> employee
+              {stats.otherExpired === 1 ? "" : "s"} with expired non-required accreditation
+              {stats.otherExpired === 1 ? "" : "s"}
+            </span>
+          )}
+          {stats.otherExpired > 0 && stats.otherExpiringSoon > 0 && <span className="text-gray-300">·</span>}
+          {stats.otherExpiringSoon > 0 && (
+            <span>
+              <span className="text-amber-600 font-medium">{stats.otherExpiringSoon}</span> with non-required expiring soon
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Inline notice */}
       {issueCount > 0 && filter === "all" && (
@@ -809,20 +917,55 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   const [successMsg, setSuccessMsg] = useState("");
   const [modalSearch, setModalSearch] = useState("");
 
+  // "+ Add Accreditation" inline form state
+  const [allAccreds, setAllAccreds] = useState<{ id: string; accreditationNumber: string; name: string; expires: boolean; renewalMonths: number | null; isArchived?: boolean }[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addAccredId, setAddAccredId] = useState("");
+  const [addStatus, setAddStatus] = useState<"VERIFIED" | "EXPIRED">("VERIFIED");
+  const [addRequired, setAddRequired] = useState(true);
+  const [addExpiry, setAddExpiry] = useState("");
+  const [addCert, setAddCert] = useState("");
+  const [addQuery, setAddQuery] = useState("");
+
+  useEffect(() => {
+    fetch("/api/training/accreditations")
+      .then((r) => r.ok ? r.json() : [])
+      .then(setAllAccreds)
+      .catch(() => {});
+  }, []);
+
+  function resetAddForm() {
+    setAddOpen(false);
+    setAddAccredId("");
+    setAddStatus("VERIFIED");
+    setAddRequired(true);
+    setAddExpiry("");
+    setAddCert("");
+    setAddQuery("");
+  }
+
   useEffect(() => {
     const heldMap = new Map(employee.accreditations.map((ea) => [ea.accreditation.id, ea]));
 
-    const accredMap = new Map<string, AccredDef>();
+    // Linked accreditations via role→skill: carries its Required/Other flag.
+    // Required wins if the same accreditation appears Required through any
+    // skill and Other through another.
+    const linkedMap = new Map<string, { def: AccredDef; required: boolean }>();
     employee.trainingRoles.forEach((tr) => {
       tr.role.skillLinks.forEach((sl) => {
         sl.skill.accreditationLinks.forEach((al) => {
-          accredMap.set(al.accreditation.id, al.accreditation);
+          const existing = linkedMap.get(al.accreditation.id);
+          if (!existing || (!existing.required && al.required)) {
+            linkedMap.set(al.accreditation.id, { def: al.accreditation, required: al.required });
+          }
         });
       });
     });
 
     const editRows: AccredEditRow[] = [];
-    accredMap.forEach((def, accredId) => {
+
+    // Linked (role-required) rows
+    linkedMap.forEach(({ def, required }, accredId) => {
       const held = heldMap.get(accredId);
       editRows.push({
         accreditationId: accredId,
@@ -832,27 +975,103 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         renewalMonths: def.renewalMonths,
         recordId: held?.id || null,
         status: held?.status || "MISSING",
+        required: held ? held.required : required,
         expiryDate: formatDate(held?.expiryDate || null),
         certificateNumber: held?.certificateNumber || "",
         notes: held?.notes || "",
         dirty: false,
+        standalone: false,
       });
     });
 
-    editRows.sort((a, b) => {
-      const aOk = (a.status === "VERIFIED" && !isDateExpired(a.expiryDate)) || a.status === "EXEMPT" ? 1 : 0;
-      const bOk = (b.status === "VERIFIED" && !isDateExpired(b.expiryDate)) || b.status === "EXEMPT" ? 1 : 0;
-      if (aOk !== bOk) return aOk - bOk;
-      return a.accreditationName.localeCompare(b.accreditationName);
+    // Standalone rows — the employee has an EmployeeAccreditation record
+    // that isn't linked to any current role→skill chain.
+    employee.accreditations.forEach((ea) => {
+      if (linkedMap.has(ea.accreditation.id)) return;
+      editRows.push({
+        accreditationId: ea.accreditation.id,
+        accreditationName: ea.accreditation.name,
+        accreditationNumber: ea.accreditation.accreditationNumber,
+        expires: ea.accreditation.expires,
+        renewalMonths: ea.accreditation.renewalMonths,
+        recordId: ea.id,
+        status: ea.status,
+        required: ea.required,
+        expiryDate: formatDate(ea.expiryDate),
+        certificateNumber: ea.certificateNumber || "",
+        notes: ea.notes || "",
+        dirty: false,
+        standalone: true,
+      });
     });
 
     setRows(editRows);
   }, [employee]);
 
-  function updateRow(idx: number, field: keyof AccredEditRow, value: string) {
+  function updateRow<K extends keyof AccredEditRow>(idx: number, field: K, value: AccredEditRow[K]) {
     setRows((prev) =>
       prev.map((r, i) => (i === idx ? { ...r, [field]: value, dirty: true } : r))
     );
+  }
+
+  async function handleDeleteStandalone(recordId: string) {
+    if (!confirm("Remove this standalone accreditation from the employee?")) return;
+    const res = await fetch(`/api/training/employees/${employee.id}/accreditations/${recordId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setRows((prev) => prev.filter((r) => r.recordId !== recordId));
+    } else {
+      setError("Failed to remove accreditation");
+    }
+  }
+
+  async function handleAddAccreditation() {
+    if (!addAccredId) return;
+    setError("");
+    const accred = allAccreds.find((a) => a.id === addAccredId);
+    const res = await fetch(`/api/training/employees/${employee.id}/accreditations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accreditationId: addAccredId,
+        status: addStatus,
+        required: addRequired,
+        expiryDate: addExpiry || null,
+        certificateNumber: addCert || null,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setError(err.error || "Failed to add accreditation");
+      return;
+    }
+    const created = await res.json();
+    setRows((prev) => [
+      ...prev,
+      {
+        accreditationId: addAccredId,
+        accreditationName: accred?.name || "",
+        accreditationNumber: accred?.accreditationNumber || "",
+        expires: accred?.expires ?? false,
+        renewalMonths: accred?.renewalMonths ?? null,
+        recordId: created.id,
+        status: addStatus,
+        required: addRequired,
+        expiryDate: addExpiry || "",
+        certificateNumber: addCert || "",
+        notes: "",
+        dirty: false,
+        // If currently linked via role/skill, it'll fall under that skill on next render;
+        // otherwise standalone. Checking here avoids re-deriving linkedMap.
+        standalone: !employee.trainingRoles.some((tr) =>
+          tr.role.skillLinks.some((sl) =>
+            sl.skill.accreditationLinks.some((al) => al.accreditation.id === addAccredId),
+          ),
+        ),
+      },
+    ]);
+    resetAddForm();
   }
 
   async function handleSaveAll() {
@@ -874,6 +1093,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               status: row.status,
+              required: row.required,
               expiryDate: row.expiryDate || null,
               certificateNumber: row.certificateNumber || null,
               notes: row.notes || null,
@@ -890,6 +1110,7 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
             body: JSON.stringify({
               accreditationId: row.accreditationId,
               status: row.status === "MISSING" ? "PENDING" : row.status,
+              required: row.required,
               expiryDate: row.expiryDate || null,
               certificateNumber: row.certificateNumber || null,
               notes: row.notes || null,
@@ -915,9 +1136,13 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   const { pct, compliant, total, expiredCount, expiringSoonCount } = computeCompliance(employee);
   const dirtyCount = rows.filter((r) => r.dirty).length;
 
-  // Build skill-based grouping for the flat rows array. Each accreditation is
-  // placed under the first skill that requires it (based on role order).
+  // Build skill-based grouping. Each row is placed under the first skill that
+  // links it (based on role order), or into the "Standalone" group if the
+  // employee has it but no current role/skill references it.
   interface SkillRef { id: string; skillNumber: string; name: string }
+  const STANDALONE_ID = "_standalone";
+  interface RowWithIdx { row: AccredEditRow; idx: number }
+  interface SkillGroup { skill: SkillRef; required: RowWithIdx[]; other: RowWithIdx[] }
   const groupedRows = useMemo(() => {
     const accredToSkill = new Map<string, SkillRef>();
     const skillOrder: SkillRef[] = [];
@@ -947,25 +1172,28 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         );
       });
 
-    const bySkill = new Map<string, { skill: SkillRef; items: { row: AccredEditRow; idx: number }[] }>();
+    const bySkill = new Map<string, SkillGroup>();
     visibleIdx.forEach(({ row, idx }) => {
-      const skill = accredToSkill.get(row.accreditationId)
-        || { id: "_other", skillNumber: "", name: "Other" };
-      if (!bySkill.has(skill.id)) bySkill.set(skill.id, { skill, items: [] });
-      bySkill.get(skill.id)!.items.push({ row, idx });
+      const skill = row.standalone
+        ? { id: STANDALONE_ID, skillNumber: "", name: "Standalone" }
+        : accredToSkill.get(row.accreditationId)
+          || { id: STANDALONE_ID, skillNumber: "", name: "Standalone" };
+      if (!bySkill.has(skill.id)) bySkill.set(skill.id, { skill, required: [], other: [] });
+      const group = bySkill.get(skill.id)!;
+      (row.required ? group.required : group.other).push({ row, idx });
     });
 
-    const groups: { skill: SkillRef; items: { row: AccredEditRow; idx: number }[] }[] = [];
+    const groups: SkillGroup[] = [];
     skillOrder.forEach((s) => {
       const g = bySkill.get(s.id);
       if (g) groups.push(g);
     });
-    const other = bySkill.get("_other");
-    if (other) groups.push(other);
+    const standalone = bySkill.get(STANDALONE_ID);
+    if (standalone) groups.push(standalone);
     return groups;
   }, [rows, modalSearch, employee]);
 
-  const visibleCount = groupedRows.reduce((n, g) => n + g.items.length, 0);
+  const visibleCount = groupedRows.reduce((n, g) => n + g.required.length + g.other.length, 0);
 
   return (
     <Modal isOpen onClose={onClose}>
@@ -999,23 +1227,111 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
           </div>
         )}
 
-        {/* Modal search filter */}
-        {rows.length > 0 && (
-          <div className="mb-3 flex items-center gap-2">
+        {/* Modal search filter + add accreditation */}
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          {rows.length > 0 && (
             <input
               type="search"
               placeholder="Filter accreditations or skills..."
               value={modalSearch}
               onChange={(e) => setModalSearch(e.target.value)}
-              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 min-w-[180px] px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            {modalSearch && (
-              <span className="text-xs text-gray-500 shrink-0">
-                {visibleCount} of {rows.length}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+          {modalSearch && (
+            <span className="text-xs text-gray-500 shrink-0">
+              {visibleCount} of {rows.length}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setAddOpen((v) => !v)}
+            className="shrink-0 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            {addOpen ? "Cancel" : "+ Add Accreditation"}
+          </button>
+        </div>
+
+        {/* Inline add form */}
+        {addOpen && (() => {
+          const held = new Set(rows.map((r) => r.accreditationId));
+          const q = addQuery.trim().toLowerCase();
+          const available = allAccreds
+            .filter((a) => !a.isArchived && !held.has(a.id))
+            .filter((a) => !q || a.name.toLowerCase().includes(q) || a.accreditationNumber.toLowerCase().includes(q));
+          const selected = allAccreds.find((a) => a.id === addAccredId);
+          return (
+            <div className="mb-3 p-3 border border-blue-200 bg-blue-50/30 rounded-lg space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">Add accreditation to {employee.firstName}</div>
+              <input
+                type="search"
+                placeholder="Search accreditations..."
+                value={addQuery}
+                onChange={(e) => setAddQuery(e.target.value)}
+                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={addAccredId}
+                onChange={(e) => setAddAccredId(e.target.value)}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+              >
+                <option value="">Select an accreditation...</option>
+                {available.map((a) => (
+                  <option key={a.id} value={a.id}>{a.accreditationNumber} — {a.name}</option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Status</label>
+                  <select
+                    value={addStatus}
+                    onChange={(e) => setAddStatus(e.target.value as "VERIFIED" | "EXPIRED")}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  >
+                    <option value="VERIFIED">Verified</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Category</label>
+                  <div className="pt-1"><RequiredOtherPill required={addRequired} onChange={setAddRequired} /></div>
+                </div>
+                {selected?.expires && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Expiry</label>
+                    <input
+                      type="date"
+                      value={addExpiry}
+                      onChange={(e) => setAddExpiry(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
+                  <input
+                    type="text"
+                    value={addCert}
+                    onChange={(e) => setAddCert(e.target.value)}
+                    placeholder="—"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={resetAddForm} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button
+                  type="button"
+                  onClick={handleAddAccreditation}
+                  disabled={!addAccredId}
+                  className="px-3 py-1.5 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Accreditation rows (grouped by skill) */}
         <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-4">
@@ -1032,10 +1348,20 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                   <span className="text-[11px] font-mono text-gray-400">{group.skill.skillNumber}</span>
                 )}
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">{group.skill.name}</h3>
-                <span className="text-[11px] text-gray-400">· {group.items.length}</span>
+                <span className="text-[11px] text-gray-400">· {group.required.length + group.other.length}</span>
               </div>
-              <div className="space-y-3">
-                {group.items.map(({ row, idx }) => {
+              {[
+                { label: "Required", items: group.required },
+                { label: "Other", items: group.other },
+              ].filter((sub) => sub.items.length > 0).map((sub) => (
+                <div key={sub.label} className="mb-3">
+                  {(group.required.length > 0 && group.other.length > 0) && (
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1 pl-0.5">
+                      {sub.label}
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    {sub.items.map(({ row, idx }) => {
             const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
             const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
             const showExpiryWarning = row.status === "VERIFIED" && dateExpired;
@@ -1051,16 +1377,32 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                   "border-gray-200"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <span className="text-xs font-mono text-gray-400 mr-2">{row.accreditationNumber}</span>
                     <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
                   </div>
-                  {row.expires && row.renewalMonths && (
-                    <span className="text-xs text-gray-400">
-                      {row.renewalMonths}mo renewal
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <RequiredOtherPill
+                      required={row.required}
+                      onChange={(r) => updateRow(idx, "required", r)}
+                    />
+                    {row.expires && row.renewalMonths && (
+                      <span className="text-xs text-gray-400">
+                        {row.renewalMonths}mo renewal
+                      </span>
+                    )}
+                    {row.standalone && row.recordId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStandalone(row.recordId!)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium"
+                        title="Remove this standalone accreditation"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {showExpiryWarning && (
@@ -1135,8 +1477,10 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
                 </div>
               </div>
             );
-                })}
-              </div>
+                  })}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>

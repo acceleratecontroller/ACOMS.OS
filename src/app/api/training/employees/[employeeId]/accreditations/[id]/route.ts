@@ -35,6 +35,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.required !== undefined && { required: data.required }),
         ...(data.issueDate !== undefined && { issueDate: data.issueDate ? new Date(data.issueDate) : null }),
         ...(data.expiryDate !== undefined && { expiryDate: data.expiryDate ? new Date(data.expiryDate) : null }),
         ...(data.certificateNumber !== undefined && { certificateNumber: data.certificateNumber || null }),
