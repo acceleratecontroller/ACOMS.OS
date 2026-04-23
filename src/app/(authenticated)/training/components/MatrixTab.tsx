@@ -1529,6 +1529,24 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
               Worst first
             </button>
           </div>
+          {groupMode === "skill" && skillGroups.length > 0 && (() => {
+            const allCollapsed = skillGroups.every((g) => collapsedSkills.has(g.skill.id));
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  if (allCollapsed) {
+                    setCollapsedSkills(new Set());
+                  } else {
+                    setCollapsedSkills(new Set(skillGroups.map((g) => g.skill.id)));
+                  }
+                }}
+                className="px-2 py-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-md hover:bg-gray-50"
+              >
+                {allCollapsed ? "Expand all" : "Collapse all"}
+              </button>
+            );
+          })()}
           <button
             type="button"
             onClick={() => setAddOpen((v) => !v)}
@@ -1729,7 +1747,7 @@ function AccredCompactRow({
   const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-colors ${
+    <div className={`border rounded-md overflow-hidden transition-colors ${
       row.dirty ? "border-blue-300 bg-blue-50/30"
       : status.severity >= 3 ? "border-red-200"
       : status.severity === 2 ? "border-red-100"
@@ -1740,7 +1758,7 @@ function AccredCompactRow({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50/80 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-gray-50/80 transition-colors"
       >
         <span className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLASS[status.dot]}`} />
         <span className="text-[11px] font-mono text-gray-400 shrink-0">{row.accreditationNumber}</span>
@@ -1751,103 +1769,96 @@ function AccredCompactRow({
         }`}>
           {row.required ? "Required" : "Other"}
         </span>
-        <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap min-w-[90px] text-right">
+        <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap text-right">
           {status.label}
           {row.expires && row.expiryDate && <span className="text-gray-400"> · {formatExpiry(row.expiryDate)}</span>}
+          {row.expires && row.renewalMonths && <span className="text-gray-400"> · {row.renewalMonths}mo</span>}
         </span>
         <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {/* Expanded edit form */}
+      {/* Expanded edit form — single compact row */}
       {expanded && (
-        <div className="border-t border-gray-100 p-3 space-y-2 bg-white">
-          {/* Header row inside expanded area — pill toggle / delete live here */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {row.standalone ? (
-              <RequiredOtherPill
-                required={row.required}
-                onChange={(r) => onUpdate(idx, "required", r)}
+        <div className="border-t border-gray-100 px-3 py-2 bg-white grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-x-2 gap-y-1.5 items-end">
+          <CompactField label="Status">
+            <select
+              value={row.status === "MISSING" ? "" : row.status}
+              onChange={(e) => onUpdate(idx, "status", e.target.value)}
+              className={`w-full border rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
+                row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
+                row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
+                row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
+                "border-yellow-300 bg-yellow-50"
+              }`}
+            >
+              {row.status === "MISSING" && <option value="">Missing</option>}
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
+              ))}
+            </select>
+          </CompactField>
+          {row.expires ? (
+            <CompactField label="Expiry">
+              <input
+                type="date"
+                value={row.expiryDate}
+                onChange={(e) => onUpdate(idx, "expiryDate", e.target.value)}
+                className={`w-full border rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  dateExpired ? "border-red-300 bg-red-50 text-red-700" :
+                  dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
+                  "border-gray-300"
+                }`}
               />
-            ) : (
-              <span className="text-[11px] text-gray-400 italic">Required/Other set at the skill level</span>
-            )}
-            {row.expires && row.renewalMonths && (
-              <span className="text-[11px] text-gray-400">{row.renewalMonths}mo renewal</span>
+            </CompactField>
+          ) : <div className="hidden md:block" />}
+          <CompactField label="Certificate #">
+            <input
+              type="text"
+              value={row.certificateNumber}
+              onChange={(e) => onUpdate(idx, "certificateNumber", e.target.value)}
+              placeholder="—"
+              className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </CompactField>
+          <CompactField label="Notes">
+            <input
+              type="text"
+              value={row.notes}
+              onChange={(e) => onUpdate(idx, "notes", e.target.value)}
+              placeholder="—"
+              className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </CompactField>
+          {/* Trailing actions: Required/Other pill for standalone, delete */}
+          <div className="col-span-2 md:col-span-1 flex items-center gap-1.5 md:pb-0 pb-0.5">
+            {row.standalone && (
+              <RequiredOtherPill required={row.required} onChange={(r) => onUpdate(idx, "required", r)} />
             )}
             {row.standalone && row.recordId && (
               <button
                 type="button"
                 onClick={() => onDelete(row.recordId!)}
-                className="ml-auto text-red-500 hover:text-red-700 text-xs font-medium"
+                className="text-red-500 hover:text-red-700 text-[11px] font-medium ml-auto"
+                title="Remove this accreditation"
               >
                 Delete
               </button>
             )}
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Status</label>
-              <select
-                value={row.status === "MISSING" ? "" : row.status}
-                onChange={(e) => onUpdate(idx, "status", e.target.value)}
-                className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
-                  row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
-                  row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
-                  row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
-                  "border-yellow-300 bg-yellow-50"
-                }`}
-              >
-                {row.status === "MISSING" && <option value="">Missing</option>}
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-            </div>
-
-            {row.expires && (
-              <div>
-                <label className="block text-xs text-gray-500 mb-0.5">Expiry date</label>
-                <input
-                  type="date"
-                  value={row.expiryDate}
-                  onChange={(e) => onUpdate(idx, "expiryDate", e.target.value)}
-                  className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    dateExpired ? "border-red-300 bg-red-50 text-red-700" :
-                    dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
-                    "border-gray-300"
-                  }`}
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
-              <input
-                type="text"
-                value={row.certificateNumber}
-                onChange={(e) => onUpdate(idx, "certificateNumber", e.target.value)}
-                placeholder="—"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
-              <input
-                type="text"
-                value={row.notes}
-                onChange={(e) => onUpdate(idx, "notes", e.target.value)}
-                placeholder="—"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CompactField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <label className="block text-[10px] text-gray-500 leading-none mb-0.5 uppercase tracking-wide">{label}</label>
+      {children}
     </div>
   );
 }
