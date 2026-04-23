@@ -1439,118 +1439,142 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   return (
     <Modal isOpen onClose={onClose}>
       <div className="max-h-[85vh] flex flex-col">
-        {/* Compact header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-gray-400 font-mono">{employee.employeeNumber}</p>
-            <h2 className="text-lg font-semibold text-gray-900">{employee.firstName} {employee.lastName}</h2>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <h2 className="text-lg font-semibold text-gray-900">{employee.firstName} {employee.lastName}</h2>
+              {employee.trainingRoles.map((tr) => (
+                <span key={tr.role.id} className="inline-flex px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-[11px] font-medium">
+                  {tr.role.name}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="text-right shrink-0">
-            <div className={`text-2xl font-bold tabular-nums leading-none ${
-              pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
+            <div className={`text-2xl font-semibold tabular-nums leading-none ${
+              pct === 100 ? "text-gray-900" : pct >= 50 ? "text-amber-600" : "text-red-600"
             }`}>{pct}%</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">{compliant}/{total} required</div>
+            <div className="text-[11px] text-gray-500 mt-0.5">{compliant} of {total} required</div>
           </div>
         </div>
 
         {/* Compliance bar */}
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2 mb-2">
+        <div className="h-1 bg-gray-100 rounded-full overflow-hidden mb-2.5">
           <div className={`h-full rounded-full transition-all ${
             pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-400" : "bg-red-500"
           }`} style={{ width: `${pct}%` }} />
         </div>
 
-        {/* Quick stats + role pills */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-2">
-          {counts.expired > 0 && <span><span className="text-red-600 font-semibold">{counts.expired}</span> expired</span>}
-          {counts.expiring > 0 && <span><span className="text-amber-600 font-semibold">{counts.expiring}</span> expiring</span>}
-          {counts.missing > 0 && <span><span className="text-red-600 font-semibold">{counts.missing}</span> missing</span>}
-          {counts.pending > 0 && <span><span className="text-amber-600 font-semibold">{counts.pending}</span> pending</span>}
-          {(counts.otherExpired > 0 || counts.otherExpiringSoon > 0) && (
-            <span className="text-gray-400">
-              · <span className="font-semibold text-gray-600">{counts.otherExpired}</span> other expired,{" "}
-              <span className="font-semibold text-gray-600">{counts.otherExpiringSoon}</span> other expiring
-            </span>
-          )}
-          {counts.expired + counts.expiring + counts.missing + counts.pending === 0 && (
-            <span className="text-green-600 font-medium">All required accreditations in order.</span>
-          )}
-        </div>
-        {employee.trainingRoles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {employee.trainingRoles.map((tr) => (
-              <span key={tr.role.id} className="inline-flex px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-medium">
-                {tr.role.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Single prose-style summary line */}
+        {(() => {
+          const hasIssues = counts.expired + counts.expiring + counts.missing + counts.pending > 0;
+          const hasOtherExpiry = counts.otherExpired + counts.otherExpiringSoon > 0;
+          if (!hasIssues && !hasOtherExpiry) {
+            return <p className="text-[12px] text-gray-500 mb-3">All required accreditations in order.</p>;
+          }
+          const bits: React.ReactNode[] = [];
+          if (counts.expired > 0) bits.push(<span key="e"><span className="text-red-600 font-medium">{counts.expired}</span> expired</span>);
+          if (counts.missing > 0) bits.push(<span key="m"><span className="text-red-600 font-medium">{counts.missing}</span> missing</span>);
+          if (counts.pending > 0) bits.push(<span key="p"><span className="text-amber-600 font-medium">{counts.pending}</span> pending</span>);
+          if (counts.expiring > 0) bits.push(<span key="x"><span className="text-amber-600 font-medium">{counts.expiring}</span> expiring soon</span>);
+          return (
+            <div className="text-[12px] text-gray-500 mb-3 space-y-0.5">
+              {bits.length > 0 && (
+                <p>
+                  {bits.map((b, i) => (
+                    <span key={i}>{i > 0 && " · "}{b}</span>
+                  ))}
+                </p>
+              )}
+              {hasOtherExpiry && (
+                <p className="text-gray-400">
+                  {counts.otherExpired > 0 && <>Other: <span className="font-medium text-gray-600">{counts.otherExpired}</span> expired</>}
+                  {counts.otherExpired > 0 && counts.otherExpiringSoon > 0 && " · "}
+                  {counts.otherExpiringSoon > 0 && <><span className="font-medium text-gray-600">{counts.otherExpiringSoon}</span> expiring soon</>}
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
-        {/* Filters + search + grouping toggle + add */}
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            {MODAL_FILTERS.map((m) => (
+        {/* Toolbar: scope (filter + search) | view (grouping + expand-all) | action */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {/* Scope group */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              {MODAL_FILTERS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setFilterMode(m.id)}
+                  className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    filterMode === m.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="search"
+              placeholder="Search..."
+              value={modalSearch}
+              onChange={(e) => setModalSearch(e.target.value)}
+              className="min-w-[140px] px-3 py-1 border border-gray-200 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+            />
+          </div>
+
+          <div className="h-5 w-px bg-gray-200 hidden sm:block mx-1" aria-hidden />
+
+          {/* View group */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
               <button
-                key={m.id}
                 type="button"
-                onClick={() => setFilterMode(m.id)}
+                onClick={() => setGroupMode("skill")}
                 className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  filterMode === m.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  groupMode === "skill" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                {m.label}
+                By skill
               </button>
-            ))}
-          </div>
-          <input
-            type="search"
-            placeholder="Search..."
-            value={modalSearch}
-            onChange={(e) => setModalSearch(e.target.value)}
-            className="flex-1 min-w-[120px] px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            <button
-              type="button"
-              onClick={() => setGroupMode("skill")}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                groupMode === "skill" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              By skill
-            </button>
-            <button
-              type="button"
-              onClick={() => setGroupMode("worst_first")}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                groupMode === "worst_first" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Worst first
-            </button>
-          </div>
-          {groupMode === "skill" && skillGroups.length > 0 && (() => {
-            const allCollapsed = skillGroups.every((g) => collapsedSkills.has(g.skill.id));
-            return (
               <button
                 type="button"
-                onClick={() => {
-                  if (allCollapsed) {
-                    setCollapsedSkills(new Set());
-                  } else {
-                    setCollapsedSkills(new Set(skillGroups.map((g) => g.skill.id)));
-                  }
-                }}
-                className="px-2 py-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-md hover:bg-gray-50"
+                onClick={() => setGroupMode("worst_first")}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  groupMode === "worst_first" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                {allCollapsed ? "Expand all" : "Collapse all"}
+                Worst first
               </button>
-            );
-          })()}
+            </div>
+            {groupMode === "skill" && skillGroups.length > 0 && (() => {
+              const allCollapsed = skillGroups.every((g) => collapsedSkills.has(g.skill.id));
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (allCollapsed) {
+                      setCollapsedSkills(new Set());
+                    } else {
+                      setCollapsedSkills(new Set(skillGroups.map((g) => g.skill.id)));
+                    }
+                  }}
+                  className="px-2 py-1 text-[11px] font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                >
+                  {allCollapsed ? "Expand all" : "Collapse all"}
+                </button>
+              );
+            })()}
+          </div>
+
+          {/* Primary action */}
           <button
             type="button"
             onClick={() => setAddOpen((v) => !v)}
-            className="shrink-0 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            className="shrink-0 ml-auto px-3.5 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors"
           >
             {addOpen ? "Cancel" : "+ Add"}
           </button>
@@ -1703,20 +1727,28 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
         </div>
 
         {/* Sticky footer */}
-        <div className="pt-3 mt-2 border-t border-gray-200">
+        <div className="pt-3 mt-2 border-t border-gray-100">
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
           {successMsg && <p className="text-green-600 text-sm mb-2">{successMsg}</p>}
           <div className="flex items-center justify-between">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-              Close
-            </button>
             <button
-              onClick={handleSaveAll}
-              disabled={saving || dirtyCount === 0}
-              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              type="button"
+              onClick={onClose}
+              className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                dirtyCount > 0 ? "text-gray-500 hover:text-gray-700 hover:bg-gray-50" : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
-              {saving ? "Saving..." : dirtyCount > 0 ? `Save ${dirtyCount} change${dirtyCount > 1 ? "s" : ""}` : "No changes"}
+              {dirtyCount > 0 ? "Discard" : "Close"}
             </button>
+            {dirtyCount > 0 && (
+              <button
+                onClick={handleSaveAll}
+                disabled={saving}
+                className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Saving..." : `Save ${dirtyCount} change${dirtyCount > 1 ? "s" : ""}`}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1748,11 +1780,7 @@ function AccredCompactRow({
 
   return (
     <div className={`border rounded-md overflow-hidden transition-colors ${
-      row.dirty ? "border-blue-300 bg-blue-50/30"
-      : status.severity >= 3 ? "border-red-200"
-      : status.severity === 2 ? "border-red-100"
-      : status.severity === 1 ? "border-amber-200"
-      : "border-gray-200"
+      row.dirty ? "border-blue-300 bg-blue-50/30" : "border-gray-200"
     }`}>
       {/* Compact summary row */}
       <button
@@ -1769,8 +1797,13 @@ function AccredCompactRow({
         }`}>
           {row.required ? "Required" : "Other"}
         </span>
-        <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap text-right">
-          {status.label}
+        <span className="text-[11px] shrink-0 whitespace-nowrap text-right">
+          <span className={
+            status.dot === "red" ? "text-red-600 font-medium" :
+            status.dot === "amber" ? "text-amber-600 font-medium" :
+            status.dot === "green" ? "text-gray-600" :
+            "text-gray-500"
+          }>{status.label}</span>
           {row.expires && row.expiryDate && <span className="text-gray-400"> · {formatExpiry(row.expiryDate)}</span>}
           {row.expires && row.renewalMonths && <span className="text-gray-400"> · {row.renewalMonths}mo</span>}
         </span>
@@ -1781,17 +1814,15 @@ function AccredCompactRow({
 
       {/* Expanded edit form — single compact row */}
       {expanded && (
-        <div className="border-t border-gray-100 px-3 py-2 bg-white grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-x-2 gap-y-1.5 items-end">
+        <div className="border-t border-gray-100 px-3 py-2 bg-gray-50/40 grid grid-cols-2 md:grid-cols-[120px_130px_1fr_2fr_auto] gap-x-3 gap-y-1.5 items-end">
           <CompactField label="Status">
             <select
               value={row.status === "MISSING" ? "" : row.status}
               onChange={(e) => onUpdate(idx, "status", e.target.value)}
-              className={`w-full border rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
-                row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
-                row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
-                row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
-                "border-yellow-300 bg-yellow-50"
+              className={`w-full border rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                row.status === "EXPIRED" || dateExpired ? "border-red-300" :
+                row.status === "VERIFIED" && dateExpiringSoon ? "border-amber-300" :
+                "border-gray-300"
               }`}
             >
               {row.status === "MISSING" && <option value="">Missing</option>}
@@ -1806,9 +1837,9 @@ function AccredCompactRow({
                 type="date"
                 value={row.expiryDate}
                 onChange={(e) => onUpdate(idx, "expiryDate", e.target.value)}
-                className={`w-full border rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  dateExpired ? "border-red-300 bg-red-50 text-red-700" :
-                  dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
+                className={`w-full border rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  dateExpired ? "border-red-300 text-red-700" :
+                  dateExpiringSoon ? "border-amber-300 text-amber-700" :
                   "border-gray-300"
                 }`}
               />
@@ -1820,16 +1851,16 @@ function AccredCompactRow({
               value={row.certificateNumber}
               onChange={(e) => onUpdate(idx, "certificateNumber", e.target.value)}
               placeholder="—"
-              className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </CompactField>
-          <CompactField label="Notes">
+          <CompactField label="Notes" muted>
             <input
               type="text"
               value={row.notes}
               onChange={(e) => onUpdate(idx, "notes", e.target.value)}
-              placeholder="—"
-              className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Optional — context, limitations, reminders..."
+              className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs bg-white text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </CompactField>
           {/* Trailing actions: Required/Other pill for standalone, delete */}
@@ -1854,10 +1885,12 @@ function AccredCompactRow({
   );
 }
 
-function CompactField({ label, children }: { label: string; children: React.ReactNode }) {
+function CompactField({ label, children, muted }: { label: string; children: React.ReactNode; muted?: boolean }) {
   return (
     <div className="min-w-0">
-      <label className="block text-[10px] text-gray-500 leading-none mb-0.5 uppercase tracking-wide">{label}</label>
+      <label className={`block text-[10px] leading-none mb-0.5 uppercase tracking-wide ${muted ? "text-gray-400" : "text-gray-500"}`}>
+        {label}
+      </label>
       {children}
     </div>
   );
