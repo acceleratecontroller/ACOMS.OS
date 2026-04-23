@@ -226,10 +226,14 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
   }
   const heldById = new Map(emp.accreditations.map((ea) => [ea.accreditation.id, ea]));
 
-  // Held accreditations (excluding EXEMPT)
+  // Held accreditations.
+  // VERIFIED and EXPIRED are real evidence of a qualification and always count.
+  // PENDING only counts if it's still required by their current roles
+  // (hides legacy orphans). EXEMPT never counts as a search match.
   for (const ea of emp.accreditations) {
     if (seenAccreds.has(ea.accreditation.id)) continue;
     if (ea.status === "EXEMPT") continue;
+    if (ea.status === "PENDING" && !requiredAccreds.has(ea.accreditation.id)) continue;
     const nameHit =
       ea.accreditation.accreditationNumber.toLowerCase().includes(q) ||
       ea.accreditation.name.toLowerCase().includes(q);

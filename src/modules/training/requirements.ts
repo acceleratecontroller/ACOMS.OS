@@ -99,3 +99,90 @@ export async function accreditationIdsForRole(
   });
   return [...new Set(links.map((l) => l.accreditationId))];
 }
+
+/**
+ * Remove orphaned PENDING/EXEMPT EmployeeAccreditation rows for each given
+ * employee — i.e. rows whose accreditation is no longer required by any of
+ * that employee's current roles. VERIFIED and EXPIRED rows are always kept
+ * (they represent real evidence of qualifications earned).
+ *
+ * Call this after any operation that can sever a
+ * role→skill→accreditation link: removing an employee's role, removing a
+ * skill from a role, or removing an accreditation from a skill.
+ *
+ * Returns the number of rows deleted.
+ */
+export async function cleanupOrphanedPendingAndExempt(
+  employeeIds: string[],
+): Promise<number> {
+  if (employeeIds.length === 0) return 0;
+
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds } },
+    select: {
+      id: true,
+      trainingRoles: {
+        select: {
+          role: {
+            select: {
+              skillLinks: {
+                select: {
+                  skill: {
+                    select: {
+                      accreditationLinks: { select: { accreditationId: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  let totalDeleted = 0;
+  for (const emp of employees) {
+    const required = new Set<string>();
+    emp.trainingRoles.forEach((tr) => {
+      tr.role.skillLinks.forEach((sl) => {
+        sl.skill.accreditationLinks.forEach((al) => {
+          required.add(al.accreditationId);
+        });
+      });
+    });
+
+    const where = {
+      employeeId: emp.id,
+      status: { in: ["PENDING", "EXEMPT"] as ("PENDING" | "EXEMPT")[] },
+      ...(required.size > 0 ? { accreditationId: { notIn: [...required] } } : {}),
+    };
+
+    const { count } = await prisma.employeeAccreditation.deleteMany({ where });
+    totalDeleted += count;
+  }
+  return totalDeleted;
+}
+
+/**
+ * Get all employee IDs currently assigned a given role.
+ */
+export async function employeeIdsWithRole(roleId: string): Promise<string[]> {
+  const rows = await prisma.employeeRole.findMany({
+    where: { roleId },
+    select: { employeeId: true },
+  });
+  return rows.map((r) => r.employeeId);
+}
+
+/**
+ * Get all employee IDs currently assigned to any role that uses a given skill.
+ */
+export async function employeeIdsWithSkill(skillId: string): Promise<string[]> {
+  const rows = await prisma.employeeRole.findMany({
+    where: { role: { skillLinks: { some: { skillId } } } },
+    select: { employeeId: true },
+    distinct: ["employeeId"],
+  });
+  return rows.map((r) => r.employeeId);
+}

@@ -5,6 +5,7 @@ import { audit } from "@/shared/audit/log";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
 import {
   accreditationIdsForRole,
+  cleanupOrphanedPendingAndExempt,
   ensureEmployeeAccreditations,
 } from "@/modules/training/requirements";
 
@@ -85,7 +86,9 @@ export async function POST(
   return NextResponse.json(employeeRole, { status: 201 });
 }
 
-// DELETE /api/training/employees/[employeeId]/roles — Remove a role (does NOT remove accreditations)
+// DELETE /api/training/employees/[employeeId]/roles — Remove a role
+// Also cleans up orphaned PENDING/EXEMPT accreditation rows that are no
+// longer required. VERIFIED and EXPIRED rows are always preserved.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ employeeId: string }> }
@@ -107,6 +110,8 @@ export async function DELETE(
     }),
   );
   if (error) return error;
+
+  await cleanupOrphanedPendingAndExempt([employeeId]);
 
   return NextResponse.json({ success: true });
 }

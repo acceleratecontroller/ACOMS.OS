@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { parseBody, withPrismaError } from "@/shared/api/helpers";
-import { backfillForSkillAccreditationLink } from "@/modules/training/requirements";
+import {
+  backfillForSkillAccreditationLink,
+  cleanupOrphanedPendingAndExempt,
+  employeeIdsWithSkill,
+} from "@/modules/training/requirements";
 
 // GET /api/training/skills/[id]/accreditations (admin only)
 export async function GET(
@@ -67,6 +71,8 @@ export async function POST(
 }
 
 // DELETE /api/training/skills/[id]/accreditations — Unlink accreditation from skill
+// Also cleans up orphaned PENDING/EXEMPT accreditation rows for any employee
+// whose roles reference this skill (VERIFIED/EXPIRED rows are always kept).
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -82,12 +88,16 @@ export async function DELETE(
     return NextResponse.json({ error: "accreditationId query param is required" }, { status: 400 });
   }
 
+  const affectedEmployeeIds = await employeeIdsWithSkill(id);
+
   const { error } = await withPrismaError("Failed to unlink accreditation from skill", () =>
     prisma.skillAccreditationLink.delete({
       where: { skillId_accreditationId: { skillId: id, accreditationId } },
     }),
   );
   if (error) return error;
+
+  await cleanupOrphanedPendingAndExempt(affectedEmployeeIds);
 
   return NextResponse.json({ success: true });
 }
