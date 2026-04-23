@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { Location } from "@prisma/client";
 import { Modal } from "@/shared/components/Modal";
-import RegionToggle, { filterByRegion } from "@/shared/components/RegionToggle";
+import { filterByRegion } from "@/shared/components/RegionToggle";
+import { useRegionFilter } from "@/shared/context/RegionFilter";
 import { ACCREDITATION_STATUS_LABELS } from "@/config/constants";
 
 // ─── Tree view types ───────────────────────────────────
@@ -325,7 +326,7 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
   filter: ComplianceFilter;
   onFilterToggle: (f: ComplianceFilter) => void;
 }) {
-  const [selectedRegions, setSelectedRegions] = useState<Location[]>([]);
+  const { selectedRegions } = useRegionFilter();
   const [searchQuery, setSearchQuery] = useState("");
 
   const regionFiltered = useMemo(
@@ -393,9 +394,8 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 
   return (
     <div className="space-y-4">
-      {/* Region + search row */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <RegionToggle selected={selectedRegions} onChange={setSelectedRegions} />
+      {/* Search row */}
+      <div className="flex items-center justify-end">
         <input
           type="search"
           placeholder="Search role, skill, or accreditation..."

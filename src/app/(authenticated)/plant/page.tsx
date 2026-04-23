@@ -9,7 +9,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
-import RegionToggle, { filterByRegion } from "@/shared/components/RegionToggle";
+import { filterByRegion } from "@/shared/components/RegionToggle";
+import { useRegionFilter } from "@/shared/context/RegionFilter";
 import type { Location } from "@prisma/client";
 import {
   PLANT_STATUS_OPTIONS as STATUS_OPTIONS,
@@ -248,7 +249,7 @@ function PlantContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState<Location[]>([]);
+  const { selectedRegions } = useRegionFilter();
   const [confirmAction, setConfirmAction] = useState<{ type: "restore" | "delete" } | null>(null);
   const [showSoldModal, setShowSoldModal] = useState(false);
   const [soldSaving, setSoldSaving] = useState(false);
@@ -745,8 +746,8 @@ function PlantContent() {
   return (
     <div>
       <PageHeader title="Plant Register" description="Manage cars, trucks, excavators, and heavy equipment." />
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowArchived(false)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -763,8 +764,6 @@ function PlantContent() {
           >
             Sold
           </button>
-          <div className="w-px h-6 bg-gray-300 mx-1" />
-          <RegionToggle selected={selectedRegions} onChange={setSelectedRegions} />
         </div>
         <div className="flex items-center gap-3">
           <a href="https://tracking.fleetdynamics.com.au/" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">Fleet Dynamics</a>

@@ -14,7 +14,8 @@ import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField, ClearableDateField } from "@/shared/components/FormField";
 import { AddressAutocomplete } from "@/shared/components/AddressAutocomplete";
-import RegionToggle, { filterByRegion } from "@/shared/components/RegionToggle";
+import { filterByRegion } from "@/shared/components/RegionToggle";
+import { useRegionFilter } from "@/shared/context/RegionFilter";
 import type { Location } from "@prisma/client";
 import {
   LOCATION_OPTIONS,
@@ -159,7 +160,7 @@ function EmployeesContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState<Location[]>([]);
+  const { selectedRegions } = useRegionFilter();
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
   const [trainingRoles, setTrainingRoles] = useState<TrainingRoleRef[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
@@ -457,8 +458,8 @@ function EmployeesContent() {
         title="Employee Register"
         description="Manage employee records, roles, and locations."
       />
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowArchived(false)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -479,8 +480,6 @@ function EmployeesContent() {
           >
             Archived
           </button>
-          <div className="w-px h-6 bg-gray-300 mx-1" />
-          <RegionToggle selected={selectedRegions} onChange={setSelectedRegions} />
         </div>
         {!showArchived && (
           <button
