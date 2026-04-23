@@ -22,7 +22,9 @@ export async function GET(
   const { result, error } = await withPrismaError("Failed to list role skills", () =>
     prisma.roleSkillLink.findMany({
       where: { roleId: id },
-      include: {
+      select: {
+        id: true,
+        required: true,
         skill: {
           select: { id: true, skillNumber: true, name: true, description: true, isArchived: true },
         },
@@ -48,15 +50,18 @@ export async function POST(
   const { data: body, error: bodyError } = await parseBody(request);
   if (bodyError) return bodyError;
 
-  const skillId = (body as { skillId?: string }).skillId;
+  const { skillId, required } = body as { skillId?: string; required?: boolean };
   if (!skillId) {
     return NextResponse.json({ error: "skillId is required" }, { status: 400 });
   }
+  const req = required !== false;
 
   const { result: link, error } = await withPrismaError("Failed to link skill to role", () =>
     prisma.roleSkillLink.create({
-      data: { roleId: id, skillId },
-      include: {
+      data: { roleId: id, skillId, required: req },
+      select: {
+        id: true,
+        required: true,
         skill: {
           select: { id: true, skillNumber: true, name: true, description: true, isArchived: true },
         },
@@ -65,9 +70,46 @@ export async function POST(
   );
   if (error) return error;
 
-  await backfillForRoleSkillLink(id, skillId);
+  await backfillForRoleSkillLink(id, skillId, req);
 
   return NextResponse.json(link, { status: 201 });
+}
+
+// PATCH /api/training/roles/[id]/skills — Toggle required flag on a role-skill link
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { data: body, error: bodyError } = await parseBody(request);
+  if (bodyError) return bodyError;
+
+  const { skillId, required } = body as { skillId?: string; required?: boolean };
+  if (!skillId || typeof required !== "boolean") {
+    return NextResponse.json({ error: "skillId and required are both required" }, { status: 400 });
+  }
+
+  const { result: link, error } = await withPrismaError("Failed to update role-skill link", () =>
+    prisma.roleSkillLink.update({
+      where: { roleId_skillId: { roleId: id, skillId } },
+      data: { required },
+      select: {
+        id: true,
+        required: true,
+        skill: {
+          select: { id: true, skillNumber: true, name: true, description: true, isArchived: true },
+        },
+      },
+    }),
+  );
+  if (error) return error;
+
+  return NextResponse.json(link);
 }
 
 // DELETE /api/training/roles/[id]/skills — Unlink a skill from this role

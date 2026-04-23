@@ -14,6 +14,11 @@ interface Skill {
   isArchived?: boolean;
 }
 
+interface RoleSkillLink {
+  skill: Skill;
+  required: boolean;
+}
+
 interface Role {
   id: string;
   roleNumber: string;
@@ -21,7 +26,32 @@ interface Role {
   description: string | null;
   category: string;
   isArchived: boolean;
-  skillLinks: { skill: Skill }[];
+  skillLinks: RoleSkillLink[];
+}
+
+function RequiredOtherPill({ required, onChange }: { required: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-medium">
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`px-2 py-0.5 transition-colors ${
+          required ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Required
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`px-2 py-0.5 transition-colors ${
+          !required ? "bg-gray-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+        }`}
+      >
+        Other
+      </button>
+    </div>
+  );
 }
 
 const columns: Column<Role>[] = [
@@ -55,6 +85,7 @@ export function RolesTab() {
   // Skills for linking
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
   const [linkSkillId, setLinkSkillId] = useState("");
+  const [linkSkillRequired, setLinkSkillRequired] = useState(true);
 
   const loadRoles = useCallback((archived: boolean) => {
     setLoading(true);
@@ -153,7 +184,7 @@ export function RolesTab() {
     await fetch(`/api/training/roles/${selected.id}/skills`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId: linkSkillId }),
+      body: JSON.stringify({ skillId: linkSkillId, required: linkSkillRequired }),
     });
     setLinkSkillId("");
     // Reload the selected role
@@ -179,8 +210,25 @@ export function RolesTab() {
     loadRoles(showArchived);
   }
 
+  async function handleToggleSkillRequired(skillId: string, nextRequired: boolean) {
+    if (!selected) return;
+    await fetch(`/api/training/roles/${selected.id}/skills`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skillId, required: nextRequired }),
+    });
+    const res = await fetch(`/api/training/roles/${selected.id}`);
+    if (res.ok) {
+      const updated = await res.json();
+      setSelected(updated);
+    }
+    loadRoles(showArchived);
+  }
+
   const linkedSkillIds = new Set(selected?.skillLinks.map((l) => l.skill.id) || []);
   const availableSkills = allSkills.filter((s) => !linkedSkillIds.has(s.id) && !s.isArchived);
+  const requiredSkillLinks = selected?.skillLinks.filter((l) => l.required) || [];
+  const otherSkillLinks = selected?.skillLinks.filter((l) => !l.required) || [];
 
   return (
     <>
@@ -250,33 +298,62 @@ export function RolesTab() {
               <div><span className="text-gray-500">Category:</span> {selected.category === "OFFICE" ? "Office" : "Field"}</div>
               {selected.description && <div><span className="text-gray-500">Description:</span> {selected.description}</div>}
 
-              {/* Linked Skills */}
+              {/* Required Skills */}
               <div className="pt-3 border-t">
-                <h3 className="font-medium mb-2">Linked Skills</h3>
-                {selected.skillLinks.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No skills linked.</p>
+                <h3 className="font-medium mb-2">Required Skills</h3>
+                {requiredSkillLinks.length === 0 ? (
+                  <p className="text-gray-400 text-xs">None.</p>
                 ) : (
                   <ul className="space-y-1">
-                    {selected.skillLinks.map((link) => (
-                      <li key={link.skill.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5">
-                        <span>{link.skill.skillNumber} — {link.skill.name}</span>
-                        <button onClick={() => handleUnlinkSkill(link.skill.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                    {requiredSkillLinks.map((link) => (
+                      <li key={link.skill.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 gap-2">
+                        <span className="truncate">{link.skill.skillNumber} — {link.skill.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <RequiredOtherPill required={true} onChange={(r) => handleToggleSkillRequired(link.skill.id, r)} />
+                          <button onClick={() => handleUnlinkSkill(link.skill.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
-                {availableSkills.length > 0 && (
-                  <div className="flex gap-2 mt-2">
+              </div>
+
+              {/* Other Skills (nice to have) */}
+              <div className="pt-3 border-t">
+                <h3 className="font-medium mb-1">Other Skills</h3>
+                <p className="text-xs text-gray-500 mb-2">Nice to have — tracked but not required for compliance.</p>
+                {otherSkillLinks.length === 0 ? (
+                  <p className="text-gray-400 text-xs">None.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {otherSkillLinks.map((link) => (
+                      <li key={link.skill.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 gap-2">
+                        <span className="truncate">{link.skill.skillNumber} — {link.skill.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <RequiredOtherPill required={false} onChange={(r) => handleToggleSkillRequired(link.skill.id, r)} />
+                          <button onClick={() => handleUnlinkSkill(link.skill.id)} className="text-red-500 text-xs hover:underline">Remove</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Add skill */}
+              {availableSkills.length > 0 && (
+                <div className="pt-3 border-t">
+                  <div className="flex gap-2 items-center flex-wrap">
                     <select
                       value={linkSkillId}
                       onChange={(e) => setLinkSkillId(e.target.value)}
-                      className="flex-1 border rounded px-2 py-1 text-sm"
+                      className="flex-1 min-w-[180px] border rounded px-2 py-1 text-sm"
                     >
                       <option value="">Select a skill...</option>
                       {availableSkills.map((s) => (
                         <option key={s.id} value={s.id}>{s.skillNumber} — {s.name}</option>
                       ))}
                     </select>
+                    <RequiredOtherPill required={linkSkillRequired} onChange={setLinkSkillRequired} />
                     <button
                       onClick={handleLinkSkill}
                       disabled={!linkSkillId}
@@ -285,8 +362,8 @@ export function RolesTab() {
                       Add
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}

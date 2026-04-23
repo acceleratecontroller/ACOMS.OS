@@ -33,6 +33,7 @@ export default async function StaffTrainingPage() {
             description: true,
             skillLinks: {
               select: {
+                required: true,
                 skill: {
                   select: {
                     accreditationLinks: {
@@ -108,17 +109,19 @@ export default async function StaffTrainingPage() {
     return "VERIFIED";
   }
 
-  // Build the effective Required/Other flag per accreditation: the skill link
-  // wins when the accreditation is linked via any of the employee's current
-  // roles. Standalone accreditations (no link) fall back to the stored
-  // EmployeeAccreditation.required. Required wins across multiple skill links.
+  // Build the effective Required/Other flag per accreditation: the combined
+  // role-skill and skill-accreditation link flags (AND) win when the
+  // accreditation is linked via any of the employee's current roles.
+  // Standalone accreditations (no link) fall back to the stored
+  // EmployeeAccreditation.required. Required wins across multiple paths.
   const linkedRequired = new Map<string, boolean>();
   for (const r of roles) {
     for (const sl of r.role.skillLinks) {
       for (const al of sl.skill.accreditationLinks) {
+        const effective = sl.required && al.required;
         const cur = linkedRequired.get(al.accreditationId);
         if (cur === true) continue;
-        linkedRequired.set(al.accreditationId, al.required);
+        linkedRequired.set(al.accreditationId, effective);
       }
     }
   }

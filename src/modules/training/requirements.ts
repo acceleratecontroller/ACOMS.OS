@@ -56,13 +56,16 @@ export async function ensureEmployeeAccreditations(
 }
 
 /**
- * Back-fill PENDING EmployeeAccreditation rows after a skill is newly linked to
- * a role: every employee currently assigned the role gets a PENDING row for
- * each accreditation the skill already requires (required flag inherited).
+ * Back-fill PENDING EmployeeAccreditation rows after a skill is newly linked
+ * to a role. Every employee assigned the role gets a PENDING row for each
+ * accreditation the skill requires. The `required` flag on the new rows is
+ * the AND of the role-skill and skill-accreditation flags (both must be
+ * Required for the employee-level row to be Required).
  */
 export async function backfillForRoleSkillLink(
   roleId: string,
   skillId: string,
+  roleSkillRequired: boolean,
 ): Promise<number> {
   const [employees, accreditations] = await Promise.all([
     prisma.employeeRole.findMany({
@@ -74,51 +77,98 @@ export async function backfillForRoleSkillLink(
       select: { accreditationId: true, required: true },
     }),
   ]);
+  const requirements = accreditations.map((a) => ({
+    accreditationId: a.accreditationId,
+    required: roleSkillRequired && a.required,
+  }));
   return ensureEmployeeAccreditations(
     employees.map((e) => e.employeeId),
-    accreditations,
+    requirements,
   );
 }
 
 /**
- * Back-fill PENDING EmployeeAccreditation rows after an accreditation is newly
- * linked to a skill: every employee assigned to any role that uses this skill
- * gets a PENDING row for the new accreditation, inheriting the link's
- * `required` flag.
+ * Back-fill PENDING EmployeeAccreditation rows after an accreditation is
+ * newly linked to a skill. Every employee with a role that uses this skill
+ * gets a PENDING row, inheriting the AND of that role-skill's `required`
+ * flag and the skill-accreditation `required` flag.
  */
 export async function backfillForSkillAccreditationLink(
   skillId: string,
   accreditationId: string,
-  required: boolean,
+  skillAccredRequired: boolean,
 ): Promise<number> {
-  const employees = await prisma.employeeRole.findMany({
+  // For each employee, find the max of (roleSkillRequired) across their roles
+  // that link to this skill. If any of those role-skill links is Required,
+  // the per-employee `required` is `true && skillAccredRequired`; otherwise
+  // it's `false && skillAccredRequired` = false.
+  const employeeRoles = await prisma.employeeRole.findMany({
     where: { role: { skillLinks: { some: { skillId } } } },
-    select: { employeeId: true },
-    distinct: ["employeeId"],
+    select: {
+      employeeId: true,
+      role: {
+        select: {
+          skillLinks: {
+            where: { skillId },
+            select: { required: true },
+          },
+        },
+      },
+    },
   });
-  return ensureEmployeeAccreditations(
-    employees.map((e) => e.employeeId),
-    [{ accreditationId, required }],
-  );
+  const effectiveByEmployee = new Map<string, boolean>();
+  for (const er of employeeRoles) {
+    const anyRequired = er.role.skillLinks.some((sl) => sl.required);
+    if (effectiveByEmployee.get(er.employeeId) === true) continue;
+    effectiveByEmployee.set(er.employeeId, anyRequired);
+  }
+
+  // Group employees by their effective flag so we can batch-create.
+  let total = 0;
+  const byFlag = new Map<boolean, string[]>();
+  for (const [eid, roleReq] of effectiveByEmployee) {
+    const effective = roleReq && skillAccredRequired;
+    const arr = byFlag.get(effective) || [];
+    arr.push(eid);
+    byFlag.set(effective, arr);
+  }
+  for (const [effective, employeeIds] of byFlag) {
+    total += await ensureEmployeeAccreditations(
+      employeeIds,
+      [{ accreditationId, required: effective }],
+    );
+  }
+  return total;
 }
 
 /**
- * Compute the accreditation requirements for a role (via its current skills),
- * including the required/other flag for each.
+ * Compute the accreditation requirements for a role — the set of
+ * accreditation IDs reachable via role→skill→accreditation with the
+ * effective `required` flag (AND across link levels; Required wins across
+ * multiple paths to the same accreditation).
  */
 export async function accreditationRequirementsForRole(
   roleId: string,
 ): Promise<AccreditationRequirement[]> {
-  const links = await prisma.skillAccreditationLink.findMany({
-    where: { skill: { roleLinks: { some: { roleId } } } },
-    select: { accreditationId: true, required: true },
+  const roleSkillLinks = await prisma.roleSkillLink.findMany({
+    where: { roleId },
+    select: {
+      required: true,
+      skill: {
+        select: {
+          accreditationLinks: { select: { accreditationId: true, required: true } },
+        },
+      },
+    },
   });
-  // If an accreditation is required via any skill of this role, it wins.
   const byId = new Map<string, boolean>();
-  for (const l of links) {
-    const current = byId.get(l.accreditationId);
-    if (current === true) continue;
-    byId.set(l.accreditationId, l.required);
+  for (const rsl of roleSkillLinks) {
+    for (const sal of rsl.skill.accreditationLinks) {
+      const effective = rsl.required && sal.required;
+      const current = byId.get(sal.accreditationId);
+      if (current === true) continue;
+      byId.set(sal.accreditationId, effective);
+    }
   }
   return [...byId.entries()].map(([accreditationId, required]) => ({
     accreditationId,

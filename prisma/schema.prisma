@@ -334,6 +334,7 @@ model RoleSkillLink {
   role     TrainingRole  @relation(fields: [roleId], references: [id])
   skillId  String
   skill    TrainingSkill @relation(fields: [skillId], references: [id])
+  required Boolean       @default(true)
 
   @@unique([roleId, skillId])
   @@index([roleId])

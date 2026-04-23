@@ -61,7 +61,7 @@ interface EmployeeRole {
     id: string;
     roleNumber: string;
     name: string;
-    skillLinks: { skill: { id: string; skillNumber: string; name: string; accreditationLinks: { accreditation: AccredDef; required: boolean }[] } }[];
+    skillLinks: { required: boolean; skill: { id: string; skillNumber: string; name: string; accreditationLinks: { accreditation: AccredDef; required: boolean }[] } }[];
   };
 }
 
@@ -221,15 +221,16 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
     }
   }
 
-  // Linked accreditations via role→skill→accreditation. Required wins when
-  // the same accreditation appears both required and other.
+  // Linked accreditations via role→skill→accreditation. Effective flag is
+  // AND across both link levels; Required wins across paths.
   const linkedAccreds = new Map<string, { accred: AccredDef; required: boolean }>();
   for (const tr of emp.trainingRoles) {
     for (const sl of tr.role.skillLinks) {
       for (const al of sl.skill.accreditationLinks) {
+        const effective = sl.required && al.required;
         const existing = linkedAccreds.get(al.accreditation.id);
-        if (!existing || (!existing.required && al.required)) {
-          linkedAccreds.set(al.accreditation.id, { accred: al.accreditation, required: al.required });
+        if (!existing || (!existing.required && effective)) {
+          linkedAccreds.set(al.accreditation.id, { accred: al.accreditation, required: effective });
         }
       }
     }
@@ -284,18 +285,19 @@ function computeSearchMatches(emp: EmployeeRow, q: string): SearchMatch[] {
 }
 
 // Build the "effective required" map for an employee: for any accreditation
-// currently linked via a role→skill chain, the skill link's required flag is
-// the source of truth. For accreditations not currently linked (standalone),
-// fall back to the stored EmployeeAccreditation.required.
-// Required wins if the same accreditation is linked both ways across skills.
+// currently linked via a role→skill→accreditation chain, the effective flag
+// is the AND of the role-skill and skill-accreditation flags. Required wins
+// across multiple paths to the same accreditation. For accreditations not
+// currently linked (standalone), fall back to EmployeeAccreditation.required.
 function buildEffectiveRequiredMap(emp: EmployeeRow): Map<string, boolean> {
   const linked = new Map<string, boolean>();
   emp.trainingRoles.forEach((tr) => {
     tr.role.skillLinks.forEach((sl) => {
       sl.skill.accreditationLinks.forEach((al) => {
+        const effective = sl.required && al.required;
         const cur = linked.get(al.accreditation.id);
         if (cur === true) return;
-        linked.set(al.accreditation.id, al.required);
+        linked.set(al.accreditation.id, effective);
       });
     });
   });
@@ -977,16 +979,16 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   useEffect(() => {
     const heldMap = new Map(employee.accreditations.map((ea) => [ea.accreditation.id, ea]));
 
-    // Linked accreditations via role→skill: carries its Required/Other flag.
-    // Required wins if the same accreditation appears Required through any
-    // skill and Other through another.
+    // Linked accreditations via role→skill→accreditation. Effective flag is
+    // the AND of role-skill and skill-accreditation. Required wins across paths.
     const linkedMap = new Map<string, { def: AccredDef; required: boolean }>();
     employee.trainingRoles.forEach((tr) => {
       tr.role.skillLinks.forEach((sl) => {
         sl.skill.accreditationLinks.forEach((al) => {
+          const effective = sl.required && al.required;
           const existing = linkedMap.get(al.accreditation.id);
-          if (!existing || (!existing.required && al.required)) {
-            linkedMap.set(al.accreditation.id, { def: al.accreditation, required: al.required });
+          if (!existing || (!existing.required && effective)) {
+            linkedMap.set(al.accreditation.id, { def: al.accreditation, required: effective });
           }
         });
       });
