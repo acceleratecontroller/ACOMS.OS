@@ -1022,12 +1022,82 @@ function TreeSkillNode({
 }
 
 // ─── Compliance Edit Modal ─────────────────────────────
+// Row status classification used for compact rows, sorting, filters.
+type RowDot = "red" | "amber" | "green" | "grey";
+type RowSeverity = 0 | 1 | 2 | 3;
+const DOT_CLASS: Record<RowDot, string> = {
+  red: "bg-red-500",
+  amber: "bg-amber-400",
+  green: "bg-green-500",
+  grey: "bg-gray-300",
+};
+
+function computeRowStatus(row: AccredEditRow): { dot: RowDot; label: string; severity: RowSeverity } {
+  if (row.status === "EXEMPT") return { dot: "grey", label: "Exempt", severity: 0 };
+  if (row.status === "MISSING") return { dot: "red", label: "Missing", severity: 2 };
+  if (row.status === "PENDING") return { dot: "amber", label: "Pending", severity: 2 };
+  if (row.status === "EXPIRED") return { dot: "red", label: "Expired", severity: 3 };
+  if (row.status === "VERIFIED") {
+    if (row.expires && row.expiryDate && isDateExpired(row.expiryDate)) {
+      return { dot: "red", label: "Expired", severity: 3 };
+    }
+    if (row.expires && row.expiryDate && isDateExpiringSoon(row.expiryDate)) {
+      return { dot: "amber", label: "Expiring soon", severity: 1 };
+    }
+    return { dot: "green", label: "In date", severity: 0 };
+  }
+  return { dot: "grey", label: row.status, severity: 0 };
+}
+
+function isIssueRow(row: AccredEditRow): boolean {
+  // Auto-expand: expired, missing, pending, or expiring soon
+  return computeRowStatus(row).severity >= 1;
+}
+
+function formatExpiry(dateStr: string): string {
+  if (!dateStr) return "";
+  const days = daysUntil(dateStr);
+  if (days >= -60 && days <= 60) {
+    if (days < 0) return `expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+    if (days === 0) return "expires today";
+    return `expires in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  const d = new Date(dateStr);
+  return `expires ${d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
+type ModalFilter = "all" | "issues" | "expiring" | "in_date" | "other";
+const MODAL_FILTERS: { id: ModalFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "issues", label: "Needs attention" },
+  { id: "expiring", label: "Expiring soon" },
+  { id: "in_date", label: "In date" },
+  { id: "other", label: "Other" },
+];
+
+function rowMatchesFilter(row: AccredEditRow, filter: ModalFilter): boolean {
+  const s = computeRowStatus(row);
+  switch (filter) {
+    case "all": return true;
+    case "issues": return s.severity >= 2;
+    case "expiring": return s.label === "Expiring soon";
+    case "in_date": return s.label === "In date";
+    case "other": return !row.required;
+  }
+}
+
+type ModalGroupMode = "skill" | "worst_first";
+
 function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose: () => void }) {
   const [rows, setRows] = useState<AccredEditRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [modalSearch, setModalSearch] = useState("");
+  const [filterMode, setFilterMode] = useState<ModalFilter>("all");
+  const [groupMode, setGroupMode] = useState<ModalGroupMode>("skill");
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [collapsedSkills, setCollapsedSkills] = useState<Set<string>>(new Set());
 
   // "+ Add Accreditation" inline form state
   const [allAccreds, setAllAccreds] = useState<{ id: string; accreditationNumber: string; name: string; expires: boolean; renewalMonths: number | null; isArchived?: boolean }[]>([]);
@@ -1054,6 +1124,24 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     setAddExpiry("");
     setAddCert("");
     setAddQuery("");
+  }
+
+  function toggleRow(accreditationId: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(accreditationId)) next.delete(accreditationId);
+      else next.add(accreditationId);
+      return next;
+    });
+  }
+
+  function toggleSkill(skillId: string) {
+    setCollapsedSkills((prev) => {
+      const next = new Set(prev);
+      if (next.has(skillId)) next.delete(skillId);
+      else next.add(skillId);
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -1119,6 +1207,8 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     });
 
     setRows(editRows);
+    // Auto-expand rows that need admin attention so they're visible immediately.
+    setExpandedRows(new Set(editRows.filter(isIssueRow).map((r) => r.accreditationId)));
   }, [employee]);
 
   function updateRow<K extends keyof AccredEditRow>(idx: number, field: K, value: AccredEditRow[K]) {
@@ -1128,7 +1218,6 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
   }
 
   async function handleDeleteStandalone(recordId: string) {
-    if (!confirm("Remove this standalone accreditation from the employee?")) return;
     const res = await fetch(`/api/training/employees/${employee.id}/accreditations/${recordId}`, {
       method: "DELETE",
     });
@@ -1248,36 +1337,58 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     }
   }
 
-  const { pct, compliant, total, expiredCount, expiringSoonCount } = computeCompliance(employee);
+  const enriched = enrichEmployee(employee);
+  const { pct, compliant, total } = enriched;
+  const counts = {
+    expired: enriched.expiredCount,
+    expiring: enriched.expiringSoonCount,
+    missing: enriched.missingCount,
+    pending: enriched.pendingCount,
+    otherExpired: enriched.otherExpiredCount,
+    otherExpiringSoon: enriched.otherExpiringSoonCount,
+  };
   const dirtyCount = rows.filter((r) => r.dirty).length;
 
-  // Build skill-based grouping. Each row is placed under the first skill that
-  // links it (based on role order), or into the "Standalone" group if the
-  // employee has it but no current role/skill references it.
+  // Map each accreditationId → first skill that links it (based on role order).
+  // Standalone rows have no entry.
   interface SkillRef { id: string; skillNumber: string; name: string }
   const STANDALONE_ID = "_standalone";
-  interface RowWithIdx { row: AccredEditRow; idx: number }
-  interface SkillGroup { skill: SkillRef; required: RowWithIdx[]; other: RowWithIdx[] }
-  const groupedRows = useMemo(() => {
-    const accredToSkill = new Map<string, SkillRef>();
-    const skillOrder: SkillRef[] = [];
+  const accredToSkill = useMemo(() => {
+    const map = new Map<string, SkillRef>();
     employee.trainingRoles.forEach((tr) => {
       tr.role.skillLinks.forEach((sl) => {
-        if (!skillOrder.some((s) => s.id === sl.skill.id)) {
-          skillOrder.push({ id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
-        }
         sl.skill.accreditationLinks.forEach((al) => {
-          if (!accredToSkill.has(al.accreditation.id)) {
-            accredToSkill.set(al.accreditation.id, { id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
+          if (!map.has(al.accreditation.id)) {
+            map.set(al.accreditation.id, { id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
           }
         });
       });
     });
+    return map;
+  }, [employee]);
 
+  const skillOrder = useMemo(() => {
+    const seen = new Set<string>();
+    const order: SkillRef[] = [];
+    employee.trainingRoles.forEach((tr) => {
+      tr.role.skillLinks.forEach((sl) => {
+        if (!seen.has(sl.skill.id)) {
+          seen.add(sl.skill.id);
+          order.push({ id: sl.skill.id, skillNumber: sl.skill.skillNumber, name: sl.skill.name });
+        }
+      });
+    });
+    return order;
+  }, [employee]);
+
+  // Apply search + filter to rows; keep the original idx for updateRow.
+  interface RowWithIdx { row: AccredEditRow; idx: number }
+  const visibleRows = useMemo<RowWithIdx[]>(() => {
     const q = modalSearch.trim().toLowerCase();
-    const visibleIdx = rows
+    return rows
       .map((r, i) => ({ row: r, idx: i }))
       .filter(({ row }) => {
+        if (!rowMatchesFilter(row, filterMode)) return false;
         if (!q) return true;
         const skill = accredToSkill.get(row.accreditationId);
         return (
@@ -1286,18 +1397,19 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
           (skill ? skill.name.toLowerCase().includes(q) : false)
         );
       });
+  }, [rows, modalSearch, filterMode, accredToSkill]);
 
+  interface SkillGroup { skill: SkillRef; items: RowWithIdx[] }
+  const skillGroups = useMemo<SkillGroup[]>(() => {
     const bySkill = new Map<string, SkillGroup>();
-    visibleIdx.forEach(({ row, idx }) => {
+    visibleRows.forEach(({ row, idx }) => {
       const skill = row.standalone
         ? { id: STANDALONE_ID, skillNumber: "", name: "Standalone" }
         : accredToSkill.get(row.accreditationId)
           || { id: STANDALONE_ID, skillNumber: "", name: "Standalone" };
-      if (!bySkill.has(skill.id)) bySkill.set(skill.id, { skill, required: [], other: [] });
-      const group = bySkill.get(skill.id)!;
-      (row.required ? group.required : group.other).push({ row, idx });
+      if (!bySkill.has(skill.id)) bySkill.set(skill.id, { skill, items: [] });
+      bySkill.get(skill.id)!.items.push({ row, idx });
     });
-
     const groups: SkillGroup[] = [];
     skillOrder.forEach((s) => {
       const g = bySkill.get(s.id);
@@ -1306,64 +1418,123 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
     const standalone = bySkill.get(STANDALONE_ID);
     if (standalone) groups.push(standalone);
     return groups;
-  }, [rows, modalSearch, employee]);
+  }, [visibleRows, accredToSkill, skillOrder]);
 
-  const visibleCount = groupedRows.reduce((n, g) => n + g.required.length + g.other.length, 0);
+  const worstFirst = useMemo<RowWithIdx[]>(() => {
+    return [...visibleRows].sort((a, b) => {
+      const sa = computeRowStatus(a.row).severity;
+      const sb = computeRowStatus(b.row).severity;
+      if (sa !== sb) return sb - sa;
+      if (a.row.required !== b.row.required) return a.row.required ? -1 : 1;
+      return a.row.accreditationName.localeCompare(b.row.accreditationName);
+    });
+  }, [visibleRows]);
+
+  const skillLabelFor = (row: AccredEditRow) => {
+    if (row.standalone) return null;
+    const s = accredToSkill.get(row.accreditationId);
+    return s ? s.name : null;
+  };
 
   return (
     <Modal isOpen onClose={onClose}>
-      <div className="max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-1">
-          <div>
+      <div className="max-h-[85vh] flex flex-col">
+        {/* Compact header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs text-gray-400 font-mono">{employee.employeeNumber}</p>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {employee.firstName} {employee.lastName}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">{employee.firstName} {employee.lastName}</h2>
           </div>
-          <div className="flex items-center gap-2">
-            {expiredCount > 0 && (
-              <span className="text-xs font-medium text-red-600">{expiredCount} expired</span>
-            )}
-            {expiringSoonCount > 0 && (
-              <span className="text-xs font-medium text-amber-600">{expiringSoonCount} expiring</span>
-            )}
-            <span className={`text-sm font-semibold tabular-nums px-2.5 py-1 rounded-md ${
-              pct === 100 ? "bg-green-50 text-green-700" : pct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"
-            }`}>
-              {compliant}/{total}
-            </span>
+          <div className="text-right shrink-0">
+            <div className={`text-2xl font-bold tabular-nums leading-none ${
+              pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-600"
+            }`}>{pct}%</div>
+            <div className="text-[11px] text-gray-500 mt-0.5">{compliant}/{total} required</div>
           </div>
         </div>
 
+        {/* Compliance bar */}
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2 mb-2">
+          <div className={`h-full rounded-full transition-all ${
+            pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-400" : "bg-red-500"
+          }`} style={{ width: `${pct}%` }} />
+        </div>
+
+        {/* Quick stats + role pills */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-2">
+          {counts.expired > 0 && <span><span className="text-red-600 font-semibold">{counts.expired}</span> expired</span>}
+          {counts.expiring > 0 && <span><span className="text-amber-600 font-semibold">{counts.expiring}</span> expiring</span>}
+          {counts.missing > 0 && <span><span className="text-red-600 font-semibold">{counts.missing}</span> missing</span>}
+          {counts.pending > 0 && <span><span className="text-amber-600 font-semibold">{counts.pending}</span> pending</span>}
+          {(counts.otherExpired > 0 || counts.otherExpiringSoon > 0) && (
+            <span className="text-gray-400">
+              · <span className="font-semibold text-gray-600">{counts.otherExpired}</span> other expired,{" "}
+              <span className="font-semibold text-gray-600">{counts.otherExpiringSoon}</span> other expiring
+            </span>
+          )}
+          {counts.expired + counts.expiring + counts.missing + counts.pending === 0 && (
+            <span className="text-green-600 font-medium">All required accreditations in order.</span>
+          )}
+        </div>
         {employee.trainingRoles.length > 0 && (
-          <div className="text-xs text-gray-500 mb-3">
-            {employee.trainingRoles.map((tr) => tr.role.name).join(", ")}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {employee.trainingRoles.map((tr) => (
+              <span key={tr.role.id} className="inline-flex px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-medium">
+                {tr.role.name}
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Modal search filter + add accreditation */}
-        <div className="mb-3 flex items-center gap-2 flex-wrap">
-          {rows.length > 0 && (
-            <input
-              type="search"
-              placeholder="Filter accreditations or skills..."
-              value={modalSearch}
-              onChange={(e) => setModalSearch(e.target.value)}
-              className="flex-1 min-w-[180px] px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          )}
-          {modalSearch && (
-            <span className="text-xs text-gray-500 shrink-0">
-              {visibleCount} of {rows.length}
-            </span>
-          )}
+        {/* Filters + search + grouping toggle + add */}
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {MODAL_FILTERS.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setFilterMode(m.id)}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  filterMode === m.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="search"
+            placeholder="Search..."
+            value={modalSearch}
+            onChange={(e) => setModalSearch(e.target.value)}
+            className="flex-1 min-w-[120px] px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            <button
+              type="button"
+              onClick={() => setGroupMode("skill")}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                groupMode === "skill" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              By skill
+            </button>
+            <button
+              type="button"
+              onClick={() => setGroupMode("worst_first")}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                groupMode === "worst_first" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Worst first
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setAddOpen((v) => !v)}
             className="shrink-0 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
-            {addOpen ? "Cancel" : "+ Add Accreditation"}
+            {addOpen ? "Cancel" : "+ Add"}
           </button>
         </div>
 
@@ -1448,187 +1619,235 @@ function ComplianceModal({ employee, onClose }: { employee: EmployeeRow; onClose
           );
         })()}
 
-        {/* Accreditation rows (grouped by skill) */}
-        <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-4">
+        {/* List */}
+        <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-3">
           {rows.length === 0 && (
-            <p className="text-sm text-gray-400 py-4 text-center">No accreditations required for assigned roles.</p>
+            <p className="text-sm text-gray-400 py-4 text-center">No accreditations.</p>
           )}
-          {rows.length > 0 && visibleCount === 0 && (
+          {rows.length > 0 && visibleRows.length === 0 && (
             <p className="text-sm text-gray-400 py-4 text-center">No accreditations match this filter.</p>
           )}
-          {groupedRows.map((group) => (
-            <div key={group.skill.id}>
-              <div className="flex items-baseline gap-2 mb-1.5 px-0.5">
-                {group.skill.skillNumber && (
-                  <span className="text-[11px] font-mono text-gray-400">{group.skill.skillNumber}</span>
-                )}
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">{group.skill.name}</h3>
-                <span className="text-[11px] text-gray-400">· {group.required.length + group.other.length}</span>
-              </div>
-              {[
-                { label: "Required", items: group.required },
-                { label: "Other", items: group.other },
-              ].filter((sub) => sub.items.length > 0).map((sub) => (
-                <div key={sub.label} className="mb-3">
-                  {(group.required.length > 0 && group.other.length > 0) && (
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1 pl-0.5">
-                      {sub.label}
-                    </div>
-                  )}
-                  <div className="space-y-3">
-                    {sub.items.map(({ row, idx }) => {
-            const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
-            const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
-            const showExpiryWarning = row.status === "VERIFIED" && dateExpired;
-            const showExpiringSoonWarning = row.status === "VERIFIED" && dateExpiringSoon;
 
+          {groupMode === "skill" && skillGroups.map((group) => {
+            const collapsed = collapsedSkills.has(group.skill.id);
             return (
-              <div
-                key={row.accreditationId}
-                className={`border rounded-lg p-3 space-y-2 ${
-                  row.dirty ? "border-blue-300 bg-blue-50/30" :
-                  showExpiryWarning ? "border-red-200 bg-red-50/30" :
-                  showExpiringSoonWarning ? "border-amber-200 bg-amber-50/30" :
-                  "border-gray-200"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <span className="text-xs font-mono text-gray-400 mr-2">{row.accreditationNumber}</span>
-                    <span className="text-sm font-medium text-gray-900">{row.accreditationName}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {row.standalone ? (
-                      <RequiredOtherPill
-                        required={row.required}
-                        onChange={(r) => updateRow(idx, "required", r)}
-                      />
-                    ) : (
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
-                          row.required ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
-                        }`}
-                        title="Set at the skill level"
-                      >
-                        {row.required ? "Required" : "Other"}
-                      </span>
-                    )}
-                    {row.expires && row.renewalMonths && (
-                      <span className="text-xs text-gray-400">
-                        {row.renewalMonths}mo renewal
-                      </span>
-                    )}
-                    {row.standalone && row.recordId && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStandalone(row.recordId!)}
-                        className="text-red-500 hover:text-red-700 text-xs font-medium"
-                        title="Remove this standalone accreditation"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {showExpiryWarning && (
-                  <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
-                    Expired {row.expiryDate} — not compliant until renewed.
-                  </div>
-                )}
-                {showExpiringSoonWarning && row.expiryDate && (
-                  <div className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1">
-                    Expires in {daysUntil(row.expiryDate)} days ({row.expiryDate}).
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Status</label>
-                    <select
-                      value={row.status === "MISSING" ? "" : row.status}
-                      onChange={(e) => updateRow(idx, "status", e.target.value)}
-                      className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
-                        row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
-                        row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
-                        row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
-                        "border-yellow-300 bg-yellow-50"
-                      }`}
-                    >
-                      {row.status === "MISSING" && <option value="">Missing</option>}
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {row.expires && (
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-0.5">Expiry Date</label>
-                      <input
-                        type="date"
-                        value={row.expiryDate}
-                        onChange={(e) => updateRow(idx, "expiryDate", e.target.value)}
-                        className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          dateExpired ? "border-red-300 bg-red-50 text-red-700" :
-                          dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
-                          "border-gray-300"
-                        }`}
-                      />
-                    </div>
+              <div key={group.skill.id}>
+                <button
+                  type="button"
+                  onClick={() => toggleSkill(group.skill.id)}
+                  className="w-full flex items-center gap-2 mb-1.5 px-0.5 text-left hover:bg-gray-50 rounded"
+                >
+                  <svg className={`w-3 h-3 text-gray-400 transition-transform ${collapsed ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {group.skill.skillNumber && (
+                    <span className="text-[11px] font-mono text-gray-400">{group.skill.skillNumber}</span>
                   )}
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
-                    <input
-                      type="text"
-                      value={row.certificateNumber}
-                      onChange={(e) => updateRow(idx, "certificateNumber", e.target.value)}
-                      placeholder="—"
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-600">{group.skill.name}</h3>
+                  <span className="text-[11px] text-gray-400">· {group.items.length}</span>
+                </button>
+                {!collapsed && (
+                  <div className="space-y-1.5">
+                    {group.items.map(({ row, idx }) => (
+                      <AccredCompactRow
+                        key={row.accreditationId}
+                        row={row}
+                        idx={idx}
+                        expanded={expandedRows.has(row.accreditationId)}
+                        onToggle={() => toggleRow(row.accreditationId)}
+                        onUpdate={updateRow}
+                        onDelete={handleDeleteStandalone}
+                        skillLabel={null}
+                      />
+                    ))}
                   </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
-                    <input
-                      type="text"
-                      value={row.notes}
-                      onChange={(e) => updateRow(idx, "notes", e.target.value)}
-                      placeholder="—"
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             );
-                  })}
-                  </div>
-                </div>
+          })}
+
+          {groupMode === "worst_first" && (
+            <div className="space-y-1.5">
+              {worstFirst.map(({ row, idx }) => (
+                <AccredCompactRow
+                  key={row.accreditationId}
+                  row={row}
+                  idx={idx}
+                  expanded={expandedRows.has(row.accreditationId)}
+                  onToggle={() => toggleRow(row.accreditationId)}
+                  onUpdate={updateRow}
+                  onDelete={handleDeleteStandalone}
+                  skillLabel={skillLabelFor(row)}
+                />
               ))}
             </div>
-          ))}
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="pt-4 mt-3 border-t border-gray-200">
+        {/* Sticky footer */}
+        <div className="pt-3 mt-2 border-t border-gray-200">
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
           {successMsg && <p className="text-green-600 text-sm mb-2">{successMsg}</p>}
           <div className="flex items-center justify-between">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-              Cancel
+              Close
             </button>
             <button
               onClick={handleSaveAll}
               disabled={saving || dirtyCount === 0}
               className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {saving ? "Saving..." : dirtyCount > 0 ? `Save ${dirtyCount} Change${dirtyCount > 1 ? "s" : ""}` : "No Changes"}
+              {saving ? "Saving..." : dirtyCount > 0 ? `Save ${dirtyCount} change${dirtyCount > 1 ? "s" : ""}` : "No changes"}
             </button>
           </div>
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ─── Compact Accreditation Row ─────────────────────────
+function AccredCompactRow({
+  row,
+  idx,
+  expanded,
+  onToggle,
+  onUpdate,
+  onDelete,
+  skillLabel,
+}: {
+  row: AccredEditRow;
+  idx: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onUpdate: <K extends keyof AccredEditRow>(idx: number, field: K, value: AccredEditRow[K]) => void;
+  onDelete: (recordId: string) => void;
+  skillLabel: string | null;
+}) {
+  const status = computeRowStatus(row);
+  const dateExpired = row.expires && isDateExpired(row.expiryDate || null);
+  const dateExpiringSoon = row.expires && isDateExpiringSoon(row.expiryDate || null);
+
+  return (
+    <div className={`border rounded-lg overflow-hidden transition-colors ${
+      row.dirty ? "border-blue-300 bg-blue-50/30"
+      : status.severity >= 3 ? "border-red-200"
+      : status.severity === 2 ? "border-red-100"
+      : status.severity === 1 ? "border-amber-200"
+      : "border-gray-200"
+    }`}>
+      {/* Compact summary row */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50/80 transition-colors"
+      >
+        <span className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLASS[status.dot]}`} />
+        <span className="text-[11px] font-mono text-gray-400 shrink-0">{row.accreditationNumber}</span>
+        <span className="text-sm font-medium text-gray-900 min-w-0 truncate flex-1">{row.accreditationName}</span>
+        {skillLabel && <span className="hidden md:inline text-[11px] text-gray-400 truncate max-w-[160px]">{skillLabel}</span>}
+        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
+          row.required ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
+        }`}>
+          {row.required ? "Required" : "Other"}
+        </span>
+        <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap min-w-[90px] text-right">
+          {status.label}
+          {row.expires && row.expiryDate && <span className="text-gray-400"> · {formatExpiry(row.expiryDate)}</span>}
+        </span>
+        <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Expanded edit form */}
+      {expanded && (
+        <div className="border-t border-gray-100 p-3 space-y-2 bg-white">
+          {/* Header row inside expanded area — pill toggle / delete live here */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {row.standalone ? (
+              <RequiredOtherPill
+                required={row.required}
+                onChange={(r) => onUpdate(idx, "required", r)}
+              />
+            ) : (
+              <span className="text-[11px] text-gray-400 italic">Required/Other set at the skill level</span>
+            )}
+            {row.expires && row.renewalMonths && (
+              <span className="text-[11px] text-gray-400">{row.renewalMonths}mo renewal</span>
+            )}
+            {row.standalone && row.recordId && (
+              <button
+                type="button"
+                onClick={() => onDelete(row.recordId!)}
+                className="ml-auto text-red-500 hover:text-red-700 text-xs font-medium"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Status</label>
+              <select
+                value={row.status === "MISSING" ? "" : row.status}
+                onChange={(e) => onUpdate(idx, "status", e.target.value)}
+                className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  row.status === "VERIFIED" && !dateExpired ? "border-green-300 bg-green-50" :
+                  row.status === "EXPIRED" || dateExpired ? "border-red-300 bg-red-50" :
+                  row.status === "EXEMPT" ? "border-blue-300 bg-blue-50" :
+                  row.status === "MISSING" ? "border-gray-300 bg-gray-50" :
+                  "border-yellow-300 bg-yellow-50"
+                }`}
+              >
+                {row.status === "MISSING" && <option value="">Missing</option>}
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{ACCREDITATION_STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+
+            {row.expires && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">Expiry date</label>
+                <input
+                  type="date"
+                  value={row.expiryDate}
+                  onChange={(e) => onUpdate(idx, "expiryDate", e.target.value)}
+                  className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    dateExpired ? "border-red-300 bg-red-50 text-red-700" :
+                    dateExpiringSoon ? "border-amber-300 bg-amber-50 text-amber-700" :
+                    "border-gray-300"
+                  }`}
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Certificate #</label>
+              <input
+                type="text"
+                value={row.certificateNumber}
+                onChange={(e) => onUpdate(idx, "certificateNumber", e.target.value)}
+                placeholder="—"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Notes</label>
+              <input
+                type="text"
+                value={row.notes}
+                onChange={(e) => onUpdate(idx, "notes", e.target.value)}
+                placeholder="—"
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
