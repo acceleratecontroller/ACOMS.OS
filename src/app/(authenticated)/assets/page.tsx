@@ -8,6 +8,8 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import RegionToggle, { filterByRegion } from "@/shared/components/RegionToggle";
+import type { Location } from "@prisma/client";
 import {
   ASSET_STATUS_OPTIONS as STATUS_OPTIONS,
   CONDITION_OPTIONS,
@@ -37,7 +39,7 @@ interface Asset {
   serialNumber: string | null;
   purchaseDate: string | null;
   purchaseCost: string | null;
-  location: string | null;
+  location: Location | null;
   status: string;
   condition: string | null;
   notes: string | null;
@@ -88,6 +90,7 @@ function AssetsContent() {
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [expirationFilter, setExpirationFilter] = useState<"all" | "expired" | "expiring_soon">("all");
+  const [selectedRegions, setSelectedRegions] = useState<Location[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "restore" } | null>(null);
   // Plant preview modal state
   const [previewPlant, setPreviewPlant] = useState<{
@@ -147,9 +150,12 @@ function AssetsContent() {
   const expiredCount = assets.filter((a) => getExpirationFlag(a) === "expired").length;
   const expiringSoonCount = assets.filter((a) => getExpirationFlag(a) === "expiring_soon").length;
 
-  const filteredAssets = expirationFilter === "all"
-    ? assets
-    : assets.filter((a) => getExpirationFlag(a) === (expirationFilter === "expired" ? "expired" : "expiring_soon"));
+  const filteredAssets = filterByRegion(
+    expirationFilter === "all"
+      ? assets
+      : assets.filter((a) => getExpirationFlag(a) === (expirationFilter === "expired" ? "expired" : "expiring_soon")),
+    selectedRegions,
+  );
 
   // Load full asset detail (includes plantLinks)
   function loadAssetDetail(assetId: string) {
@@ -341,8 +347,8 @@ function AssetsContent() {
   return (
     <div>
       <PageHeader title="Asset Register" description="Track tools, phones, laptops, PPE, and other portable items." />
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => { setShowArchived(false); setExpirationFilter("all"); }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -379,6 +385,8 @@ function AssetsContent() {
               Expiring Soon ({expiringSoonCount})
             </button>
           )}
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <RegionToggle selected={selectedRegions} onChange={setSelectedRegions} />
         </div>
         {!showArchived && (
           <button onClick={() => setCreating(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Add Asset</button>

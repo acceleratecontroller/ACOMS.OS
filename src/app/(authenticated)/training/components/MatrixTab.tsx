@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import type { Location } from "@prisma/client";
 import { Modal } from "@/shared/components/Modal";
+import RegionToggle, { filterByRegion } from "@/shared/components/RegionToggle";
 import { ACCREDITATION_STATUS_LABELS } from "@/config/constants";
 
 // ─── Tree view types ───────────────────────────────────
@@ -66,6 +68,7 @@ interface EmployeeRow {
   employeeNumber: string;
   firstName: string;
   lastName: string;
+  location: Location;
   trainingRoles: EmployeeRole[];
   accreditations: EmployeeAccred[];
 }
@@ -322,7 +325,35 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
   filter: ComplianceFilter;
   onFilterToggle: (f: ComplianceFilter) => void;
 }) {
-  const enriched = useMemo(() => employees.map(enrichEmployee), [employees]);
+  const [selectedRegions, setSelectedRegions] = useState<Location[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const regionFiltered = useMemo(
+    () => filterByRegion(employees, selectedRegions),
+    [employees, selectedRegions],
+  );
+
+  const searchFiltered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return regionFiltered;
+    return regionFiltered.filter((e) => {
+      for (const tr of e.trainingRoles) {
+        if (tr.role.roleNumber.toLowerCase().includes(q)) return true;
+        if (tr.role.name.toLowerCase().includes(q)) return true;
+        for (const sl of tr.role.skillLinks) {
+          if (sl.skill.name.toLowerCase().includes(q)) return true;
+        }
+      }
+      for (const a of e.accreditations) {
+        if (a.status === "EXEMPT") continue;
+        if (a.accreditation.accreditationNumber.toLowerCase().includes(q)) return true;
+        if (a.accreditation.name.toLowerCase().includes(q)) return true;
+      }
+      return false;
+    });
+  }, [regionFiltered, searchQuery]);
+
+  const enriched = useMemo(() => searchFiltered.map(enrichEmployee), [searchFiltered]);
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -362,6 +393,18 @@ function EmployeeComplianceView({ employees, onEmployeeClick, filter, onFilterTo
 
   return (
     <div className="space-y-4">
+      {/* Region + search row */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <RegionToggle selected={selectedRegions} onChange={setSelectedRegions} />
+        <input
+          type="search"
+          placeholder="Search role, skill, or accreditation..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-72 max-w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
       {/* Metrics strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <MetricCard

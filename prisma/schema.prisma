@@ -36,7 +36,7 @@ enum EmployeeStatus {
   TERMINATED
 }
 
-enum EmployeeLocation {
+enum Location {
   BRISBANE
   BUNDABERG
   HERVEY_BAY
@@ -127,7 +127,7 @@ model Employee {
   pantsSize      String?                   // Uniform pants size
   roleType       RoleType?                 // Legacy — replaced by EmployeeRole assignments
   employmentType EmploymentType            // Full-Time, Trainee, Casual, ABN
-  location       EmployeeLocation          // Brisbane, Bundaberg, Hervey Bay, Mackay, Other
+  location       Location                  // Brisbane, Bundaberg, Hervey Bay, Mackay, Other
   startDate      DateTime
   endDate        DateTime?
   probationDate  DateTime?                 // Probation review date
@@ -190,7 +190,7 @@ model Asset {
   serialNumber String?
   purchaseDate DateTime?
   purchaseCost Decimal?
-  location     String?
+  location     Location?
   status       AssetStatus    @default(AVAILABLE)
   condition    ItemCondition?
   notes        String?
@@ -229,7 +229,7 @@ model Plant {
   make                      String?
   model                     String?
   licenceType               String?
-  location                  String?
+  location                  Location?
   assignedToId              String?
   ampolCardNumber           String?
   ampolCardExpiry           DateTime?

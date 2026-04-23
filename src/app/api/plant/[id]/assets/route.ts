@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Location } from "@prisma/client";
 import { prisma } from "@/shared/database/client";
 import { auth } from "@/shared/auth/auth";
 import { audit } from "@/shared/audit/log";
@@ -164,7 +165,7 @@ export async function POST(
             serialNumber: (createData.serialNumber as string) || null,
             status: (createData.status as "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "RETIRED" | "EXPIRED") || "IN_USE",
             condition: (createData.condition as "NEW" | "GOOD" | "FAIR" | "POOR") || null,
-            location: (createData.location as string) || plant.location || null,
+            location: (createData.location as Location | undefined) || plant.location || null,
             notes: (createData.notes as string) || null,
             assignedToId: plant.assignedToId || null,
             createdById: session.user.identityId,
