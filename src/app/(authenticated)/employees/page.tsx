@@ -62,6 +62,10 @@ interface Employee {
   emergencyPhoneAlt: string | null;
   isArchived: boolean;
   trainingRoles: { role: TrainingRoleRef }[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 const columns: Column<Employee>[] = [
@@ -725,6 +729,16 @@ function EmployeesContent() {
                 </DetailSection>
               )}
             </div>
+            {(selected.createdAt || selected.updatedAt) && (
+              <p className="mt-4 text-xs text-gray-400">
+                {selected.updatedAt && selected.createdAt && selected.updatedAt !== selected.createdAt
+                  ? `Last updated ${new Date(selected.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.updatedByName ? ` by ${selected.updatedByName}` : ""} · `
+                  : ""}
+                {selected.createdAt
+                  ? `Created ${new Date(selected.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.createdByName ? ` by ${selected.createdByName}` : ""}`
+                  : ""}
+              </p>
+            )}
           </div>
         )}
 

@@ -82,6 +82,10 @@ interface PlantItem {
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
   assetLinks?: LinkedAsset[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 // Base columns defined outside the component (no event handlers needed)
@@ -869,6 +873,16 @@ function PlantContent() {
               )}
             </div>
 
+            {(selected.createdAt || selected.updatedAt) && (
+              <p className="mt-4 text-xs text-gray-400">
+                {selected.updatedAt && selected.createdAt && selected.updatedAt !== selected.createdAt
+                  ? `Last updated ${new Date(selected.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.updatedByName ? ` by ${selected.updatedByName}` : ""} · `
+                  : ""}
+                {selected.createdAt
+                  ? `Created ${new Date(selected.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.createdByName ? ` by ${selected.createdByName}` : ""}`
+                  : ""}
+              </p>
+            )}
             <div className="flex gap-3 mt-4 pt-4 border-t">
               {selected.isArchived ? (
                 <button onClick={() => setConfirmAction({ type: "restore" })} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Restore to Active</button>

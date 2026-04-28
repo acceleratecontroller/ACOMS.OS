@@ -55,6 +55,10 @@ interface Asset {
   plantLinks?: PlantLink[];
   expires: boolean;
   expirationDate: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 const STATIC_COLUMNS: Column<Asset>[] = [
@@ -532,6 +536,16 @@ function AssetsContent() {
                   ))}
                 </div>
               </div>
+            )}
+            {(selected.createdAt || selected.updatedAt) && (
+              <p className="mt-4 text-xs text-gray-400">
+                {selected.updatedAt && selected.createdAt && selected.updatedAt !== selected.createdAt
+                  ? `Last updated ${new Date(selected.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.updatedByName ? ` by ${selected.updatedByName}` : ""} · `
+                  : ""}
+                {selected.createdAt
+                  ? `Created ${new Date(selected.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${selected.createdByName ? ` by ${selected.createdByName}` : ""}`
+                  : ""}
+              </p>
             )}
             <div className="flex gap-3 mt-4 pt-4 border-t">
               {selected.isArchived ? (
