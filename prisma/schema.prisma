@@ -185,7 +185,8 @@ model Asset {
   id           String         @id @default(uuid())
   assetNumber  String         @unique
   name         String
-  category     String
+  categoryId   String
+  category     AssetCategory  @relation(fields: [categoryId], references: [id])
   make         String?
   model        String?
   serialNumber String?
@@ -205,9 +206,16 @@ model Asset {
   createdById  String   // ACOMS.Auth identity ID
   updatedById  String?  // ACOMS.Auth identity ID — who last updated this record
 
-  // Optional assignment to an Employee
+  // Optional assignment to an Employee (who has the asset on hand)
   assignedTo   Employee? @relation("AssetAssignedToEmployee", fields: [assignedToId], references: [id])
   assignedToId String?
+
+  // External ownership: when true, the asset belongs to a third party
+  // (typically another company) but we may still hold/use it. assignedTo
+  // can still be set independently in that case.
+  externallyOwned  Boolean      @default(false)
+  externalOwnerId  String?
+  externalOwner    AssetOwner?  @relation(fields: [externalOwnerId], references: [id])
 
   isArchived   Boolean  @default(false)
   archivedAt   DateTime?
@@ -215,6 +223,27 @@ model Asset {
 
   // Plant links — assets linked to plant items
   plantLinks   PlantAssetLink[]
+
+  @@index([categoryId])
+  @@index([externalOwnerId])
+}
+
+model AssetCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets    Asset[]
+}
+
+model AssetOwner {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets    Asset[]
 }
 
 // ─── Plant (Larger Operational Equipment) ────────────────

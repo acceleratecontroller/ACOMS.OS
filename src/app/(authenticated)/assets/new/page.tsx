@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import TagComboBox from "@/shared/components/TagComboBox";
 import { LOCATION_OPTIONS } from "@/config/constants";
 
 interface EmployeeOption {
@@ -18,6 +19,9 @@ export default function NewAssetPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [categoryId, setCategoryId] = useState("");
+  const [externallyOwned, setExternallyOwned] = useState(false);
+  const [externalOwnerId, setExternalOwnerId] = useState("");
 
   useEffect(() => {
     fetch("/api/employees")
@@ -29,12 +33,21 @@ export default function NewAssetPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+
+    if (!categoryId) {
+      setError("Category is required");
+      return;
+    }
+    if (externallyOwned && !externalOwnerId) {
+      setError("External owner is required when 'Owned by external party' is ticked");
+      return;
+    }
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
     const body = {
       name: form.get("name"),
-      category: form.get("category"),
+      categoryId,
       make: form.get("make"),
       model: form.get("model"),
       serialNumber: form.get("serialNumber"),
@@ -42,6 +55,8 @@ export default function NewAssetPage() {
       purchaseCost: form.get("purchaseCost"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
+      externallyOwned,
+      externalOwnerId: externallyOwned ? externalOwnerId : null,
       status: form.get("status"),
       condition: form.get("condition"),
       notes: form.get("notes"),
@@ -76,7 +91,43 @@ export default function NewAssetPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Name" name="name" required placeholder="e.g. Makita Impact Drill" />
-          <FormField label="Category" name="category" required placeholder="e.g. Power Tool" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
+            <TagComboBox
+              value={categoryId}
+              onChange={(id) => setCategoryId(id)}
+              endpoint="/api/assets/categories"
+              placeholder="Search or create..."
+              required
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 -mt-1">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={externallyOwned}
+              onChange={(e) => {
+                setExternallyOwned(e.target.checked);
+                if (!e.target.checked) setExternalOwnerId("");
+              }}
+              className="rounded border-gray-300"
+            />
+            <span>Owned by external party</span>
+          </label>
+          {externallyOwned && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Owner <span className="text-red-500">*</span></label>
+              <TagComboBox
+                value={externalOwnerId}
+                onChange={(id) => setExternalOwnerId(id)}
+                endpoint="/api/assets/owners"
+                placeholder="Search or create company..."
+                emptyHint="No owners yet — type a company name to create one"
+                required
+              />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Make" name="make" placeholder="e.g. Makita" />

@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
       where: { isArchived: showArchived },
       include: {
         assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        category: { select: { id: true, name: true } },
+        externalOwner: { select: { id: true, name: true } },
         plantLinks: {
           where: { unlinkedAt: null },
           include: { plant: { select: { id: true, plantNumber: true } } },
@@ -86,12 +88,14 @@ export async function POST(request: NextRequest) {
   }
   const assetNumber = `AST-${String(nextNumber).padStart(4, "0")}`;
 
+  const externallyOwned = data.externallyOwned ?? false;
+
   const { result: asset, error } = await withPrismaError("Failed to create asset", () =>
     prisma.asset.create({
       data: {
         assetNumber,
         name: data.name,
-        category: data.category,
+        categoryId: data.categoryId,
         make: data.make || null,
         model: data.model || null,
         serialNumber: data.serialNumber || null,
@@ -99,6 +103,8 @@ export async function POST(request: NextRequest) {
         purchaseCost: data.purchaseCost ?? null,
         location: data.location || null,
         assignedToId: data.assignedToId || null,
+        externallyOwned,
+        externalOwnerId: externallyOwned ? (data.externalOwnerId || null) : null,
         status: data.status,
         condition: data.condition || null,
         notes: data.notes || null,

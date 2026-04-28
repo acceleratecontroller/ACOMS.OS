@@ -8,6 +8,7 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Modal } from "@/shared/components/Modal";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { FormField, SelectField, TextAreaField } from "@/shared/components/FormField";
+import TagComboBox from "@/shared/components/TagComboBox";
 import { filterByRegion } from "@/shared/components/RegionToggle";
 import { useRegionFilter } from "@/shared/context/RegionFilter";
 import type { Location } from "@prisma/client";
@@ -34,7 +35,8 @@ interface Asset {
   id: string;
   assetNumber: string;
   name: string;
-  category: string;
+  categoryId: string;
+  category: { id: string; name: string };
   make: string | null;
   model: string | null;
   serialNumber: string | null;
@@ -47,6 +49,9 @@ interface Asset {
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
+  externallyOwned: boolean;
+  externalOwnerId: string | null;
+  externalOwner: { id: string; name: string } | null;
   plantLinks?: PlantLink[];
   expires: boolean;
   expirationDate: string | null;
@@ -55,7 +60,7 @@ interface Asset {
 const STATIC_COLUMNS: Column<Asset>[] = [
   { key: "assetNumber", label: "Asset #" },
   { key: "name", label: "Name" },
-  { key: "category", label: "Category" },
+  { key: "category", label: "Category", render: (item) => item.category?.name ?? "—" },
   { key: "location", label: "Location" },
 ];
 
@@ -222,9 +227,10 @@ function AssetsContent() {
   }
 
   function getFormBody(form: FormData) {
+    const externallyOwned = form.get("externallyOwned") === "true";
     return {
       name: form.get("name"),
-      category: form.get("category"),
+      categoryId: form.get("categoryId"),
       make: form.get("make"),
       model: form.get("model"),
       serialNumber: form.get("serialNumber"),
@@ -232,6 +238,8 @@ function AssetsContent() {
       purchaseCost: form.get("purchaseCost"),
       location: form.get("location"),
       assignedToId: form.get("assignedToId"),
+      externallyOwned,
+      externalOwnerId: externallyOwned ? form.get("externalOwnerId") : null,
       status: form.get("status"),
       condition: form.get("condition"),
       notes: form.get("notes"),
@@ -283,14 +291,34 @@ function AssetsContent() {
 
   function AssetForm({ defaults, onSubmit, submitLabel, onArchive }: { defaults?: Asset; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; submitLabel: string; onArchive?: () => void }) {
     const [expiresChecked, setExpiresChecked] = useState(defaults?.expires ?? false);
+    const [categoryId, setCategoryId] = useState(defaults?.categoryId || "");
+    const [externallyOwned, setExternallyOwned] = useState(defaults?.externallyOwned ?? false);
+    const [externalOwnerId, setExternalOwnerId] = useState(defaults?.externalOwnerId || "");
     const defaultExpDate = defaults?.expirationDate
       ? formatDate(defaults.expirationDate)
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const isLinkedToPlant = (defaults?.plantLinks?.length ?? 0) > 0;
     const linkedPlantHint = isLinkedToPlant ? "Managed by linked plant" : undefined;
 
+    function handleSubmitWrapper(e: React.FormEvent<HTMLFormElement>) {
+      if (!categoryId) {
+        e.preventDefault();
+        setError("Category is required");
+        return;
+      }
+      if (externallyOwned && !externalOwnerId) {
+        e.preventDefault();
+        setError("External owner is required when 'Owned by external party' is ticked");
+        return;
+      }
+      onSubmit(e);
+    }
+
     return (
-      <form onSubmit={onSubmit} className="space-y-3">
+      <form onSubmit={handleSubmitWrapper} className="space-y-3">
+        <input type="hidden" name="categoryId" value={categoryId} />
+        <input type="hidden" name="externallyOwned" value={externallyOwned ? "true" : "false"} />
+        <input type="hidden" name="externalOwnerId" value={externallyOwned ? externalOwnerId : ""} />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {defaults?.assetNumber && (
             <div>
@@ -299,8 +327,48 @@ function AssetsContent() {
             </div>
           )}
           <FormField label="Name" name="name" required placeholder="e.g. Makita Impact Drill" defaultValue={defaults?.name || ""} />
-          <FormField label="Category" name="category" required placeholder="e.g. Power Tool" defaultValue={defaults?.category || ""} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
+            <TagComboBox
+              value={categoryId}
+              onChange={(id) => setCategoryId(id)}
+              endpoint="/api/assets/categories"
+              placeholder="Search or create..."
+              initialLabel={defaults?.category?.name || null}
+              required
+            />
+          </div>
           <SelectField label="Status" name="status" required defaultValue={defaults?.status || "AVAILABLE"} options={STATUS_OPTIONS} />
+        </div>
+        {/* External ownership toggle */}
+        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/40">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={externallyOwned}
+              onChange={(e) => {
+                setExternallyOwned(e.target.checked);
+                if (!e.target.checked) setExternalOwnerId("");
+              }}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Owned by external party</span>
+            <span className="text-xs text-gray-500">— typically another company</span>
+          </label>
+          {externallyOwned && (
+            <div className="mt-2 ml-6 max-w-md">
+              <label className="block text-xs text-gray-500 mb-1">Owner <span className="text-red-500">*</span></label>
+              <TagComboBox
+                value={externalOwnerId}
+                onChange={(id) => setExternalOwnerId(id)}
+                endpoint="/api/assets/owners"
+                placeholder="Search or create company..."
+                emptyHint="No owners yet — type a company name to create one"
+                initialLabel={defaults?.externalOwner?.name || null}
+                required
+              />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label="Make" name="make" placeholder="e.g. Makita" defaultValue={defaults?.make || ""} />
@@ -408,7 +476,16 @@ function AssetsContent() {
             </div>
             <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Asset #</dt><dd className="font-medium text-gray-900">{selected.assetNumber}</dd></div>
-              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category}</dd></div>
+              <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Category</dt><dd className="font-medium text-gray-900">{selected.category?.name || "—"}</dd></div>
+              {selected.externallyOwned && (
+                <div>
+                  <dt className="text-gray-400 text-xs uppercase tracking-wider">Owned by</dt>
+                  <dd className="font-medium text-gray-900 flex items-center gap-1.5">
+                    <span className="inline-flex px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[11px] font-medium">External</span>
+                    {selected.externalOwner?.name || "—"}
+                  </dd>
+                </div>
+              )}
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Make</dt><dd className="font-medium text-gray-900">{selected.make || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Model</dt><dd className="font-medium text-gray-900">{selected.model || "—"}</dd></div>
               <div><dt className="text-gray-400 text-xs uppercase tracking-wider">Serial #</dt><dd className="font-medium text-gray-900">{selected.serialNumber || "—"}</dd></div>

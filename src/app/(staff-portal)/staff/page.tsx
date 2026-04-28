@@ -44,7 +44,7 @@ export default async function StaffDashboardPage() {
         id: true,
         assetNumber: true,
         name: true,
-        category: true,
+        category: { select: { name: true } },
         status: true,
         condition: true,
       },
@@ -349,7 +349,7 @@ export default async function StaffDashboardPage() {
                 <div key={asset.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{asset.name}</p>
-                    <p className="text-xs text-gray-500">{asset.assetNumber} &middot; {asset.category}</p>
+                    <p className="text-xs text-gray-500">{asset.assetNumber} &middot; {asset.category.name}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {asset.condition && <StatusBadge status={asset.condition} />}

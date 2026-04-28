@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         OR: [
           { name: { contains: term, mode: "insensitive" } },
           { assetNumber: { contains: term, mode: "insensitive" } },
-          { category: { contains: term, mode: "insensitive" } },
+          { category: { name: { contains: term, mode: "insensitive" } } },
           { make: { contains: term, mode: "insensitive" } },
           { model: { contains: term, mode: "insensitive" } },
           { serialNumber: { contains: term, mode: "insensitive" } },

@@ -18,7 +18,7 @@ const optionalNumericString = z
 
 export const createAssetSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  category: z.string().min(1, "Category is required"),
+  categoryId: z.string().min(1, "Category is required"),
   make: optionalString,
   model: optionalString,
   serialNumber: optionalString,
@@ -26,6 +26,11 @@ export const createAssetSchema = z.object({
   purchaseCost: optionalNumericString,
   location: z.enum(["BRISBANE", "BUNDABERG", "HERVEY_BAY", "MACKAY", "OTHER"]).optional().or(z.literal("")).or(z.null()),
   assignedToId: optionalString,
+  externallyOwned: z.union([z.boolean(), z.string()]).optional().transform((val) => {
+    if (typeof val === "string") return val === "true" || val === "on";
+    return val ?? false;
+  }),
+  externalOwnerId: optionalString,
   status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE", "RETIRED", "EXPIRED"]).default("AVAILABLE"),
   condition: z.enum(["NEW", "GOOD", "FAIR", "POOR"]).optional(),
   notes: optionalString,

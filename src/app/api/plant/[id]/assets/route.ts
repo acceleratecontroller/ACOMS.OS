@@ -159,7 +159,7 @@ export async function POST(
           data: {
             assetNumber,
             name: createData.name as string,
-            category: createData.category as string,
+            categoryId: createData.categoryId as string,
             make: (createData.make as string) || null,
             model: (createData.model as string) || null,
             serialNumber: (createData.serialNumber as string) || null,

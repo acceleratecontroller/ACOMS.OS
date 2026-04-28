@@ -23,7 +23,7 @@ export default async function StaffAssetsPlantPage() {
         id: true,
         assetNumber: true,
         name: true,
-        category: true,
+        category: { select: { name: true } },
         make: true,
         model: true,
         serialNumber: true,
@@ -96,7 +96,7 @@ export default async function StaffAssetsPlantPage() {
                     <tr key={asset.id} className="border-b border-gray-100">
                       <td className="py-3 font-medium text-gray-900">{asset.name}</td>
                       <td className="py-3 text-gray-600">{asset.assetNumber}</td>
-                      <td className="py-3 text-gray-600">{asset.category}</td>
+                      <td className="py-3 text-gray-600">{asset.category.name}</td>
                       <td className="py-3 text-gray-600">
                         {[asset.make, asset.model].filter(Boolean).join(" ") || "—"}
                       </td>
@@ -122,7 +122,7 @@ export default async function StaffAssetsPlantPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{asset.name}</p>
-                      <p className="text-xs text-gray-500">{asset.assetNumber} &middot; {asset.category}</p>
+                      <p className="text-xs text-gray-500">{asset.assetNumber} &middot; {asset.category.name}</p>
                       {(asset.make || asset.model) && (
                         <p className="text-xs text-gray-500 mt-0.5">
                           {[asset.make, asset.model].filter(Boolean).join(" ")}

@@ -21,6 +21,8 @@ export async function GET(
       where: { id },
       include: {
         assignedTo: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        category: { select: { id: true, name: true } },
+        externalOwner: { select: { id: true, name: true } },
         plantLinks: {
           where: { unlinkedAt: null },
           include: {
@@ -90,12 +92,28 @@ export async function PUT(
   // Retiring an asset also archives it
   const isRetiring = data.status === "RETIRED";
 
+  // External ownership: when externallyOwned flips to false, also clear
+  // the owner reference. When unchanged-true, take the new owner if sent.
+  const externallyOwnedChanged = data.externallyOwned !== undefined;
+  const externalOwnerChanged = data.externalOwnerId !== undefined;
+  const ownershipPatch: { externallyOwned?: boolean; externalOwnerId?: string | null } = {};
+  if (externallyOwnedChanged) {
+    ownershipPatch.externallyOwned = data.externallyOwned ?? false;
+    if (!ownershipPatch.externallyOwned) {
+      ownershipPatch.externalOwnerId = null;
+    } else if (externalOwnerChanged) {
+      ownershipPatch.externalOwnerId = data.externalOwnerId || null;
+    }
+  } else if (externalOwnerChanged) {
+    ownershipPatch.externalOwnerId = data.externalOwnerId || null;
+  }
+
   const { result: asset, error } = await withPrismaError("Failed to update asset", () =>
     prisma.asset.update({
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.category !== undefined && { category: data.category }),
+        ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         ...(data.make !== undefined && { make: data.make || null }),
         ...(data.model !== undefined && { model: data.model || null }),
         ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber || null }),
@@ -103,6 +121,7 @@ export async function PUT(
         ...(data.purchaseCost !== undefined && { purchaseCost: data.purchaseCost ?? null }),
         ...(data.location !== undefined && { location: data.location || null }),
         ...(data.assignedToId !== undefined && { assignedToId: data.assignedToId || null }),
+        ...ownershipPatch,
         ...(data.status !== undefined && { status: data.status }),
         ...(data.condition !== undefined && { condition: data.condition || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
