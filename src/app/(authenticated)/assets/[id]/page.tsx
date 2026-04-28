@@ -29,6 +29,10 @@ interface Asset {
   isArchived: boolean;
   assignedToId: string | null;
   assignedTo: { id: string; firstName: string; lastName: string; employeeNumber: string } | null;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 interface EmployeeOption {
@@ -135,7 +139,17 @@ export default function AssetDetailPage() {
               <p className="whitespace-pre-wrap">{asset.notes}</p>
             </div>
           )}
-          <div className="flex gap-3 mt-6 pt-4 border-t">
+          {(asset.createdAt || asset.updatedAt) && (
+            <p className="mt-6 text-xs text-gray-400">
+              {asset.updatedAt && asset.createdAt && asset.updatedAt !== asset.createdAt
+                ? `Last updated ${new Date(asset.updatedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${asset.updatedByName ? ` by ${asset.updatedByName}` : ""} · `
+                : ""}
+              {asset.createdAt
+                ? `Created ${new Date(asset.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}${asset.createdByName ? ` by ${asset.createdByName}` : ""}`
+                : ""}
+            </p>
+          )}
+          <div className="flex gap-3 mt-4 pt-4 border-t">
             <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Edit</button>
             <button onClick={handleArchive} className="border border-red-300 text-red-600 px-4 py-2 rounded text-sm hover:bg-red-50">Archive</button>
             <button onClick={() => router.push("/assets")} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 hover:bg-gray-50">Back to list</button>

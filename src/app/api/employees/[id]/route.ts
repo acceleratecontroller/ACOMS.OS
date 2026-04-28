@@ -3,7 +3,7 @@ import { prisma } from "@/shared/database/client";
 import { updateEmployeeSchema } from "@/modules/employees/validation";
 import { auth } from "@/shared/auth/auth";
 import { audit, diff } from "@/shared/audit/log";
-import { parseBody, withPrismaError } from "@/shared/api/helpers";
+import { parseBody, withPrismaError, resolveIdentityNames } from "@/shared/api/helpers";
 
 // GET /api/employees/[id] — Get a single employee
 // STAFF users can only view their own linked employee record
@@ -39,7 +39,13 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(employee);
+  const names = await resolveIdentityNames([employee.createdById, employee.updatedById]);
+
+  return NextResponse.json({
+    ...employee,
+    createdByName: names[employee.createdById] || null,
+    updatedByName: employee.updatedById ? (names[employee.updatedById] || null) : null,
+  });
 }
 
 // PUT /api/employees/[id] — Update an employee
@@ -116,6 +122,7 @@ export async function PUT(
             create: data.roleIds.map((roleId: string) => ({ roleId })),
           },
         }),
+        updatedById: session.user.identityId,
       },
       include: {
         trainingRoles: {
