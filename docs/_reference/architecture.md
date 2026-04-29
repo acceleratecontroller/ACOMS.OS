@@ -1,4 +1,8 @@
-# Architecture
+# Architecture (legacy reference)
+
+> Moved here as part of the docs reorganisation. Original location: `docs/architecture.md`. The current architecture is described in `../ARCHITECTURE.md`. This file is preserved unmodified for historical context.
+
+---
 
 ## Overview
 
@@ -155,4 +159,4 @@ User ──performs──< AuditLog (who did what)
 
 ---
 
-**Maintenance note:** Update this document when modules, patterns, or structure change.
+**Maintenance note (legacy):** Update this document when modules, patterns, or structure change. (Now superseded — update `../ARCHITECTURE.md` instead.)

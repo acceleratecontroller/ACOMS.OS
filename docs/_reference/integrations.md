@@ -1,4 +1,8 @@
-# Integrations
+# Integrations (legacy reference)
+
+> Moved here as part of the docs reorganisation. Original: `docs/integrations.md`. Some content below has been superseded — see `../ARCHITECTURE.md` and `docs/system/API_CONTRACTS.md` (in the Controller repo).
+
+---
 
 ## Overview
 
@@ -48,9 +52,7 @@ SharePoint is convenient now, but the business may want to switch to S3, Azure B
 - Passwords hashed with bcrypt
 - JWT-based sessions
 
-### Future possibilities
-
-NextAuth.js supports many providers out of the box. Adding Google, Microsoft, or other SSO login later requires adding a provider config — no architecture changes needed.
+> **2026 update:** Superseded by ACOMS.Auth OIDC. See `../ARCHITECTURE.md` Auth section.
 
 ## Database — PostgreSQL
 
@@ -58,7 +60,8 @@ NextAuth.js supports many providers out of the box. Adding Google, Microsoft, or
 
 - PostgreSQL via any hosting provider (Supabase, Neon, Railway, self-hosted)
 - Used **only as a database** — not using any provider-specific auth or features
-- This means the database host can be changed at any time
+
+> **2026 update:** Production runs on Neon.
 
 ## External services NOT integrated
 
@@ -69,4 +72,4 @@ The following are explicitly **not** integrated and are not dependencies:
 - Any notification service (email, SMS, Slack)
 - Any AI/ML service
 
-These may be added in later stages behind appropriate abstractions.
+> **2026 update:** Google Maps Places is now used in browser for address autocomplete. ACOMS.Auth handles login.

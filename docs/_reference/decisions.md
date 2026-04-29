@@ -1,4 +1,8 @@
-# Decisions Log
+# Decisions Log (legacy reference)
+
+> Moved here as part of the docs reorganisation. Original: `docs/decisions.md`. Some decisions below have been superseded — see `../ARCHITECTURE.md` and `docs/system/AUTH_AND_PERMISSIONS.md` (in the Controller repo) for the current state.
+
+---
 
 This file records all architectural and business decisions made during development. Each decision includes the reasoning so it can be reviewed later.
 
@@ -18,6 +22,8 @@ This file records all architectural and business decisions made during developme
 **Decision:** Use NextAuth.js (Auth.js v5) with Credentials provider. No Supabase Auth. No mixed auth approaches.
 **Reason:** One auth system is simpler to maintain and debug. Supabase/Neon/Railway are used only as hosted PostgreSQL — not for auth features. NextAuth supports adding Google/Microsoft login later without changes.
 
+> **2026 update:** This was superseded when ACOMS.Auth was built as a standalone OIDC provider. ACOMS.OS is now an OIDC client of ACOMS.Auth. Confirm whether the legacy credentials path is still reachable.
+
 ---
 
 ## D3: User and Employee are separate tables
@@ -26,13 +32,15 @@ This file records all architectural and business decisions made during developme
 **Decision:** User (login account) and Employee (business record) are separate database tables with no required link between them.
 **Reason:** Not every employee needs a system login. A User record is about system access. An Employee record is about the real person's business information. Mixing them would create confusion and unnecessary coupling.
 
+> **2026 update:** Implementation has shifted — `Employee.identityId` now joins to ACOMS.Auth `Identity.id`. The local User model has been removed.
+
 ---
 
 ## D4: Assets and Plant assigned to Employee, not User
 
 **Date:** Stage 1
 **Decision:** The `assignedToId` field on Asset and Plant points to the Employee table, not the User table.
-**Reason:** Assignment is a business concept — "this drill is assigned to John the employee", not "this drill is assigned to John's login account". Since not all employees have logins, pointing to User would exclude employees without accounts.
+**Reason:** Assignment is a business concept — "this drill is assigned to John the employee", not "this drill is assigned to John's login account".
 
 ---
 
@@ -45,8 +53,6 @@ This file records all architectural and business decisions made during developme
 - **Plant** = larger operational equipment and machinery (cars, trucks, excavators, generators)
 - They have different fields (Plant has registration number, service dates; Asset does not)
 - They have different statuses (Asset: Available/In Use/Maintenance/Retired; Plant: Operational/Maintenance/Decommissioned/Standby)
-- Combining them would require constant conditional logic and create confusion
-- See also: [asset-register.md](modules/asset-register.md) and [plant-register.md](modules/plant-register.md)
 
 ---
 
@@ -54,7 +60,6 @@ This file records all architectural and business decisions made during developme
 
 **Date:** Stage 1
 **Decision:** All records use soft-delete (archive) from the beginning. No hard delete through the UI.
-**Reason:** Business records should never be permanently destroyed through normal operations. Archived records are hidden by default but can be viewed and restored by admins. This preserves audit history and prevents accidental data loss.
 
 ---
 
@@ -62,7 +67,6 @@ This file records all architectural and business decisions made during developme
 
 **Date:** Stage 1
 **Decision:** Define a FileProvider interface now, but do not implement it until Stage 3.
-**Reason:** SharePoint may be the first file storage backend, but we do not want to bake SharePoint into the core data model. The interface ensures any storage provider can be used. Stage 1 focuses on core registers; file attachments come later.
 
 ---
 
@@ -70,7 +74,6 @@ This file records all architectural and business decisions made during developme
 
 **Date:** Stage 1
 **Decision:** All API routes live in `src/app/api/...` using Next.js App Router conventions (route.ts files). No separate `src/api/` folder.
-**Reason:** Next.js App Router is the standard pattern. Having API routes in the app directory keeps everything in one consistent structure and avoids confusion about where endpoints live.
 
 ---
 
@@ -78,8 +81,8 @@ This file records all architectural and business decisions made during developme
 
 | # | Assumption | Impact |
 |---|-----------|--------|
-| A1 | Admin users log in with email + password (no SSO yet) | Keeps auth simple |
-| A2 | Employee numbers are manually entered (e.g. "EMP-001") | Can add auto-generation later |
+| A1 | Admin users log in with email + password (no SSO yet) | Superseded by ACOMS.Auth OIDC |
+| A2 | Employee numbers are manually entered (e.g. "EMP-001") | Now auto-generated (E0001 format) |
 | A3 | No file uploads in Stage 1 | Architecture is ready, implementation is not |
-| A4 | App runs locally in Stage 1 (no cloud deployment yet) | No hosting config needed |
-| A5 | Asset and Plant categories are free text (not a predefined list yet) | Can add a categories table later |
+| A4 | App runs locally in Stage 1 (no cloud deployment yet) | Now deployed to Vercel |
+| A5 | Asset and Plant categories are free text (not a predefined list yet) | Asset categories are now a tag table (commit `784eb3b`) |

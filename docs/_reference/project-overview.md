@@ -1,4 +1,8 @@
-# Project Overview
+# Project Overview (legacy reference)
+
+> Moved here as part of the docs reorganisation. Original: `docs/project-overview.md`. Current state lives in `../ARCHITECTURE.md` and the cross-system overview (`docs/system/SYSTEM_OVERVIEW.md` in the Controller repo).
+
+---
 
 ## What is ACOMS.OS?
 
@@ -26,12 +30,14 @@ In plain English: instead of tracking employees, equipment, and tasks in scatter
 | Dashboard | Overview of active tasks, overdue items, upcoming deadlines |
 | Global Search | Search across employees, assets, plant, and tasks |
 
+> **2026 update:** Tasks and Recurring Tasks have been removed from OS and moved to ACOMS.Controller. The OS Tasks page is now an iframe embed of Controller's `/embed/tasks`.
+
 ### Planned for later stages
 
 | Module | Status |
 |--------|--------|
-| WIP Tracker | Planned — awaiting business requirements |
-| Job Creation | Planned — awaiting business requirements |
+| WIP Tracker | Built as a separate app (ACOMS.WIP) |
+| Job Creation | Built inside ACOMS.Controller |
 | Corrective Actions | Planned |
 | File/Document Attachments | Architecture in place, implementation in Stage 3 |
 | Reporting & Data Export | Planned |
@@ -52,12 +58,6 @@ In plain English: instead of tracking employees, equipment, and tasks in scatter
 - **PostgreSQL** (Neon) for the database
 - **Prisma 7** for database management
 - **TypeScript** for type safety
-- **NextAuth.js v5** for authentication
+- **NextAuth.js v5** for authentication (now as OIDC client of ACOMS.Auth)
 - **Tailwind CSS v4** for styling
 - **Zod** for input validation
-
-See [architecture.md](architecture.md) for technical details.
-
----
-
-**Maintenance note:** Update this document when major features or architecture change.

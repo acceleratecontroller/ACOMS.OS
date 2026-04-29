@@ -1,4 +1,8 @@
-# Employee Register
+# Employee Register (legacy reference)
+
+> Moved here as part of the docs reorganisation. Original: `docs/modules/employee-register.md`. Some details below have changed (e.g. employee numbers are now auto-generated as E0001 format; the `User` table has been removed; the optional `identityId` joins to ACOMS.Auth).
+
+---
 
 ## Purpose
 
@@ -6,16 +10,18 @@ The Employee Register is the central record of all company staff. It tracks who 
 
 **Important distinction:** An Employee record is a business record about a real person. It is separate from the User table (which is about system login accounts). Not every employee needs a system login.
 
+> **2026 update:** "User table" replaced by `Employee.identityId` linking to ACOMS.Auth.
+
 ## Key fields
 
 | Field | Required? | Description |
 |-------|-----------|------------|
-| Employee Number | Yes | Unique company ID (e.g. "EMP-001"). Manually entered. |
+| Employee Number | Yes | Unique company ID. Manually entered. *(2026: auto-generated E0001…)* |
 | First Name | Yes | Employee's first name |
 | Last Name | Yes | Employee's last name |
 | Email | No | Work email address |
 | Phone | No | Contact phone number |
-| Position | Yes | Job title or role |
+| Position | Yes | Job title or role *(2026: replaced by EmployeeRole assignments — Training Roles)* |
 | Department | No | Department name |
 | Start Date | Yes | Date employment started |
 | End Date | No | Date employment ended (blank if still employed) |
@@ -30,27 +36,6 @@ The Employee Register is the central record of all company staff. It tracks who 
 | **INACTIVE** | Temporarily not active (e.g. leave) |
 | **TERMINATED** | No longer employed |
 
-## Expected workflows
-
-### Adding a new employee
-1. Admin clicks "Add Employee" on the list page
-2. Fills in required fields (employee number, name, position, start date)
-3. Sets status to Active
-4. Saves
-
-### Updating an employee
-1. Admin clicks on an employee in the list
-2. Clicks "Edit"
-3. Updates fields as needed
-4. Saves changes
-
-### Archiving an employee
-1. Admin clicks on an employee
-2. Clicks "Archive"
-3. Confirms the action
-4. Employee is hidden from the default list but not deleted
-5. Can be found and restored from the archived view (future enhancement)
-
 ## Permissions
 
 | Action | ADMIN | STAFF (future) |
@@ -64,17 +49,11 @@ The Employee Register is the central record of all company staff. It tracks who 
 
 - **Assets** can be assigned to an Employee (see Asset Register)
 - **Plant** can optionally be assigned to an Employee (see Plant Register)
-- Each record tracks which **User** (login account) created it
+- Each record tracks which **User** (login account) created it *(2026: tracks the Auth Identity UUID via `createdById`)*
 
 ## Future: file/document relationship
 
-In Stage 3, documents will be attachable to employee records. Examples:
-- Employment contracts
-- Certifications
-- ID copies
-- Training records
-
-These will be stored via the FileProvider abstraction, not directly in the database.
+In Stage 3, documents will be attachable to employee records.
 
 ## Future: reporting needs
 
